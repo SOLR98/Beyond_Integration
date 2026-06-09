@@ -10,6 +10,8 @@ import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
+import java.util.HashSet;
+import java.util.Set;
 
 public class AmmoBoxExtractHandler implements UnifiedStorageBeforeInsertHandler.BeforeInsertHandler {
     @Override
@@ -25,8 +27,20 @@ public class AmmoBoxExtractHandler implements UnifiedStorageBeforeInsertHandler.
         if (net == null)
             return new UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo(tryInsert, false);
 
-        if (iAmmoBox.isAllTypeCreative(stack) || iAmmoBox.isCreative(stack))
+        // 创造弹药箱 → 存入物理存储 + 设置 TACZ 创造标记
+        if (iAmmoBox.isAllTypeCreative(stack) || iAmmoBox.isCreative(stack)) {
+            if (net instanceof TaczCreativeAccessor acc) {
+                Set<String> types = new HashSet<>();
+                if (iAmmoBox.isAllTypeCreative(stack)) {
+                    types.add("*");
+                } else {
+                    ResourceLocation ammoId = iAmmoBox.getAmmoId(stack);
+                    if (ammoId != null) types.add(ammoId.toString());
+                }
+                acc.setTaczCreativeTypes(types);
+            }
             return new UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo(tryInsert, false);
+        }
 
         ResourceLocation ammoId = iAmmoBox.getAmmoId(stack);
         int ammoCount = iAmmoBox.getAmmoCount(stack);

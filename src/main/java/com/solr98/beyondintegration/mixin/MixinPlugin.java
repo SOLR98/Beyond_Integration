@@ -15,6 +15,8 @@ public class MixinPlugin implements IMixinConfigPlugin {
         if (modList == null) return true;
         if (targetClassName.startsWith("com.atsuishio.superbwarfare.")) return modList.isLoaded("superbwarfare");
         if (targetClassName.startsWith("com.tacz.guns.")) return modList.isLoaded("tacz");
+        if (targetClassName.startsWith("euphy.upo.sentrymechanicalarm.")) return modList.isLoaded("sentrymechanicalarm");
+        if (targetClassName.startsWith("org.ywzj.vehicle.")) return modList.isLoaded("ywzj_vehicle");
         return true;
     }
     @Override public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) {}

@@ -61,11 +61,9 @@ public class NetworkListCommand {
             if (net != null && !net.deleted) {
                 if (player == null || net.getPlayers().contains(player.getUUID())) {
                     String ownerName = CommandUtils.getNetworkOwnerName(net, server);
-                    String permLevel = "none";
+                    NetworkPermission permLevel = NetworkPermission.NONE;
                     if (player != null) {
-                        if (net.isOwner(player.getUUID())) permLevel = "owner";
-                        else if (net.isManager(player.getUUID())) permLevel = "manager";
-                        else if (net.getPlayers().contains(player.getUUID())) permLevel = "member";
+                        permLevel = NetworkPermission.fromPlayer(player, net);
                     }
                     String netName = net instanceof NetworkNameProvider nnp ? nnp.getCustomName() : "";
                     networks.add(new NetInfo(netId, permLevel, ownerName, net.getPlayers().size(), net.getManagers().size(), net.deleted, netName));
@@ -124,8 +122,8 @@ public class NetworkListCommand {
         line = line.append(Component.literal(" | " + String.format("%03d", info.playerCount)).withStyle(ChatFormatting.GREEN));
         line = line.append(Component.literal(" | " + String.format("%03d", info.managerCount)).withStyle(ChatFormatting.BLUE));
         if (showPermission) {
-            String pt = info.permissionLevel.equals("none") ? "-" : getPermDisplay(info.permissionLevel);
-            line = line.append(Component.literal(" | " + String.format("%-3s", pt)).withStyle(getPermColor(info.permissionLevel)));
+            String pt = info.permissionLevel == NetworkPermission.NONE ? "-" : info.permissionLevel.getDisplay();
+            line = line.append(Component.literal(" | " + String.format("%-3s", pt)).withStyle(info.permissionLevel.getColor()));
         }
         if (info.deleted) {
             line = line.append(Component.literal(" " + CommandLang.get("network.list.deleted_mark")).withStyle(ChatFormatting.RED));
@@ -133,23 +131,5 @@ public class NetworkListCommand {
         return line;
     }
 
-    private static String getPermDisplay(String level) {
-        return switch (level) {
-            case "owner" -> CommandLang.get("network.myNetworks.permission.owner");
-            case "manager" -> CommandLang.get("network.myNetworks.permission.manager");
-            case "member" -> CommandLang.get("network.myNetworks.permission.member");
-            default -> "-";
-        };
-    }
-
-    private static ChatFormatting getPermColor(String level) {
-        return switch (level) {
-            case "owner" -> ChatFormatting.RED;
-            case "manager" -> ChatFormatting.BLUE;
-            case "member" -> ChatFormatting.GREEN;
-            default -> ChatFormatting.GRAY;
-        };
-    }
-
-    private record NetInfo(int netId, String permissionLevel, String ownerName, int playerCount, int managerCount, boolean deleted, String netName) {}
+    private record NetInfo(int netId, NetworkPermission permissionLevel, String ownerName, int playerCount, int managerCount, boolean deleted, String netName) {}
 }

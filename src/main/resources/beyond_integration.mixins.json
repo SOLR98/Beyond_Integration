@@ -5,6 +5,7 @@
   "plugin": "com.solr98.beyondintegration.mixin.MixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "FakePlayerMixin",
     "GunDataMixin",
     "AmmoConsumerMixin",
     "BDBaseMenuMixin",
@@ -14,10 +15,18 @@
     "VehicleNetMixin",
     "VehicleEnergyChargeMixin",
     "NetInterfaceExtractMixin",
-    "NetFurnaceSpeedMixin",
     "AbstractGunItemMixin",
     "ModernKineticGunScriptAPIMixin",
-    "NetTerminalItemMixin"
+    "NetTerminalItemMixin",
+    "SentryArmBlockMixin",
+    "SentryArmReloadMixin",
+    "SentryFakePlayerSyncMixin",
+    "SentryAeronauticsFixMixin",
+    "UnifiedStorageAccessor",
+    "ywzj_vehicle.VehicleNetMixin",
+    "ywzj_vehicle.VehicleEnergyChargeMixin",
+    "ywzj_vehicle.AmmoReloadMixin",
+    "ywzj_vehicle.MachineMaxCraftMixin"
   ],
   "client": [
     "AmmoBarOverlayMixin",
@@ -26,7 +35,8 @@
     "GunHudOverlayMixin",
     "GunAnimationStateContextMixin",
     "GunSmithTableScreenMixin",
-    "LocalPlayerShootMixin"
+    "LocalPlayerShootMixin",
+    "ywzj_vehicle.OverlayRegistrationMixin"
   ],
   "injectors": { "defaultRequire": 0 },
   "overwrites": { "requireAnnotations": true }

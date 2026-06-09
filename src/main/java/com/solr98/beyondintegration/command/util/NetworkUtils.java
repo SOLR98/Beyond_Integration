@@ -45,13 +45,13 @@ public class NetworkUtils {
     public static class NetInfo {
         public int netId;
         public int permissionWeight;
-        public String permissionLevel;
+        public NetworkPermission permissionLevel;
         public String ownerName;
         public int playerCount;
         public int managerCount;
         public String netName;
 
-        public NetInfo(int netId, int permissionWeight, String permissionLevel, String ownerName, int playerCount, int managerCount, String netName) {
+        public NetInfo(int netId, int permissionWeight, NetworkPermission permissionLevel, String ownerName, int playerCount, int managerCount, String netName) {
             this.netId = netId;
             this.permissionWeight = permissionWeight;
             this.permissionLevel = permissionLevel;
@@ -141,22 +141,12 @@ public class NetworkUtils {
         return list;
     }
 
-    public static String getPlayerPermissionLevel(ServerPlayer player, DimensionsNet net) {
-        if (net == null) return "none";
-        UUID id = player.getUUID();
-        if (net.isOwner(id)) return "owner";
-        if (net.isManager(id)) return "manager";
-        if (net.getPlayers().contains(id)) return "member";
-        return "none";
+    public static NetworkPermission getPlayerPermissionLevel(ServerPlayer player, DimensionsNet net) {
+        return NetworkPermission.fromPlayer(player, net);
     }
 
-    public static String getPermissionLevelDisplay(String permissionLevel) {
-        return switch (permissionLevel) {
-            case "owner" -> com.solr98.beyondintegration.command.CommandLang.get("network.myNetworks.permission.owner");
-            case "manager" -> com.solr98.beyondintegration.command.CommandLang.get("network.myNetworks.permission.manager");
-            case "member" -> com.solr98.beyondintegration.command.CommandLang.get("network.myNetworks.permission.member");
-            default -> com.solr98.beyondintegration.command.CommandLang.get("network.info.no_permission");
-        };
+    public static String getPermissionLevelDisplay(NetworkPermission permissionLevel) {
+        return permissionLevel.getDisplay();
     }
 
     public static List<DimensionsNet> getPlayerNetsPrimaryFirst(ServerPlayer player) {
@@ -176,16 +166,16 @@ public class NetworkUtils {
             DimensionsNet net = DimensionsNet.getNetFromId(netId);
             if (net != null && !net.deleted && net.getPlayers().contains(player.getUUID())) {
                 int permissionWeight;
-                String permissionLevel;
+                NetworkPermission permissionLevel;
                 if (net.isOwner(player.getUUID())) {
                     permissionWeight = 3;
-                    permissionLevel = com.solr98.beyondintegration.command.CommandLang.get("network.myNetworks.permission.owner");
+                    permissionLevel = NetworkPermission.OWNER;
                 } else if (net.isManager(player.getUUID())) {
                     permissionWeight = 2;
-                    permissionLevel = com.solr98.beyondintegration.command.CommandLang.get("network.myNetworks.permission.manager");
+                    permissionLevel = NetworkPermission.MANAGER;
                 } else {
                     permissionWeight = 1;
-                    permissionLevel = com.solr98.beyondintegration.command.CommandLang.get("network.myNetworks.permission.member");
+                    permissionLevel = NetworkPermission.MEMBER;
                 }
                 String ownerName = CommandUtils.getNetworkOwnerName(net, server);
                 String netName = net instanceof NetworkNameProvider nnp ? nnp.getCustomName() : "";

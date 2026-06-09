@@ -52,26 +52,7 @@ public class PlayerNetworkSyncHandler {
     private DimensionsNet findNetwork(ServerPlayer player) {
         DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
         if (net != null) return net;
-        return getNetFromOpenMenu(player);
-    }
-
-    private static DimensionsNet getNetFromOpenMenu(ServerPlayer player) {
-        var menu = player.containerMenu;
-        if (menu == null) return null;
-        String className = menu.getClass().getName();
-        if (!className.contains("DimensionsNetMenu") && !className.contains("DimensionsCraftMenu")
-                && !className.contains("NetControlMenu")) return null;
-        try {
-            var posField = menu.getClass().getDeclaredField("entityPos");
-            posField.setAccessible(true);
-            var pos = (net.minecraft.core.BlockPos) posField.get(menu);
-            if (pos == null) return null;
-            var be = player.level().getBlockEntity(pos);
-            if (be == null) return null;
-            var getNetMethod = be.getClass().getMethod("getNet");
-            return (DimensionsNet) getNetMethod.invoke(be);
-        } catch (Exception ignored) {}
-        return null;
+        return MenuNetIdHelper.getNetFromMenu(player);
     }
 
     private void sendAmmoData(ServerPlayer player) {
@@ -116,7 +97,11 @@ public class PlayerNetworkSyncHandler {
         int netId = VehicleNetStorage.getBoundNetId(vehicle.getUUID());
         if (netId < 0) return;
         var net = DimensionsNet.getNetFromId(netId);
-        if (net == null || !(net instanceof SuperbAmmoAccessor acc)) return;
+        if (net == null) {
+            VehicleNetStorage.unbindVehicle(vehicle.getUUID());
+            return;
+        }
+        if (!(net instanceof SuperbAmmoAccessor acc)) return;
 
         var ammo = new HashMap<>(acc.getSuperbAmmo());
 

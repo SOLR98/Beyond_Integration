@@ -243,9 +243,9 @@ public class EnchantmentBookSeparatorHandler implements UnifiedStorageBeforeInse
     private static long calcCost(List<Entry> ench, long count) {
         long total = 0;
         int base = CommandConfig.SERVER.enchantBaseCost.get();
-        int lvlMult = CommandConfig.SERVER.enchantLevelMult.get().intValue();
+        double lvlMult = CommandConfig.SERVER.enchantLevelMult.get();
         for (Entry e : ench) {
-            long xp = (base + (e.level - 1) * lvlMult) * count;
+            long xp = (long) ((base + (e.level - 1) * lvlMult) * count);
             double mult = getMultiplier(e.holder);
             total += (long) (xp * mult);
         }
@@ -253,8 +253,9 @@ public class EnchantmentBookSeparatorHandler implements UnifiedStorageBeforeInse
     }
 
     private static double getMultiplier(Holder<Enchantment> holder) {
-        ResourceLocation id = holder.getKey().location();
-        if (id == null) return CommandConfig.SERVER.enchantDefaultMult.get();
+        var key = holder.getKey();
+        if (key == null) return CommandConfig.SERVER.enchantDefaultMult.get();
+        ResourceLocation id = key.location();
         for (String entry : CommandConfig.SERVER.enchantHighCostList.get()) {
             String[] p = entry.split(":");
             if (p.length >= 2) {

@@ -18,6 +18,14 @@ import java.util.List;
 
 public class TaczAmmoExtractor {
 
+    public static final int CREATIVE_SENTINEL = Integer.MAX_VALUE;
+    public static final int MAX_SAFE_INT = Integer.MAX_VALUE - 1;
+
+    public static int safeLongToInt(long value) {
+        if (value >= MAX_SAFE_INT) return MAX_SAFE_INT;
+        return (int) value;
+    }
+
     public static ResourceLocation getAmmoId(ItemStack gunStack) {
         IGun iGun = IGun.getIGunOrNull(gunStack);
         if (iGun == null) return null;
@@ -39,28 +47,26 @@ public class TaczAmmoExtractor {
     }
 
     public static int countAmmoInNetwork(ItemStack gunStack, DimensionsNet net) {
+        if (hasCreativeAmmoBoxInNetwork(gunStack, net)) return CREATIVE_SENTINEL;
         ItemStack reference = getAmmoReference(gunStack);
         if (reference != null) {
             KeyAmount found = net.getUnifiedStorage().getStackByKey(new ItemStackKey(reference));
             long count = found.amount();
-            if (count > 0) return (int) Math.min(count, Integer.MAX_VALUE);
+            if (count > 0) return safeLongToInt(count);
         }
-        if (hasCreativeAmmoBoxInNetwork(gunStack, net)) return Integer.MAX_VALUE;
         return 0;
     }
 
     public static int countAmmoInNetworkByAmmoId(ResourceLocation ammoId, DimensionsNet net) {
         if (ammoId == null || net == null) return 0;
+        if (hasCreativeAmmoBoxInNetwork(ammoId, net)) return CREATIVE_SENTINEL;
         ItemStackKey key = buildAmmoKey(ammoId);
         if (key == null) return 0;
         KeyAmount found = net.getUnifiedStorage().getStackByKey(key);
         long count = found.amount();
-        if (count > 0) return (int) Math.min(count, Integer.MAX_VALUE);
-        if (hasCreativeAmmoBoxInNetwork(ammoId, net)) return Integer.MAX_VALUE;
+        if (count > 0) return safeLongToInt(count);
         return 0;
     }
-
-    // ── 玩家全网络查询（主网络优先，再查其他） ──
 
     public static int countAmmoFromAll(ServerPlayer player, ItemStack gunStack) {
         DimensionsNet primary = DimensionsNet.getPrimaryNetFromPlayer(player);
@@ -90,8 +96,6 @@ public class TaczAmmoExtractor {
         return 0;
     }
 
-    // ── 女仆网络支持 ──
-
     public static int countAmmoFromMaid(LivingEntity entity, ItemStack gunStack) {
         if (!ModList.get().isLoaded("touhou_little_maid")) return 0;
         DimensionsNet net = com.solr98.beyondintegration.maid.MaidNetworkHelper.findTerminal(entity);
@@ -107,20 +111,27 @@ public class TaczAmmoExtractor {
     }
 
     public static int consumeAmmoDirectly(ItemStack gunStack, int neededAmount, DimensionsNet net) {
+        if (hasCreativeAmmoBoxInNetwork(gunStack, net)) return neededAmount;
         ItemStack reference = getAmmoReference(gunStack);
         if (reference != null) {
             KeyAmount extracted = net.getUnifiedStorage().extract(new ItemStackKey(reference), neededAmount, false, false);
             if (extracted.amount() > 0) {
                 net.setDirty();
-                return (int) extracted.amount();
+                return safeLongToInt(extracted.amount());
             }
         }
-        if (hasCreativeAmmoBoxInNetwork(gunStack, net)) return neededAmount;
         return 0;
     }
 
     public static boolean hasCreativeAmmoBoxInNetwork(ResourceLocation ammoId, DimensionsNet net) {
         if (ammoId == null || net == null) return false;
+
+        if (net instanceof TaczCreativeAccessor acc) {
+            var types = acc.getTaczCreativeTypes();
+            if (types.contains("*")) return true;
+            if (types.contains(ammoId.toString())) return true;
+        }
+
         var opt = net.getUnifiedStorage().getBucket(ItemStackKey.ID);
         if (opt.isEmpty()) return false;
         TypeBucket bucket = opt.get();

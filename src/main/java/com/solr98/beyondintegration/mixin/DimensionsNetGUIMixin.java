@@ -177,9 +177,9 @@ public class DimensionsNetGUIMixin {
 
     @Unique
     private static String compactFormat(long value) {
-        if (value >= 1_000_000_000L) return (value / 100_000_000L) / 10.0 + "B";
-        if (value >= 1_000_000L)     return (value / 100_000L) / 10.0 + "M";
-        if (value >= 1_000L)         return (value / 100L) / 10.0 + "K";
+        if (value >= 1_000_000_000L) return String.format("%.1fB", value / 1_000_000_000.0);
+        if (value >= 1_000_000L)     return String.format("%.1fM", value / 1_000_000.0);
+        if (value >= 1_000L)         return String.format("%.1fK", value / 1_000.0);
         return String.valueOf(value);
     }
 }
