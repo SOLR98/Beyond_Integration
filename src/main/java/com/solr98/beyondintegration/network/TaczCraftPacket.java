@@ -34,6 +34,8 @@ public record TaczCraftPacket(ResourceLocation recipeId, int count, boolean toNe
             var player = context.player();
             if (!(player instanceof ServerPlayer sp)) return;
 
+            if (sp.level() == null) return;
+
             DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(sp);
             if (net == null) {
                 sp.sendSystemMessage(Component.translatable("message.beyond_integration.no_network"));

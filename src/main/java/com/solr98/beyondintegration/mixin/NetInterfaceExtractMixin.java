@@ -1,4 +1,5 @@
 package com.solr98.beyondintegration.mixin;
+import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.dimensionnet.UnifiedStorage;
@@ -11,6 +12,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
+import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,13 +20,15 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(targets = "com.wintercogs.beyonddimensions.common.block.entity.NetInterfaceBlockEntity", remap = false)
 public class NetInterfaceExtractMixin {
+    private static final Logger LOGGER = LogUtils.getLogger();
+
     @Redirect(method = "transferFromNet",
               at = @At(value = "INVOKE",
                        target = "Lcom/wintercogs/beyonddimensions/api/dimensionnet/UnifiedStorage;extract(Lcom/wintercogs/beyonddimensions/api/storage/key/IStackKey;JZZ)Lcom/wintercogs/beyonddimensions/api/storage/key/KeyAmount;"),
               remap = false)
     private KeyAmount redirectExtract(UnifiedStorage storage, IStackKey<?> key, long amount, boolean simulate, boolean fuzzy) {
         DimensionsNet net = null;
-        try { net = ((NetInterfaceBlockEntity) (Object) this).getNet(); } catch (Exception ignored) {}
+        try { net = ((NetInterfaceBlockEntity) (Object) this).getNet(); } catch (Exception e) { LOGGER.warn("redirectExtract: cannot get net", e); }
 
         if (!ModList.get().isLoaded("superbwarfare") || net == null || !(net instanceof SuperbAmmoAccessor acc)) {
             return storage.extract(key, amount, simulate, fuzzy);

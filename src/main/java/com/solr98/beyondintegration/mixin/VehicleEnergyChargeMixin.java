@@ -17,7 +17,9 @@ public abstract class VehicleEnergyChargeMixin {
         VehicleEntity vehicle = (VehicleEntity) (Object) this;
         if (vehicle.level().isClientSide()) return;
         if (!vehicle.hasEnergyStorage()) return;
-        if (vehicle.tickCount % 20 != 0) return;
+
+        int interval = CommandConfig.vehicleChargeInterval();
+        if (vehicle.tickCount % interval != 0) return;
 
         int needed = vehicle.getMaxEnergy() - vehicle.getEnergy();
         if (needed <= 0) return;
@@ -26,10 +28,21 @@ public abstract class VehicleEnergyChargeMixin {
         if (boundNetId < 0) return;
 
         DimensionsNet net = DimensionsNet.getNetFromId(boundNetId);
-        if (net == null) return;
+        if (net == null) {
+            VehicleNetStorage.unbindVehicle(vehicle.getUUID());
+            return;
+        }
 
-        int rate = CommandConfig.SERVER.swVehicleEnergyChargeRate.get();
-        long got = net.getUnifiedStorage().extract(EnergyStackKey.INSTANCE, Math.min(needed, rate), false, false).amount();
+        double pct = CommandConfig.vehicleChargePercentage();
+        long want;
+        if (pct > 0) {
+            want = (long) Math.ceil(needed * pct / 100.0);
+        } else {
+            want = Math.min(needed, CommandConfig.SERVER.swVehicleEnergyChargeRate.get());
+        }
+        if (want <= 0) return;
+
+        long got = net.getUnifiedStorage().extract(EnergyStackKey.INSTANCE, want, false, false).amount();
         if (got <= 0) return;
 
         int transfer = (int) Math.min(got, Integer.MAX_VALUE);

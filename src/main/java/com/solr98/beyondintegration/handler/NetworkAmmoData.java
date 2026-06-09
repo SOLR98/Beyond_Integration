@@ -12,6 +12,7 @@ public class NetworkAmmoData extends SavedData {
     private static final String DATA_NAME = "beyond_integration_data";
     private final Map<Integer, Map<String, Long>> networkAmmo = new HashMap<>();
     private final Map<Integer, Boolean> enchantSeparation = new HashMap<>();
+    private final Map<Integer, java.util.Set<String>> networkCreativeTypes = new HashMap<>();
 
     public NetworkAmmoData() {}
 
@@ -39,6 +40,15 @@ public class NetworkAmmoData extends SavedData {
         setDirty();
     }
 
+    public java.util.Set<String> getCreativeTypesForNet(int netId) {
+        return networkCreativeTypes.computeIfAbsent(netId, k -> new java.util.HashSet<>());
+    }
+
+    public void setCreativeTypesForNet(int netId, java.util.Set<String> types) {
+        networkCreativeTypes.put(netId, new java.util.HashSet<>(types));
+        setDirty();
+    }
+
     @Override
     public @NotNull CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         CompoundTag netsTag = new CompoundTag();
@@ -54,6 +64,16 @@ public class NetworkAmmoData extends SavedData {
         CompoundTag esTag = new CompoundTag();
         for (var e : enchantSeparation.entrySet()) esTag.putBoolean(String.valueOf(e.getKey()), e.getValue());
         tag.put("enchantSeparation", esTag);
+
+        CompoundTag ctTag = new CompoundTag();
+        for (var e : networkCreativeTypes.entrySet()) {
+            CompoundTag perNet = new CompoundTag();
+            int idx = 0;
+            for (String s : e.getValue()) perNet.putString(String.valueOf(idx++), s);
+            perNet.putInt("size", e.getValue().size());
+            ctTag.put(String.valueOf(e.getKey()), perNet);
+        }
+        tag.put("creativeTypes", ctTag);
 
         return tag;
     }
@@ -73,6 +93,18 @@ public class NetworkAmmoData extends SavedData {
         if (tag.contains("enchantSeparation")) {
             CompoundTag esTag = tag.getCompound("enchantSeparation");
             for (String key : esTag.getAllKeys()) data.enchantSeparation.put(Integer.parseInt(key), esTag.getBoolean(key));
+        }
+
+        if (tag.contains("creativeTypes")) {
+            CompoundTag ctTag = tag.getCompound("creativeTypes");
+            for (String netKey : ctTag.getAllKeys()) {
+                int netId = Integer.parseInt(netKey);
+                CompoundTag perNet = ctTag.getCompound(netKey);
+                int size = perNet.getInt("size");
+                java.util.Set<String> types = new java.util.HashSet<>();
+                for (int i = 0; i < size; i++) types.add(perNet.getString(String.valueOf(i)));
+                if (!types.isEmpty()) data.networkCreativeTypes.put(netId, types);
+            }
         }
 
         return data;

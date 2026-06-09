@@ -63,7 +63,7 @@ public class NetworkInfoCommand {
         }
 
         var stats = NetworkUtils.getNetworkStats(net);
-        String permLevel = NetworkUtils.getPlayerPermissionLevel(player, net);
+        NetworkPermission permLevel = NetworkUtils.getPlayerPermissionLevel(player, net);
         String permDisplay = NetworkUtils.getPermissionLevelDisplay(permLevel);
         String ownerName = CommandUtils.getNetworkOwnerName(net, server);
 
@@ -126,12 +126,7 @@ public class NetworkInfoCommand {
         return msg;
     }
 
-    public static ChatFormatting getPermissionColor(String permLevel) {
-        return switch (permLevel) {
-            case "owner" -> ChatFormatting.RED;
-            case "manager" -> ChatFormatting.BLUE;
-            case "member" -> ChatFormatting.GREEN;
-            default -> ChatFormatting.GRAY;
-        };
+    public static ChatFormatting getPermissionColor(NetworkPermission perm) {
+        return perm.getColor();
     }
 }

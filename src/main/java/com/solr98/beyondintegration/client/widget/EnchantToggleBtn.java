@@ -26,9 +26,8 @@ public class EnchantToggleBtn extends Button {
         pose.pushPose();
         pose.translate(getX() + 1, getY() + 1, 1);
         pose.scale(0.85f, 0.85f, 1);
-        if (!on) com.mojang.blaze3d.systems.RenderSystem.setShaderColor(0.4f, 0.4f, 0.4f, 1.0f);
         g.renderFakeItem(new ItemStack(Items.ENCHANTED_BOOK), 0, 0);
-        if (!on) com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        if (!on) g.fill(0, 0, 18, 18, 0xC0646464);
         pose.popPose();
     }
 

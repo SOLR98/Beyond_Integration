@@ -34,11 +34,11 @@ public class SuperbAmmoInsertHandler implements UnifiedStorageBeforeInsertHandle
             return accept();
         }
 
-        // CreativeAmmoBoxItem → 无限弹药
+        // CreativeAmmoBoxItem → 存入物理存储 + 标记无限弹药
         if (item instanceof CreativeAmmoBoxItem) {
             map.put("__infinite__", 1L);
             net.setDirty();
-            return accept();
+            return new UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo(tryInsert, false);
         }
 
         // 通用 AmmoBoxItem（ammo_box）→ 提取弹药存虚拟，并清空弹药数据让空盒正常存入网络

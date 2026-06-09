@@ -3,6 +3,7 @@ import com.solr98.beyondintegration.BeyondIntegration;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
@@ -19,6 +20,10 @@ public record ToggleEnchantSeparationPacket() implements CustomPacketPayload {
             if (!(context.player() instanceof ServerPlayer player)) return;
             var net = DimensionsNet.getPrimaryNetFromPlayer(player);
             if (net == null || !(net instanceof EnchantSeparationAccessor acc)) return;
+            if (!net.isManager(player) && !net.isOwner(player)) {
+                player.sendSystemMessage(Component.translatable("message.beyond_integration.cannot_toggle_enchant_sep"));
+                return;
+            }
             acc.beyond$setEnchantSeparationEnabled(!acc.beyond$isEnchantSeparationEnabled());
             net.setDirty();
         });

@@ -1,5 +1,4 @@
 {
-  "itemGroup.beyond_cmd_extension": "Beyond:Cmd Extension",
 
   "commands.beyond_integration.open.success": "Opened %s GUI for network %s for player %s",
   "commands.beyond_integration.insert.success": "Inserted %s x %s into network %s",
@@ -26,7 +25,7 @@
   "message.beyond_integration.enchant_sep.book_cost": " (Books needed: %s)",
   "message.beyond_integration.enchant_sep.network_not_exist": "Network does not exist.",
 
-  "beyond_integration.config.title": "Beyond:Cmd Extension Config",
+  "beyond_integration.config.title": "Beyond:Integration Config",
   "beyond_integration.config.general": "General",
   "beyond_integration.config.general.language": "Command Language",
   "beyond_integration.config.general.max_networks_per_page": "Max Networks Per Page",
@@ -40,8 +39,17 @@
   "beyond_integration.config.enchant.formula": "Cost Formula",
   "beyond_integration.config.enchant.use_formula": "Use Custom Formula",
   "beyond_integration.config.enchant.high_cost": "High Cost Enchantments",
-  "beyond_integration.config.vehicle": "Vehicle",
+  "beyond_integration.config.vehicle": "Superb Warfare: Vehicle",
   "beyond_integration.config.vehicle.energyChargeRate": "Charge Rate (FE/tick)",
+  "beyond_integration.config.vehicle.chargeInterval": "Charge Interval (ticks)",
+  "beyond_integration.config.vehicle.chargePercentage": "Charge Percentage (%)",
+  "beyond_integration.config.ywzj_vehicle": "Limitless: Vehicle",
+  "beyond_integration.config.ywzj_vehicle.chargeMode": "Charge Mode",
+  "beyond_integration.config.ywzj_vehicle.fuelSource": "Fuel Source (FE / Fluid)",
+  "beyond_integration.config.ywzj_vehicle.energyChargeRate": "Charge Rate (FE/tick)",
+  "beyond_integration.config.ywzj_vehicle.chargeInterval": "Charge Interval (ticks)",
+  "beyond_integration.config.ywzj_vehicle.chargePercentage": "Charge Percentage (%)",
+  "beyond_integration.config.ywzj_vehicle.energyConversion": "FE→Fuel Divisor",
   "beyond_integration.config.blacklist": "Item Blacklist",
   "beyond_integration.config.blacklist.enable": "Enable Blacklist",
   "beyond_integration.config.blacklist.items": "Blacklisted Items",
@@ -50,19 +58,25 @@
   "beyond_integration.config.craft.max_depth": "Max Recipe Depth",
   "beyond_integration.config.craft.block_reader": "Block BD Container Reader",
 
-  "config.jade.plugin_beyond_integration.bd_client": "BD Client Info",
-  "config.jade.plugin_beyond_integration.bd_server": "BD Server Info",
-  "config.jade.plugin_beyond_integration.vehicle_client": "Vehicle Client Info",
-  "config.jade.plugin_beyond_integration.vehicle_server": "Vehicle Server Info",
-  "config.jade.plugin_beyond_integration.example_block": "Example Block",
+  "config.jade.plugin_beyond_integration.bd_client": "BD Extra Info",
+  "config.jade.plugin_beyond_integration.bd_server": "BD Extra Data",
+  "config.jade.plugin_beyond_integration.vehicle_client": "Vehicle Network Info",
+  "config.jade.plugin_beyond_integration.vehicle_server": "Vehicle Network Data",
+  "config.jade.plugin_beyond_integration.container_client": "Container Network Info",
+  "config.jade.plugin_beyond_integration.container_server": "Container Network Data",
+
+  "jade.beyond_integration.network_custom_name": "Network: %s",
+  "jade.beyond_integration.network_bound_with_name": "Net #%d (%s)",
+  "jade.beyond_integration.network_bound": "Net #%d",
+  "jade.beyond_integration.enchant_sep": "Enchant Sep: %s",
 
   "hud.beyond_integration.network_title": "%s",
   "hud.beyond_integration.network_title.name": "%s (Net#%s)",
   "hud.beyond_integration.energy_line": "\u26A1 %s FE",
   "tooltip.beyond_integration.network_id": "Net #%d",
-  "gui.beyond_integration.enchant_sep": "Enchant: %s",
-  "gui.beyond_integration.enchant_sep.on": "ON",
-  "gui.beyond_integration.enchant_sep.off": "OFF",
+  "gui.beyond_integration.enchant_sep": "Enchant Sep: %s",
+  "gui.beyond_integration.enchant_sep.on": "§aSeparate",
+  "gui.beyond_integration.enchant_sep.off": "§cKeep",
 
   "gui.beyond_integration.network.connected": "Net#%s",
   "gui.beyond_integration.network.none": "No Network",
@@ -74,6 +88,7 @@
   "message.beyond_integration.material_insufficient": "Insufficient materials: %s",
   "message.beyond_integration.no_network": "You are not in any network.",
 
+  "message.beyond_integration.cannot_toggle_enchant_sep": "§cManager or higher permission required to toggle enchantment separation",
   "message.beyond_integration.using_primary_net_ammo": "§7[Network] §fUsing primary network ammo.",
   "message.beyond_integration.using_net_ammo": "§7[Network] §fUsing network §e#%s §fammo."
 }

@@ -17,9 +17,12 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 import java.util.HashMap;
 
 public record RequestSuperbAmmoExtractPacket(String ammoType, long amount) implements CustomPacketPayload {
+    private static final Logger LOGGER = LogUtils.getLogger();
     public static final Type<RequestSuperbAmmoExtractPacket> TYPE = new Type<>(ResourceLocation.parse(BeyondIntegration.MODID + ":request_superb_ammo_extract"));
     public static final StreamCodec<RegistryFriendlyByteBuf, RequestSuperbAmmoExtractPacket> STREAM_CODEC = new StreamCodec<>() {
         @Override public @NotNull RequestSuperbAmmoExtractPacket decode(RegistryFriendlyByteBuf buf) {
@@ -63,7 +66,9 @@ public record RequestSuperbAmmoExtractPacket(String ammoType, long amount) imple
             if (be == null) return null;
             var getNetMethod = be.getClass().getMethod("getNet");
             return (DimensionsNet) getNetMethod.invoke(be);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.warn("Failed to get DimensionsNet from open menu via reflection", e);
+        }
         return null;
     }
 
@@ -89,9 +94,11 @@ public record RequestSuperbAmmoExtractPacket(String ammoType, long amount) imple
             }
 
             long giveCount = take;
+            var ammoItem = ammo.getItem();
+            if (ammoItem == null) return;
             while (giveCount > 0) {
                 int stackSize = (int) Math.min(giveCount, 64);
-                ItemStack ammoStack = new ItemStack(ammo.getItem(), stackSize);
+                ItemStack ammoStack = new ItemStack(ammoItem, stackSize);
                 if (!player.getInventory().add(ammoStack))
                     player.drop(ammoStack, false);
                 giveCount -= stackSize;

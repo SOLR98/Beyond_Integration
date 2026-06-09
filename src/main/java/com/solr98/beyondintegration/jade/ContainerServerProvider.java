@@ -14,7 +14,6 @@ public enum ContainerServerProvider implements IServerDataProvider<BlockAccessor
 
     @Override
     public void appendServerData(CompoundTag data, BlockAccessor accessor) {
-        CompoundTag beTag = new CompoundTag();
         try {
             Class<?> containerClass = Class.forName("com.atsuishio.superbwarfare.block.entity.ContainerBlockEntity");
             if (!containerClass.isInstance(accessor.getBlockEntity())) return;

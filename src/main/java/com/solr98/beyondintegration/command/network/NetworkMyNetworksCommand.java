@@ -75,12 +75,10 @@ public class NetworkMyNetworksCommand {
         for (int i = 0; i < networks.size(); i++) {
             if (i >= startIndex && displayed < maxPerPage) {
                 var info = networks.get(i);
-                ChatFormatting permColor = NetworkInfoCommand.getPermissionColor(
-                        info.permissionLevel.equals(CommandLang.get("network.myNetworks.permission.owner")) ? "owner" :
-                        info.permissionLevel.equals(CommandLang.get("network.myNetworks.permission.manager")) ? "manager" : "member");
+                ChatFormatting permColor = info.permissionLevel.getColor();
                 String displayName = info.netName.isEmpty() ? CommandLang.get("network.list.name.none") : info.netName;
                 msg = msg.append(Component.literal(String.format("%-4d", info.netId)).withStyle(ChatFormatting.WHITE))
-                        .append(Component.literal(" | " + String.format("%-8s", info.permissionLevel)).withStyle(permColor))
+                        .append(Component.literal(" | " + String.format("%-8s", info.permissionLevel.getDisplay())).withStyle(permColor))
                         .append(Component.literal(" | " + String.format("%-20s", displayName)).withStyle(ChatFormatting.LIGHT_PURPLE))
                         .append(Component.literal(" | " + String.format("%-16s", info.ownerName)).withStyle(ChatFormatting.AQUA))
                         .append(Component.literal(" | " + String.format("%03d", info.playerCount)).withStyle(ChatFormatting.GREEN))

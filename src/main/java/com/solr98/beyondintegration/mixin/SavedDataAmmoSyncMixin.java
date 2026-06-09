@@ -2,6 +2,7 @@ package com.solr98.beyondintegration.mixin;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.solr98.beyondintegration.handler.NetworkAmmoData;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
+import com.solr98.beyondintegration.handler.TaczCreativeAccessor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.world.level.saveddata.SavedData;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,5 +20,6 @@ public class SavedDataAmmoSyncMixin {
         NetworkAmmoData data = NetworkAmmoData.get();
         if (net instanceof SuperbAmmoAccessor acc) data.setAmmoForNet(netId, acc.getSuperbAmmo());
         if (net instanceof EnchantSeparationAccessor ea) data.setEnchantSeparation(netId, ea.beyond$isEnchantSeparationEnabled());
+        if (net instanceof TaczCreativeAccessor tca) data.setCreativeTypesForNet(netId, tca.getTaczCreativeTypes());
     }
 }
