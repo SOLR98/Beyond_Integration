@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.network;
 import com.solr98.beyondintegration.BeyondIntegration;
-import com.solr98.beyondintegration.handler.TaczAmmoExtractor;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;

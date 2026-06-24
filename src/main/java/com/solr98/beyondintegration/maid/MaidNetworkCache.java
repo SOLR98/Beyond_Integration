@@ -1,16 +1,14 @@
 package com.solr98.beyondintegration.maid;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
-import net.minecraft.world.entity.LivingEntity;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MaidNetworkCache {
-    private static final Map<UUID, Integer> cache = new HashMap<>();
-    private static final Map<UUID, Long> ts = new HashMap<>();
+    private static final ConcurrentHashMap<UUID, Integer> cache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, Long> ts = new ConcurrentHashMap<>();
     private static final long TTL = 5000;
 
-    public static DimensionsNet get(LivingEntity e) {
+    public static DimensionsNet get(net.minecraft.world.entity.LivingEntity e) {
         Integer id = cache.get(e.getUUID());
         if (id == null) return null;
         Long t = ts.get(e.getUUID());

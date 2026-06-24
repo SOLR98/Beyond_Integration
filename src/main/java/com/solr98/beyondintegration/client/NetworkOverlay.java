@@ -63,7 +63,9 @@ public class NetworkOverlay implements LayeredDraw.Layer {
         long netCount = 0;
         if (ammoType != null) {
             for (var entry : cache.getAmmoMap().entrySet()) {
-                var item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(entry.getKey()));
+                var rl = ResourceLocation.tryParse(entry.getKey());
+                if (rl == null) continue;
+                var item = BuiltInRegistries.ITEM.get(rl);
                 if (item != null && item != Items.AIR && ammoType.test(item.getDefaultInstance())) {
                     netCount += entry.getValue();
                 }

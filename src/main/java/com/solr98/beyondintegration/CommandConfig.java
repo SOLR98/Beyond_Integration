@@ -1,114 +1,106 @@
 package com.solr98.beyondintegration;
 
+import com.solr98.beyondintegration.config.BlacklistConfig;
+import com.solr98.beyondintegration.config.EnchantConfig;
+import com.solr98.beyondintegration.config.GeneralConfig;
+import com.solr98.beyondintegration.config.VehicleConfig;
 import net.neoforged.neoforge.common.ModConfigSpec;
-import org.apache.commons.lang3.tuple.Pair;
-import java.util.Arrays;
+
 import java.util.List;
 
 public class CommandConfig {
+
     public static final ModConfigSpec SERVER_SPEC;
-    public static final ServerConfig SERVER;
-    static {
-        final Pair<ServerConfig, ModConfigSpec> specPair = new ModConfigSpec.Builder().configure(ServerConfig::new);
-        SERVER_SPEC = specPair.getRight();
-        SERVER = specPair.getLeft();
-    }
 
-    public enum Language { EN_US("en_us"), ZH_CN("zh_cn");
-        private final String code;
-        Language(String code) { this.code = code; }
-        public String getCode() { return code; }
-    }
-
+    public enum Language { EN_US, ZH_CN }
     public enum ChargeMode { OFF, FLAT_RATE, PERCENTAGE }
+    public enum SWChargeMode { PERCENTAGE, ABSOLUTE, SUM }
     public enum FuelSource { FE, FLUID }
+    public enum EnchantFilterMode { DISABLED, WHITELIST, BLACKLIST }
+    public enum EnchantItemFilterMode { DISABLED, WHITELIST, BLACKLIST }
+
+    static {
+        ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
+        GeneralConfig.build(builder);
+        EnchantConfig.build(builder);
+        VehicleConfig.build(builder);
+        BlacklistConfig.build(builder);
+        SERVER_SPEC = builder.build();
+    }
+
+    public static final ServerConfig SERVER = new ServerConfig();
 
     public static class ServerConfig {
-        public final ModConfigSpec.EnumValue<Language> language;
-        public final ModConfigSpec.IntValue maxNetworksPerPage;
+        // ── General ──
+        public final ModConfigSpec.EnumValue<Language> language = GeneralConfig.fields().language;
+        public final ModConfigSpec.IntValue maxNetworksPerPage = GeneralConfig.fields().maxNetworksPerPage;
 
-        // Enchantment separation
-        public final ModConfigSpec.BooleanValue enchantSeparation;
-        public final ModConfigSpec.BooleanValue enchantItemSeparation;
-        public final ModConfigSpec.DoubleValue enchantItemMult;
-        public final ModConfigSpec.IntValue enchantBaseCost;
-        public final ModConfigSpec.DoubleValue enchantLevelMult;
-        public final ModConfigSpec.DoubleValue enchantDefaultMult;
-        public final ModConfigSpec.ConfigValue<List<? extends String>> enchantHighCostList;
+        // ── Enchant ──
+        public final ModConfigSpec.BooleanValue enchantSeparation = EnchantConfig.fields().enableSeparation;
+        public final ModConfigSpec.BooleanValue enchantItemSeparation = EnchantConfig.fields().enableItemSeparation;
+        public final ModConfigSpec.DoubleValue enchantItemMult = EnchantConfig.fields().itemMult;
+        public final ModConfigSpec.IntValue enchantBaseCost = EnchantConfig.fields().baseCost;
+        public final ModConfigSpec.DoubleValue enchantLevelMult = EnchantConfig.fields().levelMult;
+        public final ModConfigSpec.DoubleValue enchantDefaultMult = EnchantConfig.fields().defaultMult;
+        public final ModConfigSpec.ConfigValue<List<? extends String>> enchantHighCostList = EnchantConfig.fields().highCostList;
+        public final ModConfigSpec.EnumValue<EnchantFilterMode> enchantFilterMode = EnchantConfig.fields().filterMode;
+        public final ModConfigSpec.ConfigValue<List<? extends String>> enchantFilterList = EnchantConfig.fields().filterList;
+        public final ModConfigSpec.EnumValue<EnchantItemFilterMode> enchantItemFilterMode = EnchantConfig.fields().itemFilterMode;
+        public final ModConfigSpec.ConfigValue<List<? extends String>> enchantItemFilterList = EnchantConfig.fields().itemFilterList;
 
-        // Vehicle energy charge
-        public final ModConfigSpec.IntValue swVehicleEnergyChargeRate;
-        public final ModConfigSpec.IntValue swVehicleChargeInterval;
-        public final ModConfigSpec.DoubleValue swVehicleChargePercentage;
+        // ── SW Vehicle ──
+        public final ModConfigSpec.EnumValue<SWChargeMode> swChargeMode = VehicleConfig.fields().swChargeMode;
+        public final ModConfigSpec.IntValue swVehicleEnergyChargeRate = VehicleConfig.fields().swEnergyChargeRate;
+        public final ModConfigSpec.IntValue swVehicleChargeInterval = VehicleConfig.fields().swChargeInterval;
+        public final ModConfigSpec.DoubleValue swVehicleChargePercentage = VehicleConfig.fields().swChargePercentage;
 
-        // Ywzj vehicle energy charge
-        public final ModConfigSpec.EnumValue<ChargeMode> ywzjChargeMode;
-        public final ModConfigSpec.EnumValue<FuelSource> ywzjFuelSource;
-        public final ModConfigSpec.IntValue ywzjVehicleEnergyChargeRate;
-        public final ModConfigSpec.IntValue ywzjVehicleChargeInterval;
-        public final ModConfigSpec.DoubleValue ywzjVehicleChargePercentage;
-        public final ModConfigSpec.IntValue ywzjVehicleEnergyConversion;
-        public final ModConfigSpec.ConfigValue<List<? extends String>> ywzjAllowedEnergyTypes;
+        // ── YWZJ Vehicle ──
+        public final ModConfigSpec.EnumValue<ChargeMode> ywzjChargeMode = VehicleConfig.fields().ywzjChargeMode;
+        public final ModConfigSpec.EnumValue<FuelSource> ywzjFuelSource = VehicleConfig.fields().ywzjFuelSource;
+        public final ModConfigSpec.IntValue ywzjVehicleEnergyChargeRate = VehicleConfig.fields().ywzjEnergyChargeRate;
+        public final ModConfigSpec.IntValue ywzjVehicleChargeInterval = VehicleConfig.fields().ywzjChargeInterval;
+        public final ModConfigSpec.DoubleValue ywzjVehicleChargePercentage = VehicleConfig.fields().ywzjChargePercentage;
+        public final ModConfigSpec.IntValue ywzjVehicleEnergyConversion = VehicleConfig.fields().ywzjEnergyConversion;
+        public final ModConfigSpec.ConfigValue<List<? extends String>> ywzjAllowedEnergyTypes = VehicleConfig.fields().ywzjAllowedEnergyTypes;
 
-        // Item blacklist
-        public final ModConfigSpec.BooleanValue ENABLE_ITEM_BLACKLIST;
-        public final ModConfigSpec.ConfigValue<List<? extends String>> ITEM_BLACKLIST;
-
-        public ServerConfig(ModConfigSpec.Builder builder) {
-            builder.comment("General settings").push("general");
-            language = builder.defineEnum("command_language", Language.EN_US);
-            maxNetworksPerPage = builder.defineInRange("max_networks_per_page", 10, 1, 100);
-            builder.pop();
-
-            builder.comment("Enchantment separation settings").push("enchant");
-            enchantSeparation = builder.define("separation", true);
-            enchantItemSeparation = builder.define("itemSeparation", true);
-            enchantItemMult = builder.defineInRange("itemMult", 2.0, 0.1, 100.0);
-            enchantBaseCost = builder.defineInRange("base_cost", 5, 0, 100);
-            enchantLevelMult = builder.defineInRange("level_mult", 1.0, 0.0, 100.0);
-            enchantDefaultMult = builder.defineInRange("default_mult", 1.0, 0.0, 100.0);
-            enchantHighCostList = builder.defineList("high_cost",
-                    Arrays.asList("minecraft:mending:3.0", "minecraft:frost_walker:3.0",
-                            "minecraft:sharpness:1.2", "minecraft:protection:1.2"),
-                    obj -> obj instanceof String);
-            builder.pop();
-
-            builder.comment("Vehicle settings").push("vehicle");
-            swVehicleEnergyChargeRate = builder.defineInRange("energyChargeRate", 500000, 0, Integer.MAX_VALUE);
-            swVehicleChargeInterval = builder.defineInRange("chargeInterval", 20, 1, 1200);
-            swVehicleChargePercentage = builder.defineInRange("chargePercentage", 0.0, 0.0, 100.0);
-            builder.comment("When chargePercentage > 0, charge that percentage of missing energy per interval (overrides energyChargeRate). Set to 0 to use flat FE rate mode.");
-            builder.pop();
-
-            builder.push("ywzj_vehicle");
-            ywzjChargeMode = builder.comment("Charge mode: OFF (disabled), FLAT_RATE (fixed FE/interval), PERCENTAGE (% of missing energy)").defineEnum("chargeMode", ChargeMode.FLAT_RATE);
-            ywzjFuelSource = builder.comment("Fuel source: FE (convert FE from network to fuel), FLUID (extract fluids matching fuelNameWhiteList from network)").defineEnum("fuelSource", FuelSource.FE);
-            ywzjVehicleEnergyChargeRate = builder.comment("FE per charge interval (used in FLAT_RATE mode)").defineInRange("energyChargeRate", 500000, 0, Integer.MAX_VALUE);
-            ywzjVehicleChargeInterval = builder.comment("Ticks between charges").defineInRange("chargeInterval", 20, 1, 1200);
-            ywzjVehicleChargePercentage = builder.comment("Percentage of missing energy per interval (used in PERCENTAGE mode)").defineInRange("chargePercentage", 5.0, 0.1, 100.0);
-            ywzjVehicleEnergyConversion = builder.comment("FE to fuel conversion divisor (default 1000, i.e. 1000 FE = 1 fuel). Lower = faster charge.").defineInRange("energyConversion", 1000, 1, Integer.MAX_VALUE);
-            ywzjAllowedEnergyTypes = builder.comment("Vehicle energy types allowed to charge from network (matches energyInfo.energyType)").defineList("allowedEnergyTypes", Arrays.asList("fuel", "steam", "electric"), obj -> obj instanceof String);
-            builder.pop();
-
-            builder.comment("Item blacklist").push("blacklist");
-            ENABLE_ITEM_BLACKLIST = builder.define("enable", false);
-            ITEM_BLACKLIST = builder.defineList("items",
-                    Arrays.asList("minecraft:barrier", "minecraft:command_block"), obj -> obj instanceof String);
-            builder.pop();
-        }
+        // ── Blacklist ──
+        public final ModConfigSpec.BooleanValue ENABLE_ITEM_BLACKLIST = BlacklistConfig.fields().enable;
+        public final ModConfigSpec.ConfigValue<List<? extends String>> ITEM_BLACKLIST = BlacklistConfig.fields().items;
     }
 
-    public static Language getCommandLanguage() { return SERVER.language.get(); }
-    public static int maxNetworksPerPage() { return SERVER.maxNetworksPerPage.get(); }
-    public static boolean enableItemBlacklist() { return SERVER.ENABLE_ITEM_BLACKLIST.get(); }
-    public static List<? extends String> itemBlacklist() { return SERVER.ITEM_BLACKLIST.get(); }
-    public static int vehicleChargeInterval() { return SERVER.swVehicleChargeInterval.get(); }
-    public static double vehicleChargePercentage() { return SERVER.swVehicleChargePercentage.get(); }
+    // ── General ──
+    public static Language getCommandLanguage() { return GeneralConfig.language(); }
+    public static int maxNetworksPerPage() { return GeneralConfig.maxNetworksPerPage(); }
 
-    public static ChargeMode ywzjChargeMode() { return SERVER.ywzjChargeMode.get(); }
-    public static FuelSource ywzjFuelSource() { return SERVER.ywzjFuelSource.get(); }
-    public static int ywzjVehicleEnergyChargeRate() { return SERVER.ywzjVehicleEnergyChargeRate.get(); }
-    public static int ywzjVehicleChargeInterval() { return SERVER.ywzjVehicleChargeInterval.get(); }
-    public static double ywzjVehicleChargePercentage() { return SERVER.ywzjVehicleChargePercentage.get(); }
-    public static int ywzjVehicleEnergyConversion() { return SERVER.ywzjVehicleEnergyConversion.get(); }
+    // ── Blacklist ──
+    public static boolean enableItemBlacklist() { return BlacklistConfig.enable(); }
+    public static List<? extends String> itemBlacklist() { return BlacklistConfig.items(); }
+
+    // ── Enchant ──
+    public static boolean enableEnchantSeparation() { return EnchantConfig.enableSeparation(); }
+    public static boolean enableItemEnchantSeparation() { return EnchantConfig.enableItemSeparation(); }
+    public static double itemSeparationMultiplier() { return EnchantConfig.itemMult(); }
+    public static int enchantBaseCost() { return EnchantConfig.baseCost(); }
+    public static double enchantLevelMult() { return EnchantConfig.levelMult(); }
+    public static double enchantDefaultMult() { return EnchantConfig.defaultMult(); }
+    public static List<? extends String> enchantHighCostList() { return EnchantConfig.highCostList(); }
+    public static EnchantFilterMode enchantFilterMode() { return EnchantConfig.filterMode(); }
+    public static List<? extends String> enchantFilterList() { return EnchantConfig.filterList(); }
+    public static EnchantItemFilterMode enchantItemFilterMode() { return EnchantConfig.itemFilterMode(); }
+    public static List<? extends String> enchantItemFilterList() { return EnchantConfig.itemFilterList(); }
+
+    // ── Vehicle (SW) ──
+    public static SWChargeMode swChargeMode() { return VehicleConfig.swChargeMode(); }
+    public static int swVehicleEnergyChargeRate() { return VehicleConfig.swEnergyChargeRate(); }
+    public static int vehicleChargeInterval() { return VehicleConfig.swChargeInterval(); }
+    public static double vehicleChargePercentage() { return VehicleConfig.swChargePercentage(); }
+
+    // ── Vehicle (YWZJ) ──
+    public static ChargeMode ywzjChargeMode() { return VehicleConfig.ywzjChargeMode(); }
+    public static FuelSource ywzjFuelSource() { return VehicleConfig.ywzjFuelSource(); }
+    public static int ywzjVehicleEnergyChargeRate() { return VehicleConfig.ywzjEnergyChargeRate(); }
+    public static int ywzjVehicleChargeInterval() { return VehicleConfig.ywzjChargeInterval(); }
+    public static double ywzjVehicleChargePercentage() { return VehicleConfig.ywzjChargePercentage(); }
+    public static int ywzjVehicleEnergyConversion() { return VehicleConfig.ywzjEnergyConversion(); }
+    public static List<? extends String> ywzjAllowedEnergyTypes() { return VehicleConfig.ywzjAllowedEnergyTypes(); }
 }

@@ -65,7 +65,8 @@ public record RequestNetworkItemsPacket() implements CustomPacketPayload {
         return counts;
     }
 
-    static void buildIndex(ServerPlayer player) {
+    static synchronized void buildIndex(ServerPlayer player) {
+        if (INDEX_BUILT) return;
         for (var holder : player.getServer().getRecipeManager().getRecipes()) {
             if (!(holder.value() instanceof GunSmithTableRecipe taczRecipe)) continue;
             ResourceLocation rid = holder.id();

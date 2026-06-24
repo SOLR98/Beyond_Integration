@@ -4,14 +4,16 @@ import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.RequestNetworkItemsPacket;
 import com.solr98.beyondintegration.network.TaczCraftPacket;
 import com.tacz.guns.client.gui.GunSmithTableScreen;
-import com.tacz.guns.client.gui.components.smith.ImageButton;
 import com.tacz.guns.crafting.GunSmithTableRecipe;
 import com.tacz.guns.inventory.GunSmithTableMenu;
 import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -19,6 +21,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.neoforged.fml.ModList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -30,7 +33,6 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.util.List;
 import java.util.Properties;
 
 @Mixin(targets = "com.tacz.guns.client.gui.GunSmithTableScreen", remap = false)
@@ -40,12 +42,11 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         super(menu, inventory, title);
     }
 
+    @Unique private boolean beyond$useNetwork = true;
     @Unique private boolean beyond$outputToNetwork = false;
     @Unique private int beyond$netVersion = -1;
     @Unique private int[] beyond$cachedNetworkCounts;
     @Unique private String beyond$lastRecipeKey;
-    @Unique private Button beyond$outputBtn;
-
     @Shadow(remap = false) private @Nullable Int2IntArrayMap playerIngredientCount;
     @Shadow(remap = false) private @Nullable RecipeHolder<GunSmithTableRecipe> selectedRecipe;
     @Shadow(remap = false) private void getPlayerIngredientCount(RecipeHolder<GunSmithTableRecipe> holder) {}
@@ -54,7 +55,6 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
     @Unique private static ItemStack beyond$netIcon = ItemStack.EMPTY;
     @Unique private static File beyond$prefsFile;
     @Unique private static boolean beyond$loaded = false;
-
     @Unique
     private void beyond$loadPrefs() {
         try {
@@ -64,6 +64,7 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
                 var props = new Properties();
                 try (var in = new FileInputStream(beyond$prefsFile)) {
                     props.load(in);
+                    beyond$useNetwork = Boolean.parseBoolean(props.getProperty("useNetwork", "true"));
                     beyond$outputToNetwork = Boolean.parseBoolean(props.getProperty("outputToNetwork", "false"));
                 }
             }
@@ -77,6 +78,7 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
                 beyond$prefsFile = new File(Minecraft.getInstance().gameDirectory, "config/beyond_integration_smith.properties");
             beyond$prefsFile.getParentFile().mkdirs();
             var props = new Properties();
+            props.setProperty("useNetwork", String.valueOf(beyond$useNetwork));
             props.setProperty("outputToNetwork", String.valueOf(beyond$outputToNetwork));
             try (var out = new FileOutputStream(beyond$prefsFile)) { props.store(out, "Beyond Integration Smith GUI"); }
         } catch (Exception ignored) {}
@@ -100,7 +102,7 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
     }
 
     @Unique
-    private void beyond$refreshCounts() {
+    private void beyond$refreshAll() {
         if (selectedRecipe != null) getPlayerIngredientCount(selectedRecipe);
     }
 
@@ -118,13 +120,36 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
                 NetworkItemCache.hasNetwork() ? 0x55FFFF : 0x888888, false);
 
         if (NetworkItemCache.hasNetwork()) {
+            var modeIcon = beyond$useNetwork
+                    ? new ItemStack(net.minecraft.world.item.Items.ENDER_EYE)
+                    : new ItemStack(net.minecraft.world.item.Items.CRAFTING_TABLE);
+            beyond$drawButton(graphics, left + 322, top + 50, mouseX, mouseY, modeIcon);
+        }
+
+        if (beyond$useNetwork && NetworkItemCache.hasNetwork()) {
             var outIcon = beyond$outputToNetwork ? beyond$netIcon : new ItemStack(net.minecraft.world.item.Items.CHEST);
             beyond$drawButton(graphics, left + 267, top + 162, mouseX, mouseY, outIcon);
         }
     }
 
+    @Inject(method = "init", at = @At("TAIL"), remap = true)
+    private void beyond$onInit(CallbackInfo ci) {
+        var self = (GunSmithTableScreen) (Object) this;
+        int left = self.getGuiLeft(), top = self.getGuiTop();
+
+        this.addWidget(new BeyondToggleWidget(left + 322, top + 50, () -> {
+            beyond$useNetwork = !beyond$useNetwork;
+            beyond$refreshAll();
+        }));
+        this.addWidget(new BeyondToggleWidget(left + 267, top + 162, () -> {
+            if (!beyond$useNetwork || !NetworkItemCache.hasNetwork()) return;
+            beyond$outputToNetwork = !beyond$outputToNetwork;
+        }));
+    }
+
     @Inject(method = "renderIngredient", at = @At("RETURN"))
     private void beyond$onRenderIngredient(GuiGraphics graphics, CallbackInfo ci) {
+        if (!beyond$useNetwork) return;
         if (!NetworkItemCache.hasNetwork()) return;
         if (selectedRecipe == null) return;
         var inputs = selectedRecipe.value().getInputs();
@@ -162,7 +187,28 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
 
     @Inject(method = "getPlayerIngredientCount", at = @At("RETURN"))
     private void beyond$addNetworkCounts(RecipeHolder<GunSmithTableRecipe> holder, CallbackInfo ci) {
+        if (!beyond$useNetwork) return;
         if (playerIngredientCount == null) return;
+
+        if (ModList.get() != null && ModList.get().isLoaded("taczaddon")) {
+            var player = Minecraft.getInstance().player;
+            if (player != null) {
+                var realInv = player.getInventory();
+                var recipe = holder.value();
+                var inputs = recipe.getInputs();
+                if (inputs != null) {
+                    int size = Math.min(inputs.size(), playerIngredientCount.size());
+                    for (int i = 0; i < size; i++) {
+                        var ing = inputs.get(i).getIngredient();
+                        int realCount = 0;
+                        for (var stack : realInv.items) {
+                            if (!stack.isEmpty() && ing.test(stack)) realCount += stack.getCount();
+                        }
+                        playerIngredientCount.put(i, realCount);
+                    }
+                }
+            }
+        }
 
         PacketHandler.sendToServer(new RequestNetworkItemsPacket());
 
@@ -197,29 +243,28 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
                remap = false)
     private Button.OnPress beyond$wrapOnPress(Button.OnPress original) {
         return b -> {
+            if (!beyond$useNetwork || !NetworkItemCache.hasNetwork()) { original.onPress(b); return; }
             if (selectedRecipe == null || playerIngredientCount == null) { original.onPress(b); return; }
-            if (NetworkItemCache.hasNetwork()) {
-                int count = Screen.hasShiftDown() ? 64 : 1;
-                PacketHandler.sendToServer(new TaczCraftPacket(selectedRecipe.id(), count, beyond$outputToNetwork));
-            } else {
-                original.onPress(b);
-            }
+            int count = beyond$getCraftCount();
+            PacketHandler.sendToServer(new TaczCraftPacket(selectedRecipe.id(), count, beyond$outputToNetwork));
+            beyond$refreshAll();
         };
     }
 
-    @Inject(method = "addCraftButton", at = @At("TAIL"))
-    private void beyond$onAddCraftButton(CallbackInfo ci) {
-        var self = (GunSmithTableScreen) (Object) this;
-        int left = self.getGuiLeft(), top = self.getGuiTop();
-
-        beyond$outputBtn = addRenderableWidget(Button.builder(Component.empty(), b -> {
-            beyond$outputToNetwork = !beyond$outputToNetwork;
-            b.setTooltip(Tooltip.create(Component.translatable(beyond$outputToNetwork
-                    ? "gui.beyond_integration.output.network"
-                    : "gui.beyond_integration.output.inventory",
-                    NetworkItemCache.getDisplayName())));
-        }).bounds(left + 267, top + 162, 18, 18).build());
-        beyond$outputBtn.visible = NetworkItemCache.hasNetwork();
+    @Unique
+    private int beyond$getCraftCount() {
+        int requested = Screen.hasShiftDown() ? 64 : 1;
+        if (playerIngredientCount == null || selectedRecipe == null) return 1;
+        var inputs = selectedRecipe.value().getInputs();
+        if (inputs == null || inputs.isEmpty()) return 1;
+        int max = requested;
+        for (int i = 0; i < inputs.size() && i < playerIngredientCount.size(); i++) {
+            int have = playerIngredientCount.get(i);
+            int need = inputs.get(i).getCount();
+            if (need <= 0) continue;
+            max = Math.min(max, have / need);
+        }
+        return Math.max(max, 1);
     }
 
     @Inject(method = "onClose", at = @At("HEAD"), remap = true)
@@ -236,5 +281,41 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
             counts[i] = (int) Math.min(NetworkItemCache.getCount(recipeId + "|" + i), Integer.MAX_VALUE);
         }
         return counts;
+    }
+
+    @Unique
+    private static class BeyondToggleWidget implements GuiEventListener, Renderable, NarratableEntry {
+        private final int x, y;
+        private final Runnable onClick;
+        private boolean focused;
+
+        BeyondToggleWidget(int x, int y, Runnable onClick) {
+            this.x = x;
+            this.y = y;
+            this.onClick = onClick;
+        }
+
+        @Override
+        public void render(GuiGraphics g, int mx, int my, float pt) {}
+
+        @Override
+        public boolean mouseClicked(double mx, double my, int btn) {
+            if (btn != 0) return false;
+            if (mx < x || mx >= x + 18 || my < y || my >= y + 18) return false;
+            onClick.run();
+            return true;
+        }
+
+        @Override
+        public void setFocused(boolean focused) { this.focused = focused; }
+
+        @Override
+        public boolean isFocused() { return focused; }
+
+        @Override
+        public NarratableEntry.NarrationPriority narrationPriority() { return NarratableEntry.NarrationPriority.NONE; }
+
+        @Override
+        public void updateNarration(NarrationElementOutput output) {}
     }
 }

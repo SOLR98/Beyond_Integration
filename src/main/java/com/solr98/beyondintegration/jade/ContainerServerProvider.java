@@ -1,10 +1,13 @@
 package com.solr98.beyondintegration.jade;
 
-import com.solr98.beyondintegration.handler.VehicleNetStorage;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
+import com.solr98.beyondintegration.mixin.ContainerBlockEntityAccessor;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.IServerDataProvider;
+
+import java.util.UUID;
 
 public enum ContainerServerProvider implements IServerDataProvider<BlockAccessor> {
     INSTANCE;
@@ -14,26 +17,26 @@ public enum ContainerServerProvider implements IServerDataProvider<BlockAccessor
 
     @Override
     public void appendServerData(CompoundTag data, BlockAccessor accessor) {
+        var be = accessor.getBlockEntity();
+        if (!(be instanceof ContainerBlockEntityAccessor acc)) return;
+
+        CompoundTag entityTag = acc.getEntityTag();
+        if (entityTag == null || !entityTag.contains("uuid")) return;
+
+        String uuidStr = entityTag.getString("uuid");
+        UUID uuid;
         try {
-            Class<?> containerClass = Class.forName("com.atsuishio.superbwarfare.block.entity.ContainerBlockEntity");
-            if (!containerClass.isInstance(accessor.getBlockEntity())) return;
+            uuid = UUID.fromString(uuidStr);
+        } catch (IllegalArgumentException e) {
+            return;
+        }
+        int netId = VehicleNetStorage.getBoundNetId(uuid);
+        if (netId < 0) return;
 
-            Object blockEntity = accessor.getBlockEntity();
-            java.lang.reflect.Field entityTagField = containerClass.getDeclaredField("entityTag");
-            entityTagField.setAccessible(true);
-            CompoundTag entityTag = (CompoundTag) entityTagField.get(blockEntity);
-            if (entityTag == null || !entityTag.contains("uuid")) return;
-
-            String uuidStr = entityTag.getString("uuid");
-            java.util.UUID uuid = java.util.UUID.fromString(uuidStr);
-            int netId = VehicleNetStorage.getBoundNetId(uuid);
-            if (netId < 0) return;
-
-            data.putInt(NET_ID_KEY, netId);
-            if (entityTag.contains("customName")) {
-                data.putString(NET_NAME_KEY, entityTag.getString("customName"));
-            }
-        } catch (Exception ignored) {}
+        data.putInt(NET_ID_KEY, netId);
+        if (entityTag.contains("customName")) {
+            data.putString(NET_NAME_KEY, entityTag.getString("customName"));
+        }
     }
 
     @Override

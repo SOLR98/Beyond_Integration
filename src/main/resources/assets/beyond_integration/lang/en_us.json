@@ -39,7 +39,12 @@
   "beyond_integration.config.enchant.formula": "Cost Formula",
   "beyond_integration.config.enchant.use_formula": "Use Custom Formula",
   "beyond_integration.config.enchant.high_cost": "High Cost Enchantments",
+  "beyond_integration.config.enchant.filter_mode": "Filter Mode",
+  "beyond_integration.config.enchant.filter_list": "Filter List",
+  "beyond_integration.config.enchant.item_filter_mode": "Item Filter Mode",
+  "beyond_integration.config.enchant.item_filter_list": "Item Filter List",
   "beyond_integration.config.vehicle": "Superb Warfare: Vehicle",
+  "beyond_integration.config.vehicle.chargeMode": "Charge Mode",
   "beyond_integration.config.vehicle.energyChargeRate": "Charge Rate (FE/tick)",
   "beyond_integration.config.vehicle.chargeInterval": "Charge Interval (ticks)",
   "beyond_integration.config.vehicle.chargePercentage": "Charge Percentage (%)",
@@ -74,9 +79,11 @@
   "hud.beyond_integration.network_title.name": "%s (Net#%s)",
   "hud.beyond_integration.energy_line": "\u26A1 %s FE",
   "tooltip.beyond_integration.network_id": "Net #%d",
+  "tooltip.beyond_integration.protected": "§a✔ Protected from enchantment separation",
   "gui.beyond_integration.enchant_sep": "Enchant Sep: %s",
   "gui.beyond_integration.enchant_sep.on": "§aSeparate",
   "gui.beyond_integration.enchant_sep.off": "§cKeep",
+
 
   "gui.beyond_integration.network.connected": "Net#%s",
   "gui.beyond_integration.network.none": "No Network",
@@ -87,8 +94,15 @@
 
   "message.beyond_integration.material_insufficient": "Insufficient materials: %s",
   "message.beyond_integration.no_network": "You are not in any network.",
+  "message.beyond_integration.recipe_not_found": "§cRecipe not found: %s",
+  "message.beyond_integration.recipe_type_mismatch": "§cRecipe type mismatch, cannot craft via network.",
 
   "message.beyond_integration.cannot_toggle_enchant_sep": "§cManager or higher permission required to toggle enchantment separation",
   "message.beyond_integration.using_primary_net_ammo": "§7[Network] §fUsing primary network ammo.",
-  "message.beyond_integration.using_net_ammo": "§7[Network] §fUsing network §e#%s §fammo."
+  "message.beyond_integration.using_net_ammo": "§7[Network] §fUsing network §e#%s §fammo.",
+
+  "message.beyond_integration.protect.no_item": "§cHold an item in your main hand to protect it.",
+  "message.beyond_integration.protect.added": "§aProtected §f%s §afrom enchantment separation.",
+  "message.beyond_integration.protect.removed": "§eUnprotected §f%s §efrom enchantment separation.",
+  "message.beyond_integration.protect.error": "§cError: %s"
 }

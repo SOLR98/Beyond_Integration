@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.command;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.solr98.beyondintegration.handler.EnchantmentBookSeparatorHandler;
+import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;

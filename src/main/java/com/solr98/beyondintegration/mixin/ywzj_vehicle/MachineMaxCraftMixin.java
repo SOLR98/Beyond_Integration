@@ -1,13 +1,11 @@
 package com.solr98.beyondintegration.mixin.ywzj_vehicle;
 
-import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.handler.MenuNetIdHelper;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
-import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -21,8 +19,6 @@ import java.util.List;
 
 @Mixin(ClientMachineMaxAction.class)
 public class MachineMaxCraftMixin {
-
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     @Inject(method = "hasIngredients", at = @At("HEAD"), cancellable = true)
     private static void beyond$checkNetworkForCraft(ServerPlayer player, VehiclePrintingRecipe recipe, CallbackInfoReturnable<Boolean> cir) {
@@ -54,8 +50,9 @@ public class MachineMaxCraftMixin {
                 if (extract <= 0) continue;
 
                 ItemStack pulled = stack.copyWithCount((int) extract);
-                pulled = player.getInventory().add(pulled);
-                int consumed = (int) extract - pulled.getCount();
+                int beforeCount = pulled.getCount();
+                player.getInventory().add(pulled);
+                int consumed = beforeCount - pulled.getCount();
                 if (consumed > 0) {
                     net.getUnifiedStorage().extract(key, consumed, false, false);
                     needed -= consumed;
@@ -64,7 +61,6 @@ public class MachineMaxCraftMixin {
         }
 
         net.setDirty();
-        LOGGER.info("[BD-Net] Pulled materials from network for MachineMax craft");
         cir.setReturnValue(true);
     }
 

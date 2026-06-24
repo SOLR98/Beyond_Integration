@@ -1,9 +1,10 @@
 package com.solr98.beyondintegration.mixin;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
-import com.solr98.beyondintegration.handler.NetworkAmmoData;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 import com.solr98.beyondintegration.handler.NetworkNameProvider;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
 import com.solr98.beyondintegration.handler.TaczCreativeAccessor;
+import com.solr98.beyondintegration.handler.YwzjCreativeAccessor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.handler.impl.AbstractUnorderedStackHandler;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
@@ -12,15 +13,19 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.ModList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 @Mixin(targets = "com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet", remap = false)
-public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvider, EnchantSeparationAccessor, TaczCreativeAccessor {
+public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvider, EnchantSeparationAccessor, TaczCreativeAccessor, YwzjCreativeAccessor {
     @Unique private Map<String, Long> beyond$superbAmmo = new HashMap<>();
     @Unique private boolean beyond$ammoLoaded = false;
     @Unique private boolean beyond$enchantSeparation = true;
     @Unique private boolean beyond$deltaInit = false;
     @Unique private Set<String> beyond$taczCreativeTypes = new HashSet<>();
+    @Unique private boolean beyond$ywzjCreativeAmmo = false;
 
     @Unique
     private void beyond$loadFromDisk() {
@@ -34,6 +39,7 @@ public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvid
         beyond$enchantSeparation = data.getEnchantSeparation(netId);
         var savedTypes = data.getCreativeTypesForNet(netId);
         if (!savedTypes.isEmpty()) beyond$taczCreativeTypes = new HashSet<>(savedTypes);
+        beyond$ywzjCreativeAmmo = data.getYwzjCreativeAmmo(netId);
     }
 
     @Unique
@@ -64,6 +70,11 @@ public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvid
                             }
                         }
                     }
+                    // YWZJ 创造弹药取出 → 取消无限弹药标记
+                    if ("ywzj_vehicle".equals(id.getNamespace()) && "ammo_creative".equals(id.getPath())) {
+                        beyond$ywzjCreativeAmmo = false;
+                        self.setDirty();
+                    }
                 }
             });
         }
@@ -93,4 +104,10 @@ public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvid
 
     @Override
     public void beyond$setEnchantSeparationEnabled(boolean v) { beyond$enchantSeparation = v; }
+
+    @Override
+    public boolean beyond$isYwzjCreativeAmmo() { beyond$loadFromDisk(); beyond$initExtractHook(); return beyond$ywzjCreativeAmmo; }
+
+    @Override
+    public void beyond$setYwzjCreativeAmmo(boolean creative) { beyond$ywzjCreativeAmmo = creative; }
 }

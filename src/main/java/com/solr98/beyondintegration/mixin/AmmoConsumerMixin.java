@@ -6,7 +6,7 @@ import com.atsuishio.superbwarfare.tools.InventoryTool;
 import com.solr98.beyondintegration.command.util.NetworkUtils;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
-import com.solr98.beyondintegration.handler.VehicleNetStorage;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
 import com.solr98.beyondintegration.maid.MaidNetworkHelper;
 import com.solr98.beyondintegration.network.SuperbAmmoStatusResponsePacket;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;

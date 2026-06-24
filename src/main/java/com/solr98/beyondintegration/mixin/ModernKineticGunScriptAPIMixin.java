@@ -1,8 +1,7 @@
 package com.solr98.beyondintegration.mixin;
-import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.client.TaczAmmoCache;
-import com.solr98.beyondintegration.handler.FakePlayerNetMarker;
-import com.solr98.beyondintegration.handler.TaczAmmoExtractor;
+import com.solr98.beyondintegration.feature.sentry.SentryFakePlayerNetMarker;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.common.init.BDDataComponents;
 import net.minecraft.resources.ResourceLocation;
@@ -10,7 +9,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.util.FakePlayer;
-import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -23,8 +21,6 @@ public class ModernKineticGunScriptAPIMixin {
     @Shadow(remap = false) private LivingEntity shooter;
     @Shadow(remap = false) private ItemStack itemStack;
 
-    private static final Logger LOGGER = LogUtils.getLogger();
-
     @Inject(method = "consumeAmmoFromPlayer", at = @At("RETURN"), cancellable = true)
     private void beyond$onConsumeAmmoFromPlayer(int neededAmount, CallbackInfoReturnable<Integer> cir) {
         int found = cir.getReturnValue();
@@ -32,11 +28,10 @@ public class ModernKineticGunScriptAPIMixin {
         int stillNeed = neededAmount - found;
 
         if (shooter instanceof FakePlayer fp) {
-            DimensionsNet net = FakePlayerNetMarker.getNet(fp);
+            DimensionsNet net = SentryFakePlayerNetMarker.getNet(fp);
             if (net != null) {
                 int fromNet = TaczAmmoExtractor.consumeAmmoDirectly(itemStack, stillNeed, net);
                 if (fromNet > 0) {
-                    LOGGER.debug("consumeAmmoFromPlayer: FakePlayer consumed {} from network (need={})", fromNet, stillNeed);
                     cir.setReturnValue(found + fromNet);
                 }
             }
@@ -46,7 +41,6 @@ public class ModernKineticGunScriptAPIMixin {
                 fromNet = consumeFromInventoryTerminal(sp, itemStack, stillNeed);
             }
             if (fromNet > 0) {
-                LOGGER.debug("consumeAmmoFromPlayer: consumed {} from network (need={})", fromNet, stillNeed);
                 cir.setReturnValue(found + fromNet);
             }
         } else {
@@ -62,8 +56,7 @@ public class ModernKineticGunScriptAPIMixin {
         if (cir.getReturnValue()) return;
 
         if (shooter instanceof FakePlayer fp) {
-            if (FakePlayerNetMarker.isMarked(fp)) {
-                LOGGER.debug("hasAmmoToConsume: FakePlayer has network marker");
+            if (SentryFakePlayerNetMarker.isMarked(fp)) {
                 cir.setReturnValue(true);
                 return;
             }
@@ -91,7 +84,6 @@ public class ModernKineticGunScriptAPIMixin {
                 if (net != null) {
                     int taken = TaczAmmoExtractor.consumeAmmoDirectly(gunStack, need, net);
                     if (taken > 0) {
-                        LOGGER.debug("consumeFromInventoryTerminal: took {} from net#{} via slot {}", taken, netId, i);
                         return taken;
                     }
                 }

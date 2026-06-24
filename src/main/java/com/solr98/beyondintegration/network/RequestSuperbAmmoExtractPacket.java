@@ -2,6 +2,7 @@ package com.solr98.beyondintegration.network;
 import com.atsuishio.superbwarfare.data.gun.Ammo;
 import com.solr98.beyondintegration.BeyondIntegration;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
+import com.solr98.beyondintegration.handler.MenuNetIdHelper;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
@@ -17,12 +18,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import com.mojang.logging.LogUtils;
-import org.slf4j.Logger;
 import java.util.HashMap;
 
 public record RequestSuperbAmmoExtractPacket(String ammoType, long amount) implements CustomPacketPayload {
-    private static final Logger LOGGER = LogUtils.getLogger();
     public static final Type<RequestSuperbAmmoExtractPacket> TYPE = new Type<>(ResourceLocation.parse(BeyondIntegration.MODID + ":request_superb_ammo_extract"));
     public static final StreamCodec<RegistryFriendlyByteBuf, RequestSuperbAmmoExtractPacket> STREAM_CODEC = new StreamCodec<>() {
         @Override public @NotNull RequestSuperbAmmoExtractPacket decode(RegistryFriendlyByteBuf buf) {
@@ -37,7 +35,7 @@ public record RequestSuperbAmmoExtractPacket(String ammoType, long amount) imple
     private static DimensionsNet findCurrentNet(ServerPlayer player) {
         DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
         if (net != null) return net;
-        net = getNetFromOpenMenu(player);
+        net = MenuNetIdHelper.getNetFromMenu(player);
         if (net != null) return net;
         for (var hand : InteractionHand.values()) {
             var stack = player.getItemInHand(hand);
@@ -46,28 +44,6 @@ public record RequestSuperbAmmoExtractPacket(String ammoType, long amount) imple
                 net = DimensionsNet.getNetFromId(id);
                 if (net != null) return net;
             }
-        }
-        return null;
-    }
-
-    @Nullable
-    private static DimensionsNet getNetFromOpenMenu(ServerPlayer player) {
-        var menu = player.containerMenu;
-        if (menu == null) return null;
-        String className = menu.getClass().getName();
-        if (!className.contains("DimensionsNetMenu") && !className.contains("DimensionsCraftMenu")
-                && !className.contains("NetControlMenu")) return null;
-        try {
-            var posField = menu.getClass().getDeclaredField("entityPos");
-            posField.setAccessible(true);
-            var pos = (net.minecraft.core.BlockPos) posField.get(menu);
-            if (pos == null) return null;
-            var be = player.level().getBlockEntity(pos);
-            if (be == null) return null;
-            var getNetMethod = be.getClass().getMethod("getNet");
-            return (DimensionsNet) getNetMethod.invoke(be);
-        } catch (Exception e) {
-            LOGGER.warn("Failed to get DimensionsNet from open menu via reflection", e);
         }
         return null;
     }

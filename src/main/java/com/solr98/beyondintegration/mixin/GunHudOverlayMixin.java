@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.mixin;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.solr98.beyondintegration.client.TaczAmmoCache;
-import com.solr98.beyondintegration.handler.TaczAmmoExtractor;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
 import com.tacz.guns.api.item.IGun;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;

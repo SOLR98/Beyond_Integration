@@ -58,11 +58,15 @@ public class AmmoBarOverlayMixin {
                 }
             }
         } else if (ct == AmmoConsumer.AmmoConsumeType.ITEM) {
-            String raw = consumer.stack().isEmpty() ? null : BuiltInRegistries.ITEM.getKey(consumer.stack().getItem()).toString();
+            var ammoStack = consumer.stack();
+            if (ammoStack == null || ammoStack.isEmpty()) return;
+            String raw = BuiltInRegistries.ITEM.getKey(ammoStack.getItem()).toString();
             if (raw != null) {
                 long c = SuperbAmmoCache.INSTANCE.getCount("ITEM:" + raw);
                 if (c > 0) {
-                    var item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(raw));
+                    var rl = ResourceLocation.tryParse(raw);
+                    if (rl == null) return;
+                    var item = BuiltInRegistries.ITEM.get(rl);
                     if (item != null && item != Items.AIR) as = NumberFormat.getIntegerInstance().format(c) + " : " + item.getName(ItemStack.EMPTY).getString();
                 }
             }

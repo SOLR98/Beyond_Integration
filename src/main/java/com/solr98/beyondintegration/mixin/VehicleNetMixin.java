@@ -1,5 +1,5 @@
 package com.solr98.beyondintegration.mixin;
-import com.solr98.beyondintegration.handler.VehicleNetStorage;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.common.init.BDDataComponents;
 import net.minecraft.nbt.CompoundTag;

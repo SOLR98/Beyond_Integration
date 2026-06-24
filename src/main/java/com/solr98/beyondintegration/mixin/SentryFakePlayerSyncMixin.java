@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.handler.FakePlayerNetMarker;
+import com.solr98.beyondintegration.feature.sentry.SentryFakePlayerNetMarker;
 import euphy.upo.sentrymechanicalarm.content.SentryArmBlockEntity;
 import euphy.upo.sentrymechanicalarm.util.SentryFakePlayer;
 import net.neoforged.neoforge.common.util.FakePlayer;
@@ -21,6 +21,6 @@ public class SentryFakePlayerSyncMixin {
         SentryArmBlockEntity self = (SentryArmBlockEntity) (Object) this;
         FakePlayer fp = SentryFakePlayer.get(self);
         if (fp == null) return;
-        FakePlayerNetMarker.markFromBoxes(fp, self.attachedAmmoBoxes);
+        SentryFakePlayerNetMarker.markFromBoxes(fp, self.attachedAmmoBoxes);
     }
 }

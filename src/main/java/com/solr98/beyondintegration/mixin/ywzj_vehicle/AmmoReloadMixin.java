@@ -1,12 +1,11 @@
 package com.solr98.beyondintegration.mixin.ywzj_vehicle;
 
-import com.mojang.logging.LogUtils;
-import com.solr98.beyondintegration.handler.VehicleNetStorage;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
+import com.solr98.beyondintegration.handler.YwzjCreativeAccessor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
-import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,8 +16,6 @@ import org.ywzj.vehicle.vehicle.weapon.AbstractVehicleWeapon;
 
 @Mixin(AbstractVehicleWeapon.class)
 public class AmmoReloadMixin {
-
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     @Inject(method = "hasStorageAmmo", at = @At("RETURN"), cancellable = true)
     private void beyond$hasNetworkAmmo(CallbackInfoReturnable<Boolean> cir) {
@@ -34,6 +31,11 @@ public class AmmoReloadMixin {
 
         DimensionsNet net = DimensionsNet.getNetFromId(netId);
         if (net == null) return;
+
+        if (net instanceof YwzjCreativeAccessor yca && yca.beyond$isYwzjCreativeAmmo()) {
+            cir.setReturnValue(true);
+            return;
+        }
 
         Ingredient ammoType = self.getData().getReload().getAmmo();
         if (ammoType == null) return;
@@ -58,11 +60,16 @@ public class AmmoReloadMixin {
         DimensionsNet net = DimensionsNet.getNetFromId(netId);
         if (net == null) return;
 
-        Ingredient ammoType = self.getData().getReload().getAmmo();
-        if (ammoType == null) return;
-
         int needed = self.getMaxCapacity() - self.getRemainAmmo();
         if (needed <= 0) return;
+
+        if (net instanceof YwzjCreativeAccessor yca && yca.beyond$isYwzjCreativeAmmo()) {
+            self.setRemainAmmo(self.getMaxCapacity());
+            return;
+        }
+
+        Ingredient ammoType = self.getData().getReload().getAmmo();
+        if (ammoType == null) return;
 
         int total = 0;
         for (ItemStack stack : ammoType.getItems()) {
@@ -78,7 +85,6 @@ public class AmmoReloadMixin {
         if (total > 0) {
             self.setRemainAmmo(self.getRemainAmmo() + total);
             net.setDirty();
-            LOGGER.info("[BD-Net] Filled {} ammo from network after reload", total);
         }
     }
 }

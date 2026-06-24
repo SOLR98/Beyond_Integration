@@ -21,13 +21,11 @@ public class EnchantToggleBtn extends Button {
         var tex = isHovered ? SLOT_HOVERED : SLOT;
         g.blit(tex, getX(), getY(), 0, 0, 16, 16, 16, 16);
 
-        boolean on = SuperbAmmoCache.INSTANCE.getEnchantSeparation();
         var pose = g.pose();
         pose.pushPose();
         pose.translate(getX() + 1, getY() + 1, 1);
         pose.scale(0.85f, 0.85f, 1);
         g.renderFakeItem(new ItemStack(Items.ENCHANTED_BOOK), 0, 0);
-        if (!on) g.fill(0, 0, 18, 18, 0xC0646464);
         pose.popPose();
     }
 

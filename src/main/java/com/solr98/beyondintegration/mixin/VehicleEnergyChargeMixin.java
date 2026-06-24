@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.mixin;
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.handler.VehicleNetStorage;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
 import net.neoforged.neoforge.energy.IEnergyStorage;
@@ -33,12 +33,21 @@ public abstract class VehicleEnergyChargeMixin {
             return;
         }
 
-        double pct = CommandConfig.vehicleChargePercentage();
+        CommandConfig.SWChargeMode mode = CommandConfig.swChargeMode();
         long want;
-        if (pct > 0) {
-            want = (long) Math.ceil(needed * pct / 100.0);
-        } else {
-            want = Math.min(needed, CommandConfig.SERVER.swVehicleEnergyChargeRate.get());
+        switch (mode) {
+            case PERCENTAGE -> {
+                double pct = CommandConfig.vehicleChargePercentage();
+                want = (long) Math.ceil(needed * pct / 100.0);
+            }
+            case ABSOLUTE -> want = Math.min(needed, CommandConfig.swVehicleEnergyChargeRate());
+            case SUM -> {
+                double pct = CommandConfig.vehicleChargePercentage();
+                long pctPart = (long) Math.ceil(needed * pct / 100.0);
+                long absPart = CommandConfig.swVehicleEnergyChargeRate();
+                want = Math.min((long) needed, pctPart + absPart);
+            }
+            default -> want = 0;
         }
         if (want <= 0) return;
 

@@ -11,7 +11,7 @@ public class TaczClientRegistrar {
             if (e.getLogicalSide() == LogicalSide.CLIENT
                     && e.getEntity() instanceof net.minecraft.client.player.LocalPlayer) {
                 ResourceLocation ammoId =
-                        com.solr98.beyondintegration.handler.TaczAmmoExtractor.getAmmoIdClient(e.getCurrentGunItem());
+                        com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor.getAmmoIdClient(e.getCurrentGunItem());
                 if (ammoId != null)
                     TaczAmmoCache.requestQuick(ammoId);
             }

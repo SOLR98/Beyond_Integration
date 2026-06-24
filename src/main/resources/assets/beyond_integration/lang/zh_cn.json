@@ -40,7 +40,12 @@
   "beyond_integration.config.enchant.formula": "消耗公式",
   "beyond_integration.config.enchant.use_formula": "使用自定义公式",
   "beyond_integration.config.enchant.high_cost": "高消耗附魔",
+  "beyond_integration.config.enchant.filter_mode": "过滤器模式",
+  "beyond_integration.config.enchant.filter_list": "附魔过滤列表",
+  "beyond_integration.config.enchant.item_filter_mode": "物品过滤器模式",
+  "beyond_integration.config.enchant.item_filter_list": "物品过滤列表",
   "beyond_integration.config.vehicle": "卓越前线：载具",
+  "beyond_integration.config.vehicle.chargeMode": "充电模式",
   "beyond_integration.config.vehicle.energyChargeRate": "充电速率 (FE/tick)",
   "beyond_integration.config.vehicle.chargeInterval": "充电间隔 (tick)",
   "beyond_integration.config.vehicle.chargePercentage": "充电百分比 (%)",
@@ -75,9 +80,11 @@
   "hud.beyond_integration.network_title.name": "%s（Net#%s）",
   "hud.beyond_integration.energy_line": "\u26A1 %s FE",
   "tooltip.beyond_integration.network_id": "网络 #%d",
+  "tooltip.beyond_integration.protected": "§a该物品不会进行附魔分离",
   "gui.beyond_integration.enchant_sep": "附魔分离：%s",
   "gui.beyond_integration.enchant_sep.on": "§a分离",
   "gui.beyond_integration.enchant_sep.off": "§c不分离",
+
 
   "gui.beyond_integration.network.connected": "网络 #%s",
   "gui.beyond_integration.network.none": "无网络",
@@ -88,8 +95,15 @@
 
   "message.beyond_integration.material_insufficient": "材料不足：%s",
   "message.beyond_integration.no_network": "你不在任何网络中。",
+  "message.beyond_integration.recipe_not_found": "§c未找到合成表：%s",
+  "message.beyond_integration.recipe_type_mismatch": "§c合成表类型不匹配，无法进行网络合成。",
 
   "message.beyond_integration.cannot_toggle_enchant_sep": "§c需要管理员或以上权限才能切换附魔分离",
   "message.beyond_integration.using_primary_net_ammo": "§7[网络] §f正在使用主网络弹药。",
-  "message.beyond_integration.using_net_ammo": "§7[网络] §f正在使用网络 §e#%s §f弹药。"
+  "message.beyond_integration.using_net_ammo": "§7[网络] §f正在使用网络 §e#%s §f弹药。",
+
+  "message.beyond_integration.protect.no_item": "§c请在主手持有物品来添加保护。",
+  "message.beyond_integration.protect.added": "§a已保护 §f%s §a免受附魔分离。",
+  "message.beyond_integration.protect.removed": "§e已移除 §f%s §e的附魔分离保护。",
+  "message.beyond_integration.protect.error": "§c错误：%s"
 }

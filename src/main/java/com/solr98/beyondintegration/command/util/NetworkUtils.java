@@ -190,15 +190,12 @@ public class NetworkUtils {
     }
 
     public static int getCrystalRemainingTime(DimensionsNet net) {
-        try {
-            int crystalGenerateTime = com.wintercogs.beyonddimensions.config.ServerConfigRuntime.crystalGenerateTime;
-            if (crystalGenerateTime <= 0) return -1;
-            var field = DimensionsNet.class.getDeclaredField("currentTime");
-            field.setAccessible(true);
-            int elapsedTime = field.getInt(net);
+        int crystalGenerateTime = com.wintercogs.beyonddimensions.config.ServerConfigRuntime.crystalGenerateTime;
+        if (crystalGenerateTime <= 0) return -1;
+        if (net instanceof com.solr98.beyondintegration.mixin.DimensionsNetTimeAccessor acc) {
+            int elapsedTime = acc.getCurrentTime();
             return Math.max(0, crystalGenerateTime * 20 - elapsedTime);
-        } catch (Exception e) {
-            return -1;
         }
+        return -1;
     }
 }

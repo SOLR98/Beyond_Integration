@@ -6,5 +6,6 @@ import net.minecraft.resources.ResourceLocation;
 
 @JeiPlugin
 public class BDJeiPlugin implements IModPlugin {
+    // TODO: Implement JEI integration for Beyond Integration items/recipes
     @Override public ResourceLocation getPluginUid() { return ResourceLocation.parse(BeyondIntegration.MODID + ":jei_plugin"); }
 }

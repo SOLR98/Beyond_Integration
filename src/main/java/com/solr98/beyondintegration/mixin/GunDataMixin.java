@@ -5,9 +5,9 @@ import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.client.SuperbAmmoCache;
 import com.solr98.beyondintegration.command.util.NetworkUtils;
-import com.solr98.beyondintegration.handler.FakePlayerNetMarker;
+import com.solr98.beyondintegration.feature.sentry.SentryFakePlayerNetMarker;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
-import com.solr98.beyondintegration.handler.VehicleNetStorage;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
 import com.solr98.beyondintegration.maid.MaidNetworkHelper;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
@@ -126,12 +126,16 @@ public class GunDataMixin {
 
     private static List<DimensionsNet> getNets(Entity entity) {
         List<DimensionsNet> nets = new ArrayList<>();
-        if (entity instanceof ServerPlayer p) nets.addAll(NetworkUtils.getPlayerNetsPrimaryFirst(p));
-        if (entity instanceof VehicleEntity v) { int id = VehicleNetStorage.getBoundNetId(v.getUUID()); if (id >= 0) { var n = DimensionsNet.getNetFromId(id); if (n != null) nets.add(n); } }
-        if (entity instanceof FakePlayer fp) { var n = FakePlayerNetMarker.getNet(fp); if (n != null) nets.add(n); }
+        if (entity instanceof ServerPlayer p) {
+            for (var net : NetworkUtils.getPlayerNetsPrimaryFirst(p)) {
+                if (!nets.contains(net)) nets.add(net);
+            }
+        }
+        if (entity instanceof VehicleEntity v) { int id = VehicleNetStorage.getBoundNetId(v.getUUID()); if (id >= 0) { var n = DimensionsNet.getNetFromId(id); if (n != null && !nets.contains(n)) nets.add(n); } }
+        if (entity instanceof FakePlayer fp) { var n = SentryFakePlayerNetMarker.getNet(fp); if (n != null && !nets.contains(n)) nets.add(n); }
         if (entity instanceof LivingEntity living && net.neoforged.fml.ModList.get().isLoaded("touhou_little_maid")) {
             var n = MaidNetworkHelper.findTerminal(living);
-            if (n != null) nets.add(n);
+            if (n != null && !nets.contains(n)) nets.add(n);
         }
         return nets;
     }

@@ -80,8 +80,9 @@ public abstract class VehicleHudNetworkMixin {
                         String itemId = raw;
                         long count = SuperbAmmoCache.INSTANCE.getVehicleCount("ITEM:" + itemId);
                         if (count > 0) {
-                            var item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(itemId));
-                            if (item != null && item != Items.AIR) {
+                            var rl = ResourceLocation.tryParse(itemId);
+                            if (rl != null) {
+                                var item = BuiltInRegistries.ITEM.get(rl);
                                 ammoStr = item.getName(ItemStack.EMPTY).getString() + " : " + NumberFormat.getIntegerInstance().format(count);
                             }
                         }

@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.handler.VehicleNetStorage;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.common.init.BDDataComponents;
 import net.minecraft.world.InteractionHand;
@@ -18,6 +18,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(targets = "com.wintercogs.beyonddimensions.common.item.NetTerminalItem", remap = false)
 public class NetTerminalItemMixin {
+
+    private static Class<?> swVehicleClass;
+    private static boolean swChecked;
+
+    private static boolean isSwVehicle(Entity e) {
+        if (!swChecked) {
+            swChecked = true;
+            try {
+                swVehicleClass = Class.forName("com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity");
+            } catch (Exception ignored) {}
+        }
+        return swVehicleClass != null && swVehicleClass.isInstance(e);
+    }
 
     @Inject(method = "use", at = @At("HEAD"), cancellable = true, remap = true)
     private void onUse(Level level, Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResultHolder<ItemStack>> cir) {
@@ -42,12 +55,7 @@ public class NetTerminalItemMixin {
         AABB box = new AABB(from, to).inflate(2);
         for (Entity e : player.level().getEntities(player, box, e -> {
             if (e == player) return false;
-            try {
-                Class<?> vc = Class.forName("com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity");
-                return vc.isInstance(e);
-            } catch (Exception ex) {
-                return false;
-            }
+            return isSwVehicle(e);
         })) {
             var hit = e.getBoundingBox().clip(from, to).orElse(null);
             if (hit != null) return e;

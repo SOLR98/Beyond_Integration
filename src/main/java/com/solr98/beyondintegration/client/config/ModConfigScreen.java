@@ -37,15 +37,27 @@ public class ModConfigScreen {
                 .setDefaultValue(java.util.Arrays.asList("minecraft:mending:3.0", "minecraft:frost_walker:3.0",
                         "minecraft:sharpness:1.2", "minecraft:protection:1.2"))
                 .setSaveConsumer(list -> cfg.enchantHighCostList.set(new ArrayList<>(list))).build());
+        enchant.addEntry(eb.startEnumSelector(Component.translatable("beyond_integration.config.enchant.filter_mode"), CommandConfig.EnchantFilterMode.class, cfg.enchantFilterMode.get())
+                .setDefaultValue(CommandConfig.EnchantFilterMode.DISABLED).setSaveConsumer(cfg.enchantFilterMode::set).build());
+        enchant.addEntry(eb.startStrList(Component.translatable("beyond_integration.config.enchant.filter_list"), new ArrayList<>(cfg.enchantFilterList.get()))
+                .setDefaultValue(java.util.Arrays.asList("minecraft:mending"))
+                .setSaveConsumer(list -> cfg.enchantFilterList.set(new ArrayList<>(list))).build());
+        enchant.addEntry(eb.startEnumSelector(Component.translatable("beyond_integration.config.enchant.item_filter_mode"), CommandConfig.EnchantItemFilterMode.class, cfg.enchantItemFilterMode.get())
+                .setDefaultValue(CommandConfig.EnchantItemFilterMode.DISABLED).setSaveConsumer(cfg.enchantItemFilterMode::set).build());
+        enchant.addEntry(eb.startStrList(Component.translatable("beyond_integration.config.enchant.item_filter_list"), new ArrayList<>(cfg.enchantItemFilterList.get()))
+                .setDefaultValue(java.util.Arrays.asList("minecraft:diamond_sword", "minecraft:enchanted_book"))
+                .setSaveConsumer(list -> cfg.enchantItemFilterList.set(new ArrayList<>(list))).build());
 
         // ── Vehicle ──
         var vehicle = builder.getOrCreateCategory(Component.translatable("beyond_integration.config.vehicle"));
+        vehicle.addEntry(eb.startEnumSelector(Component.translatable("beyond_integration.config.vehicle.chargeMode"), CommandConfig.SWChargeMode.class, cfg.swChargeMode.get())
+                .setDefaultValue(CommandConfig.SWChargeMode.SUM).setSaveConsumer(cfg.swChargeMode::set).build());
         vehicle.addEntry(eb.startIntField(Component.translatable("beyond_integration.config.vehicle.energyChargeRate"), cfg.swVehicleEnergyChargeRate.get())
                 .setDefaultValue(500000).setMin(0).setMax(Integer.MAX_VALUE).setSaveConsumer(cfg.swVehicleEnergyChargeRate::set).build());
         vehicle.addEntry(eb.startIntField(Component.translatable("beyond_integration.config.vehicle.chargeInterval"), cfg.swVehicleChargeInterval.get())
                 .setDefaultValue(20).setMin(1).setMax(1200).setSaveConsumer(cfg.swVehicleChargeInterval::set).build());
         vehicle.addEntry(eb.startDoubleField(Component.translatable("beyond_integration.config.vehicle.chargePercentage"), cfg.swVehicleChargePercentage.get())
-                .setDefaultValue(0.0).setMin(0.0).setMax(100.0).setSaveConsumer(cfg.swVehicleChargePercentage::set).build());
+                .setDefaultValue(50.0).setMin(0.0).setMax(100.0).setSaveConsumer(cfg.swVehicleChargePercentage::set).build());
 
         // ── Ywzj Vehicle ──
         var ywzj = builder.getOrCreateCategory(Component.translatable("beyond_integration.config.ywzj_vehicle"));

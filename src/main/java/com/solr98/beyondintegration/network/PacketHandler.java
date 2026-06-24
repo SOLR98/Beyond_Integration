@@ -34,6 +34,8 @@ public class PacketHandler {
                 TaczCraftPacket::handle);
         registrar.playToClient(YwzjVehicleDataResponsePacket.TYPE, YwzjVehicleDataResponsePacket.STREAM_CODEC,
                 YwzjVehicleDataResponsePacket::handle);
+        registrar.playToServer(ProtectItemPacket.TYPE, ProtectItemPacket.STREAM_CODEC,
+                ProtectItemPacket::handle);
     }
 
     public static void sendToServer(CustomPacketPayload packet) {

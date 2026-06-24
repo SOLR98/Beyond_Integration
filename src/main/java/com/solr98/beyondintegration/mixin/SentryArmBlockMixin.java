@@ -1,6 +1,5 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.mojang.logging.LogUtils;
 import com.wintercogs.beyonddimensions.common.init.BDDataComponents;
 import euphy.upo.sentrymechanicalarm.content.SentryArmBlockEntity;
 import net.minecraft.core.BlockPos;
@@ -12,7 +11,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
-import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,8 +20,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Pseudo
 @Mixin(targets = "euphy.upo.sentrymechanicalarm.content.SentryArmBlock", remap = false)
 public class SentryArmBlockMixin {
-
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     @Inject(method = "useItemOn", at = @At("HEAD"), cancellable = true)
     private void beyond$onUseItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
@@ -38,7 +34,6 @@ public class SentryArmBlockMixin {
         ItemStack held = sentry.getHeldItem();
         if (held.isEmpty()) {
             if (!level.isClientSide) {
-                LOGGER.debug("Sentry at {} has no gun, cannot bind net#{}", pos, netId);
                 player.displayClientMessage(
                         net.minecraft.network.chat.Component.translatable("message.beyond_integration.sentry_no_gun"), true);
             }
@@ -48,10 +43,8 @@ public class SentryArmBlockMixin {
 
         boolean ok = sentry.addAmmoBox(stack);
         if (ok) {
-            LOGGER.debug("Bound net#{} to sentry at {}", netId, pos);
             if (!level.isClientSide && !player.isCreative()) stack.shrink(1);
         } else {
-            LOGGER.debug("Sentry at {} ammo box slots full, cannot bind net#{}", pos, netId);
             if (!level.isClientSide)
                 player.displayClientMessage(
                         net.minecraft.network.chat.Component.translatable("sentry.tooltip.ammobox_1"), true);

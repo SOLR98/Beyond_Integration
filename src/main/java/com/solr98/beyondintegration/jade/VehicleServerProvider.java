@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.jade;
 import com.solr98.beyondintegration.handler.NetworkNameProvider;
-import com.solr98.beyondintegration.handler.VehicleNetStorage;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;

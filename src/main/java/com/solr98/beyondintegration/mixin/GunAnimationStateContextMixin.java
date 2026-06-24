@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 import com.solr98.beyondintegration.client.TaczAmmoCache;
-import com.solr98.beyondintegration.handler.TaczAmmoExtractor;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
 import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
