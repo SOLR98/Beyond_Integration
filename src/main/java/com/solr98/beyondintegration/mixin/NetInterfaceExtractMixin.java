@@ -1,26 +1,22 @@
 package com.solr98.beyondintegration.mixin;
-import com.mojang.logging.LogUtils;
-import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
+
+import com.solr98.beyondintegration.feature.bind.ExtractFlag;
+import com.solr98.beyondintegration.feature.bind.NetworkMeters;
+import com.solr98.beyondintegration.feature.extract.ExtractHandlerRegistry;
+import com.solr98.beyondintegration.feature.extract.IExtractHandler;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.dimensionnet.UnifiedStorage;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
-import com.wintercogs.beyonddimensions.api.storage.key.impl.EmptyStackKey;
-import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import com.wintercogs.beyonddimensions.common.block.entity.NetInterfaceBlockEntity;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.ModList;
-import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(targets = "com.wintercogs.beyonddimensions.common.block.entity.NetInterfaceBlockEntity", remap = false)
 public class NetInterfaceExtractMixin {
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     @Redirect(method = "transferFromNet",
               at = @At(value = "INVOKE",
@@ -28,54 +24,39 @@ public class NetInterfaceExtractMixin {
               remap = false)
     private KeyAmount redirectExtract(UnifiedStorage storage, IStackKey<?> key, long amount, boolean simulate, boolean fuzzy) {
         DimensionsNet net = null;
-        try { net = ((NetInterfaceBlockEntity) (Object) this).getNet(); } catch (Exception e) { LOGGER.warn("redirectExtract: cannot get net", e); }
+        BlockPos pos = BlockPos.ZERO;
+        try {
+            NetInterfaceBlockEntity be = (NetInterfaceBlockEntity) (Object) this;
+            net = be.getNet();
+            pos = be.getBlockPos();
+        } catch (Exception ignored) {}
 
-        if (!ModList.get().isLoaded("superbwarfare") || net == null || !(net instanceof SuperbAmmoAccessor acc)) {
-            return storage.extract(key, amount, simulate, fuzzy);
+        ExtractFlag.set(ExtractFlag.Source.NET_INTERFACE);
+        try {
+            KeyAmount result = null;
+            for (IExtractHandler handler : ExtractHandlerRegistry.getHandlers()) {
+                result = handler.handleExtract(net, storage, key, amount, simulate, fuzzy);
+                if (result != null) break;
+            }
+            if (result == null) {
+                result = storage.extract(key, amount, simulate, fuzzy);
+            }
+            if (!simulate && net != null && result != null && !result.isEmpty()) {
+                ResourceLocation itemId = extractItemId(key);
+                if (itemId != null) {
+                    NetworkMeters.recordInterfaceExtract(net.getId(), pos, itemId, result.amount());
+                }
+            }
+            return result;
+        } finally {
+            ExtractFlag.clear();
         }
-        if (!(key instanceof ItemStackKey itemKey)) {
-            return storage.extract(key, amount, simulate, fuzzy);
-        }
-
-        ResourceLocation regId = BuiltInRegistries.ITEM.getKey(itemKey.getSource());
-        if (regId == null || !"superbwarfare".equals(regId.getNamespace())) return storage.extract(key, amount, simulate, fuzzy);
-        String path = regId.getPath();
-
-        String ammoTypeName = beyond$matchAmmoType(path);
-        if (ammoTypeName == null) {
-            return storage.extract(key, amount, simulate, fuzzy);
-        }
-
-        var ammoMap = acc.getSuperbAmmo();
-        long available = ammoMap.getOrDefault(ammoTypeName, 0L);
-        if (available <= 0) {
-            return new KeyAmount(EmptyStackKey.INSTANCE, 0L);
-        }
-
-        long toExtract = Math.min(available, amount);
-        if (simulate) {
-            return new KeyAmount(
-                    new ItemStackKey(new ItemStack(itemKey.getSource(), (int) Math.min(toExtract, 9999))),
-                    toExtract);
-        }
-
-        long remaining = available - toExtract;
-        if (remaining <= 0) ammoMap.remove(ammoTypeName);
-        else ammoMap.put(ammoTypeName, remaining);
-        net.setDirty();
-
-        ItemStack resultStack = new ItemStack(itemKey.getSource(), (int) Math.min(toExtract, 9999));
-        return new KeyAmount(new ItemStackKey(resultStack), toExtract);
     }
 
-    @Unique
-    private static String beyond$matchAmmoType(String path) {
-        if (!ModList.get().isLoaded("superbwarfare")) return null;
-        if ("handgun_ammo".equals(path) || "handgun_ammo_box".equals(path)) return "HandgunAmmo";
-        if ("rifle_ammo".equals(path) || "rifle_ammo_box".equals(path)) return "RifleAmmo";
-        if ("shotgun_ammo".equals(path) || "shotgun_ammo_box".equals(path)) return "ShotgunAmmo";
-        if ("sniper_ammo".equals(path) || "sniper_ammo_box".equals(path)) return "SniperAmmo";
-        if ("heavy_ammo".equals(path)) return "HeavyAmmo";
-        return null;
+    private static ResourceLocation extractItemId(IStackKey<?> key) {
+        if (key instanceof com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey ik) {
+            return net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ik.getSource());
+        }
+        return key.getTypeId();
     }
 }

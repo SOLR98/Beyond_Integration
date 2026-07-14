@@ -1,8 +1,10 @@
 package com.solr98.beyondintegration.mixin;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.solr98.beyondintegration.client.TaczAmmoCache;
-import com.solr98.beyondintegration.handler.TaczAmmoExtractor;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
 import com.tacz.guns.api.item.IGun;
+import com.tacz.guns.client.gui.overlay.GunHudOverlay;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -11,72 +13,56 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.client.gui.overlay.ForgeGui;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import java.util.Map;
 
-@Mixin(targets = "com.tacz.guns.client.gui.overlay.GunHudOverlay", remap = false)
+@Mixin(value = GunHudOverlay.class, remap = false)
 public class GunHudOverlayMixin {
-    @Unique private static Map<Integer, Integer> beyond$networkAmmoMap = Map.of();
-    @Unique private static ResourceLocation beyond$lastAmmoId = null;
+
+    @Shadow
+    private static int cacheInventoryAmmoCount;
+
+    @Unique
+    private static int beyond$networkAmmoCount = 0;
 
     @Inject(method = "handleInventoryAmmo", at = @At("RETURN"))
-    private static void beyond$onHandleInventoryAmmo(ItemStack stack, Inventory inventory, CallbackInfo ci) {
+    private static void onHandleInventoryAmmo(ItemStack stack, Inventory inventory, CallbackInfo ci) {
+        if (cacheInventoryAmmoCount >= 9999) return;
+
         ResourceLocation ammoId = TaczAmmoExtractor.getAmmoIdClient(stack);
         if (ammoId == null) return;
-        beyond$networkAmmoMap = TaczAmmoCache.getAllNetworkCounts(ammoId);
-        beyond$lastAmmoId = ammoId;
-        TaczAmmoCache.requestQuick(ammoId);
+
+        beyond$networkAmmoCount = TaczAmmoCache.getCount(ammoId);
     }
 
-    @Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V", at = @At("RETURN"), remap = false)
-    private void beyond$onRender(GuiGraphics graphics, net.minecraft.client.DeltaTracker deltaTracker, CallbackInfo ci) {
+    @Inject(method = "render", at = @At("RETURN"))
+    private void onRender(ForgeGui gui, GuiGraphics graphics, float partialTick, int width, int height, CallbackInfo ci) {
+        if (beyond$networkAmmoCount <= 0) return;
+
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null) return;
         ItemStack stack = player.getMainHandItem();
         if (!(stack.getItem() instanceof IGun)) return;
-        if (beyond$networkAmmoMap.isEmpty() || beyond$lastAmmoId == null) return;
-
-        int netId = -1;
-        long displayCount = 0;
-        boolean infinite = false;
-        for (var entry : beyond$networkAmmoMap.entrySet()) {
-            int raw = entry.getValue();
-            if (entry.getKey() >= 0 && raw > 0) {
-                netId = entry.getKey();
-                if (raw == Integer.MAX_VALUE) { infinite = true; displayCount = 0; }
-                else displayCount += raw;
-                break;
-            }
-        }
-        if (netId < 0) return;
 
         Font font = mc.font;
-        PoseStack pose = graphics.pose();
-        pose.pushPose();
-        float s = 0.8f;
-        pose.scale(s, s, 1);
+        PoseStack poseStack = graphics.pose();
+        poseStack.pushPose();
+        poseStack.scale(0.8f, 0.8f, 1);
 
-        float colonX = (mc.getWindow().getGuiScaledWidth() - 45) / s;
-        float y = (mc.getWindow().getGuiScaledHeight() - 53) / s;
+        float baseX = (width - 70) / 0.8f;
+        float baseY = (height - 53) / 0.8f;
 
-        Component netNameComp = TaczAmmoCache.getNetworkDisplayName(netId, beyond$lastAmmoId);
-        String countStr = infinite ? "infinity" : String.valueOf((int) Math.min(displayCount, Integer.MAX_VALUE));
+        Component text = beyond$networkAmmoCount == Integer.MAX_VALUE
+                ? Component.translatable("hud.beyond_integration.network_ammo.infinite")
+                : Component.translatable("hud.beyond_integration.network_ammo", beyond$networkAmmoCount);
+        graphics.drawString(font, text, (int) baseX, (int) baseY, 0x55FFFF, false);
 
-        String nameStr = netNameComp.getString();
-        String colonStr = ": ";
-
-        int nameEndX = (int) colonX;
-        int colonDrawX = (int) colonX;
-        int countStartX = (int) colonX + font.width(colonStr);
-
-        graphics.drawString(font, nameStr, nameEndX - font.width(nameStr), (int) y, 0x55FFFF, false);
-        graphics.drawString(font, colonStr, colonDrawX, (int) y, 0x55FFFF, false);
-        graphics.drawString(font, countStr, countStartX, (int) y, 0x55FFFF, false);
-        pose.popPose();
+        poseStack.popPose();
     }
 }

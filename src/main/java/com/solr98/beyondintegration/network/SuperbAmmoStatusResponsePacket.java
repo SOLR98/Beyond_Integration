@@ -1,39 +1,84 @@
 package com.solr98.beyondintegration.network;
-import com.solr98.beyondintegration.BeyondIntegration;
+
 import com.solr98.beyondintegration.client.SuperbAmmoCache;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
-import org.jetbrains.annotations.NotNull;
+import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
+import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraftforge.network.NetworkEvent;
+
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
-public record SuperbAmmoStatusResponsePacket(int netId, Map<String, Long> ammoMap, long energy, int mode, String networkName, boolean enchantSeparation) implements CustomPacketPayload {
-    public static final Type<SuperbAmmoStatusResponsePacket> TYPE = new Type<>(ResourceLocation.parse(BeyondIntegration.MODID + ":superb_ammo_status_response"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, SuperbAmmoStatusResponsePacket> STREAM_CODEC = new StreamCodec<>() {
-        @Override public @NotNull SuperbAmmoStatusResponsePacket decode(RegistryFriendlyByteBuf buf) {
-            int netId = buf.readInt(); long energy = buf.readLong(); int mode = buf.readInt();
-            String networkName = buf.readUtf(); int size = buf.readInt();
-            Map<String, Long> map = new HashMap<>();
-            for (int i = 0; i < size; i++) map.put(buf.readUtf(), buf.readLong());
-            boolean enchantSep = buf.readBoolean();
-            return new SuperbAmmoStatusResponsePacket(netId, map, energy, mode, networkName, enchantSep);
-        }
-        @Override public void encode(RegistryFriendlyByteBuf buf, SuperbAmmoStatusResponsePacket p) {
-            buf.writeInt(p.netId); buf.writeLong(p.energy); buf.writeInt(p.mode);
-            buf.writeUtf(p.networkName); buf.writeInt(p.ammoMap.size());
-            p.ammoMap.forEach((k, v) -> { buf.writeUtf(k); buf.writeLong(v); });
-            buf.writeBoolean(p.enchantSeparation);
-        }
-    };
-    public static void handle(final SuperbAmmoStatusResponsePacket packet, final IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (packet.mode == 1) SuperbAmmoCache.INSTANCE.updateVehicle(packet.netId, packet.ammoMap, packet.energy, packet.networkName);
-            else SuperbAmmoCache.INSTANCE.update(packet.netId, packet.ammoMap, packet.energy, packet.networkName);
-            SuperbAmmoCache.INSTANCE.setEnchantSeparation(packet.enchantSeparation);
-        });
+public class SuperbAmmoStatusResponsePacket {
+
+    private final int netId;
+    private final Map<String, Long> ammo;
+    private final long energy;
+    private final int type;
+    private final String name;
+    private final boolean enchantSeparation;
+
+    public SuperbAmmoStatusResponsePacket(int netId, Map<String, Long> ammo, long energy) {
+        this(netId, ammo, energy, 0, "", true);
     }
-    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+
+    public SuperbAmmoStatusResponsePacket(int netId, Map<String, Long> ammo, long energy, int type) {
+        this(netId, ammo, energy, type, "", true);
+    }
+
+    public SuperbAmmoStatusResponsePacket(int netId, Map<String, Long> ammo, long energy, int type, String name, boolean enchantSeparation) {
+        this.netId = netId;
+        this.ammo = ammo;
+        this.energy = energy;
+        this.type = type;
+        this.name = name;
+        this.enchantSeparation = enchantSeparation;
+    }
+
+    public static SuperbAmmoStatusResponsePacket fromNet(DimensionsNet net, Map<String, Long> ammo, long energy, int type, String name) {
+        boolean enchantSep = net instanceof EnchantSeparationAccessor ea && ea.beyond$isEnchantSeparationEnabled();
+        return new SuperbAmmoStatusResponsePacket(net.getId(), ammo, energy, type, name, enchantSep);
+    }
+
+    public static void encode(SuperbAmmoStatusResponsePacket msg, FriendlyByteBuf buf) {
+        buf.writeVarInt(msg.netId);
+        buf.writeVarInt(msg.type);
+        buf.writeUtf(msg.name);
+        buf.writeVarLong(msg.energy);
+        buf.writeBoolean(msg.enchantSeparation);
+        buf.writeVarInt(msg.ammo.size());
+        for (var entry : msg.ammo.entrySet()) {
+            buf.writeUtf(entry.getKey());
+            buf.writeVarLong(entry.getValue());
+        }
+    }
+
+    public static SuperbAmmoStatusResponsePacket decode(FriendlyByteBuf buf) {
+        int netId = buf.readVarInt();
+        int type = buf.readVarInt();
+        String name = buf.readUtf();
+        long energy = buf.readVarLong();
+        boolean enchantSep = buf.readBoolean();
+        int size = buf.readVarInt();
+        Map<String, Long> ammo = new HashMap<>();
+        for (int i = 0; i < size; i++) {
+            ammo.put(buf.readUtf(), buf.readVarLong());
+        }
+        return new SuperbAmmoStatusResponsePacket(netId, ammo, energy, type, name, enchantSep);
+    }
+
+    public static void handle(SuperbAmmoStatusResponsePacket msg, Supplier<NetworkEvent.Context> ctx) {
+        ctx.get().enqueueWork(() -> {
+            if (ctx.get().getDirection().getReceptionSide().isClient()) {
+                if (msg.type == 1) {
+                    SuperbAmmoCache.updateVehicle(msg.netId, msg.ammo, msg.energy, msg.name);
+                } else {
+                    SuperbAmmoCache.update(msg.netId, msg.ammo, msg.energy, msg.name);
+                }
+                SuperbAmmoCache.setEnchantSeparation(msg.enchantSeparation);
+            }
+        });
+        ctx.get().setPacketHandled(true);
+    }
 }

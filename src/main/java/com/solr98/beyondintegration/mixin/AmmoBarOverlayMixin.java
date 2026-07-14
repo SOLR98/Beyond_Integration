@@ -1,72 +1,134 @@
+/*
+ * Beyond Cmd Extension - 超越命令扩展
+ * Copyright (C) 2025 solr98
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program contains modifications of:
+ *   Superb Warfare - Copyright (C) Atsuishio, Roki27, Light_Quanta (GPLv3)
+ *     https://github.com/Mercurows/SuperbWarfare
+ *   Timeless & Classics Guns: Zero - Copyright (C) Serene Wave Studio / Timeless Squad (GPLv3)
+ *     https://github.com/MCModderAnchor/TACZ
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Source code: https://github.com/SOLR98/beyond_Cmd-Extension
+ */
 package com.solr98.beyondintegration.mixin;
+
+import com.atsuishio.superbwarfare.client.overlay.AmmoBarOverlay;
 import com.atsuishio.superbwarfare.client.overlay.RenderContext;
-import com.atsuishio.superbwarfare.data.gun.Ammo;
 import com.atsuishio.superbwarfare.data.gun.AmmoConsumer;
 import com.atsuishio.superbwarfare.data.gun.GunData;
 import com.atsuishio.superbwarfare.item.gun.GunItem;
 import com.solr98.beyondintegration.client.SuperbAmmoCache;
+import com.solr98.beyondintegration.network.PacketHandler;
+import com.solr98.beyondintegration.network.RequestSuperbAmmoStatusPacket;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
 import java.text.NumberFormat;
 
-@Mixin(targets = "com.atsuishio.superbwarfare.client.overlay.AmmoBarOverlay", remap = false)
-public class AmmoBarOverlayMixin {
-    @Inject(method = "render", at = @At("RETURN"), remap = false)
-    private void onRender(RenderContext ctx, CallbackInfo ci) {
-        var player = ctx.getPlayer();
-        if (player == null || player.getVehicle() != null) return;
+@Mixin(value = AmmoBarOverlay.class, remap = false)
+public abstract class AmmoBarOverlayMixin {
+
+    @Inject(method = "render(Lcom/atsuishio/superbwarfare/client/overlay/RenderContext;)V", at = @At("RETURN"), remap = false)
+    private void beyond$renderNetworkStatus(RenderContext context, CallbackInfo ci) {
+        Minecraft mc = Minecraft.getInstance();
+        var player = context.getPlayer();
+        if (player == null) return;
+
         ItemStack stack = player.getMainHandItem();
         if (!(stack.getItem() instanceof GunItem)) return;
-        if (!SuperbAmmoCache.INSTANCE.hasData()) return;
-
-        Font font = ctx.getMc().font;
-        GuiGraphics gg = ctx.getGuiGraphics();
-        int right = ctx.getScreenWidth() - 12;
-        int y = ctx.getScreenHeight() - 60;
-
-        int netId = SuperbAmmoCache.INSTANCE.getNetId();
-        String netName = SuperbAmmoCache.INSTANCE.getNetworkName();
-        String nl = !netName.isEmpty() ? netName + " (Net#" + netId + ")" : "(Net#" + netId + ")";
-        gg.drawString(font, nl, right - font.width(nl), y - 29, 0x55FFFF, true);
-
-        long en = SuperbAmmoCache.INSTANCE.getNetworkEnergy();
-        if (en >= 0) { String es = NumberFormat.getIntegerInstance().format(en) + " FE"; gg.drawString(font, es, right - font.width(es), y - 19, 0xFFAA00, true); }
+        if (player.getVehicle() != null) return;
 
         GunData data = GunData.from(stack);
-        if (data == null) return;
-        var consumer = data.selectedAmmoConsumer();
+        AmmoConsumer consumer = data.selectedAmmoConsumer();
         if (consumer == null) return;
-        var ct = consumer.getType();
-        String as = "";
-        if (ct == AmmoConsumer.AmmoConsumeType.PLAYER_AMMO) {
-            Ammo at = consumer.getPlayerAmmoType();
-            if (at != null) {
-                long c = SuperbAmmoCache.INSTANCE.getCount(at.serializationName);
-                boolean inf = SuperbAmmoCache.INSTANCE.hasInfinite();
-                if (c > 0 || inf) {
-                    String cs = inf ? "INF" : NumberFormat.getIntegerInstance().format(c);
-                    as = cs + " : " + Component.translatable(at.translationKey).getString();
+
+        if (!SuperbAmmoCache.hasData() || SuperbAmmoCache.isStale()) {
+            if (SuperbAmmoCache.canRequest()) {
+                SuperbAmmoCache.markRequested();
+                PacketHandler.sendToServer(new RequestSuperbAmmoStatusPacket());
+            }
+            if (!SuperbAmmoCache.hasData()) return;
+        }
+        if (SuperbAmmoCache.getNetId() < 0) return;
+
+        Font font = mc.font;
+        int h = context.getScreenHeight();
+        int rightEdge = context.getScreenWidth() - 12;
+        int y = h - 60;
+
+        String netName = SuperbAmmoCache.getNetworkName();
+        int netId = SuperbAmmoCache.getNetId();
+
+        // 第 1 行（顶部）：基地 (Net#1) —— 右对齐，永远渲染
+        String netLine = !netName.isEmpty()
+                ? netName + " (Net#" + netId + ")"
+                : "(Net#" + netId + ")";
+        context.getGuiGraphics().drawString(font, netLine, rightEdge - font.width(netLine), y - 29, 0x55FFFF, true);
+
+        // 第 2 行（中部）：xxxx FE —— 右对齐，永远渲染
+        String energyStr = "";
+        long netEnergy = SuperbAmmoCache.getNetworkEnergy();
+        if (netEnergy >= 0) {
+            energyStr = NumberFormat.getIntegerInstance().format(netEnergy) + " FE";
+        }
+        context.getGuiGraphics().drawString(font, energyStr, rightEdge - font.width(energyStr), y - 19, 0xFFAA00, true);
+
+        // 第 3 行（底部）：xxxx : 弹药名称 —— 右对齐，永远渲染
+        String ammoStr = "";
+        if (consumer.getType() == AmmoConsumer.AmmoConsumeType.PLAYER_AMMO) {
+            com.atsuishio.superbwarfare.data.gun.Ammo ammoType = consumer.getPlayerAmmoType();
+            if (ammoType != null) {
+                long count = SuperbAmmoCache.getCount(ammoType.serializationName);
+                boolean infinite = SuperbAmmoCache.getCount("__infinite__") > 0;
+                if (count > 0 || infinite) {
+                    String countStr = infinite ? "∞" : NumberFormat.getIntegerInstance().format(count);
+                    String name = Component.translatable(ammoType.translationKey).getString();
+                    ammoStr = countStr + " : " + name;
                 }
             }
-        } else if (ct == AmmoConsumer.AmmoConsumeType.ITEM) {
-            String raw = consumer.stack().isEmpty() ? null : BuiltInRegistries.ITEM.getKey(consumer.stack().getItem()).toString();
-            if (raw != null) {
-                long c = SuperbAmmoCache.INSTANCE.getCount("ITEM:" + raw);
-                if (c > 0) {
-                    var item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(raw));
-                    if (item != null && item != Items.AIR) as = NumberFormat.getIntegerInstance().format(c) + " : " + item.getName(ItemStack.EMPTY).getString();
+        } else if (consumer.getType() == AmmoConsumer.AmmoConsumeType.ITEM) {
+            String raw = consumer.stack().isEmpty() ? null : ForgeRegistries.ITEMS.getKey(consumer.stack().getItem()).toString();
+            if (raw == null || raw.isEmpty()) raw = consumer.getAmmo();
+            if (raw != null && !raw.isEmpty()) {
+                raw = raw.strip();
+                int space = raw.indexOf(' ');
+                if (space > 0) raw = raw.substring(space + 1).strip();
+                if (raw.startsWith("@") || raw.startsWith("#")) raw = raw.substring(1);
+                String itemId = raw;
+                if (itemId != null) {
+                    long count = SuperbAmmoCache.getCount("ITEM:" + itemId);
+                    if (count > 0) {
+                        var item = ForgeRegistries.ITEMS.getValue(ResourceLocation.tryParse(itemId));
+                        if (item != null && item != Items.AIR) {
+                            String name = item.getName(ItemStack.EMPTY).getString();
+                            ammoStr = NumberFormat.getIntegerInstance().format(count) + " : " + name;
+                        }
+                    }
                 }
             }
         }
-        if (!as.isEmpty()) gg.drawString(font, as, right - font.width(as), y - 9, 0x55FFFF, true);
+        context.getGuiGraphics().drawString(font, ammoStr, rightEdge - font.width(ammoStr), y - 9, 0x55FFFF, true);
     }
 }

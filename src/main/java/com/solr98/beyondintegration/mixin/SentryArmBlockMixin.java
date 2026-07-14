@@ -1,61 +1,75 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.mojang.logging.LogUtils;
-import com.wintercogs.beyonddimensions.common.init.BDDataComponents;
-import euphy.upo.sentrymechanicalarm.content.SentryArmBlockEntity;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.ItemInteractionResult;
-import net.minecraft.world.entity.player.Player;
+import com.solr98.beyondintegration.CommandConfig;
+import com.solr98.beyondintegration.feature.bind.AuditEntry;
+import com.solr98.beyondintegration.feature.bind.BindingAuditLog;
+import com.solr98.beyondintegration.feature.bind.NetworkBindingRegistry;
+import com.solr98.beyondintegration.handler.SentryNetIdAccessor;
+import com.wintercogs.beyonddimensions.common.item.NetedItem;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.lang.reflect.Method;
+
 @Pseudo
 @Mixin(targets = "euphy.upo.sentrymechanicalarm.content.SentryArmBlock", remap = false)
 public class SentryArmBlockMixin {
 
-    private static final Logger LOGGER = LogUtils.getLogger();
+    @Inject(method = {"m_6227_", "use"}, at = @At("HEAD"), cancellable = true, remap = false)
+    private void onUse(net.minecraft.world.level.block.state.BlockState state, net.minecraft.world.level.Level level,
+                       net.minecraft.core.BlockPos pos, net.minecraft.world.entity.player.Player player,
+                       net.minecraft.world.InteractionHand hand,
+                       net.minecraft.world.phys.BlockHitResult hit,
+                       CallbackInfoReturnable<InteractionResult> cir) {
+        ItemStack stack = player.getItemInHand(hand);
+        int netId = NetedItem.getNetId(stack);
+        if (stack.isEmpty() || netId < 0) return;
 
-    @Inject(method = "useItemOn", at = @At("HEAD"), cancellable = true)
-    private void beyond$onUseItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
-                                     Player player, InteractionHand hand, BlockHitResult hit,
-                                     CallbackInfoReturnable<ItemInteractionResult> cir) {
-        int netId = stack.getOrDefault(BDDataComponents.NET_ID_DATA, -1);
-        if (netId < 0) return;
+        net.minecraft.world.level.block.entity.BlockEntity be = level.getBlockEntity(pos);
+        if (be == null) return;
 
-        BlockEntity be = level.getBlockEntity(pos);
-        if (!(be instanceof SentryArmBlockEntity sentry)) return;
-
-        ItemStack held = sentry.getHeldItem();
-        if (held.isEmpty()) {
-            if (!level.isClientSide) {
-                LOGGER.debug("Sentry at {} has no gun, cannot bind net#{}", pos, netId);
-                player.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable("message.beyond_integration.sentry_no_gun"), true);
+        try {
+            Method getHeld = be.getClass().getMethod("getHeldItem");
+            ItemStack held = (ItemStack) getHeld.invoke(be);
+            if (held.isEmpty()) {
+                if (!level.isClientSide)
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.beyond_integration.sentry_no_gun"), true);
+                cir.setReturnValue(InteractionResult.SUCCESS);
+                return;
             }
-            cir.setReturnValue(ItemInteractionResult.SUCCESS);
-            return;
-        }
 
-        boolean ok = sentry.addAmmoBox(stack);
-        if (ok) {
-            LOGGER.debug("Bound net#{} to sentry at {}", netId, pos);
-            if (!level.isClientSide && !player.isCreative()) stack.shrink(1);
-        } else {
-            LOGGER.debug("Sentry at {} ammo box slots full, cannot bind net#{}", pos, netId);
-            if (!level.isClientSide)
-                player.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable("sentry.tooltip.ammobox_1"), true);
-        }
-        cir.setReturnValue(ItemInteractionResult.SUCCESS);
+            Method addBox = be.getClass().getMethod("addAmmoBox", ItemStack.class);
+            boolean ok = (boolean) addBox.invoke(be, stack);
+            if (ok) {
+                if (be instanceof SentryNetIdAccessor accessor) {
+                    accessor.setSentryNetId(netId);
+                    accessor.setSentryOwner(player.getUUID());
+                }
+                if (!level.isClientSide && !player.isCreative()) stack.shrink(1);
+                if (!level.isClientSide) {
+                    player.displayClientMessage(
+                            net.minecraft.network.chat.Component.translatable("message.beyond_integration.sentry_net_bound", netId),
+                            true);
+                    if (CommandConfig.enableAuditLog()) {
+                        String sentryName = level.getBlockState(pos).getBlock().getName().getString();
+                        BindingAuditLog.log(AuditEntry.bind(
+                                player.getName().getString(), player.getUUID(),
+                                netId, "SENTRY", pos.toShortString(), sentryName));
+                        NetworkBindingRegistry.recordSentryBind(netId, pos,
+                                player.getName().getString(), player.getUUID(), sentryName);
+                    }
+                }
+            } else {
+                if (!level.isClientSide)
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("sentry.tooltip.ammobox_1"), true);
+            }
+        } catch (Exception ignored) {}
+
+        cir.setReturnValue(InteractionResult.SUCCESS);
     }
 }

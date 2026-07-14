@@ -1,33 +1,41 @@
 package com.solr98.beyondintegration.network;
-import com.solr98.beyondintegration.BeyondIntegration;
+
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
-import org.jetbrains.annotations.NotNull;
+import net.minecraftforge.network.NetworkEvent;
 
-public record ToggleEnchantSeparationPacket() implements CustomPacketPayload {
-    public static final Type<ToggleEnchantSeparationPacket> TYPE = new Type<>(ResourceLocation.parse(BeyondIntegration.MODID + ":toggle_enchant_separation"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, ToggleEnchantSeparationPacket> STREAM_CODEC = StreamCodec.unit(new ToggleEnchantSeparationPacket());
+import java.util.function.Supplier;
 
-    public static void handle(final ToggleEnchantSeparationPacket packet, final IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (!(context.player() instanceof ServerPlayer player)) return;
-            var net = DimensionsNet.getPrimaryNetFromPlayer(player);
-            if (net == null || !(net instanceof EnchantSeparationAccessor acc)) return;
-            if (!net.isManager(player) && !net.isOwner(player)) {
-                player.sendSystemMessage(Component.translatable("message.beyond_integration.cannot_toggle_enchant_sep"));
-                return;
-            }
-            acc.beyond$setEnchantSeparationEnabled(!acc.beyond$isEnchantSeparationEnabled());
-            net.setDirty();
-        });
+public class ToggleEnchantSeparationPacket {
+
+    public ToggleEnchantSeparationPacket() {}
+
+    public static void encode(ToggleEnchantSeparationPacket msg, FriendlyByteBuf buf) {}
+
+    public static ToggleEnchantSeparationPacket decode(FriendlyByteBuf buf) {
+        return new ToggleEnchantSeparationPacket();
     }
 
-    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    public static void handle(ToggleEnchantSeparationPacket msg, Supplier<NetworkEvent.Context> ctx) {
+        ctx.get().enqueueWork(() -> {
+            ServerPlayer player = ctx.get().getSender();
+            if (player == null) return;
+            DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
+            if (net == null) return;
+            if (!net.isManager(player) && !net.isOwner(player)) {
+                player.sendSystemMessage(Component.translatable(
+                        "message.beyond_integration.cannot_toggle_enchant_sep"));
+                return;
+            }
+            if (net instanceof EnchantSeparationAccessor ea) {
+                ea.beyond$setEnchantSeparationEnabled(!ea.beyond$isEnchantSeparationEnabled());
+                net.setDirty();
+                PacketHandler.sendToPlayer(player, new EnchantSeparationSyncPacket(ea.beyond$isEnchantSeparationEnabled()));
+            }
+        });
+        ctx.get().setPacketHandled(true);
+    }
 }

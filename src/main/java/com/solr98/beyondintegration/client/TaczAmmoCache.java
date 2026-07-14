@@ -1,83 +1,63 @@
 package com.solr98.beyondintegration.client;
-import com.solr98.beyondintegration.network.AmmoCountResponsePacket;
+
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.RequestAmmoCountPacket;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TaczAmmoCache {
-    private static final Map<String, Map<Integer, AmmoCountResponsePacket.NetEntry>> cache = new HashMap<>();
-    private static final Set<String> responded = new HashSet<>();
-    private static String pendingQuickId = null;
-    private static String pendingFullId = null;
-    private static long lastFullUpdateMs = 0;
-    private static final long FULL_INTERVAL_MS = 6000;
+
+    private static final Map<String, Integer> cache = new ConcurrentHashMap<>();
+    private static volatile boolean hasData = false;
+    private static volatile boolean requestPending = false;
 
     public static boolean hasData(ResourceLocation ammoId) {
-        return responded.contains(ammoId.toString());
+        return hasData;
     }
 
     public static int getCount(ResourceLocation ammoId) {
-        Map<Integer, AmmoCountResponsePacket.NetEntry> nets = cache.get(ammoId.toString());
-        if (nets == null) return 0;
-        long sum = nets.values().stream().mapToLong(e -> (long) e.count()).sum();
-        return (int) Math.min(sum, Integer.MAX_VALUE);
+        if (!hasData) return 0;
+        Integer allCreative = cache.get("*");
+        if (allCreative != null && allCreative == Integer.MAX_VALUE) return Integer.MAX_VALUE;
+        return cache.getOrDefault(ammoId.toString(), 0);
     }
 
-    public static Map<Integer, Integer> getAllNetworkCounts(ResourceLocation ammoId) {
-        Map<Integer, AmmoCountResponsePacket.NetEntry> nets = cache.get(ammoId.toString());
-        if (nets == null) return Collections.emptyMap();
-        Map<Integer, Integer> result = new LinkedHashMap<>();
-        nets.forEach((id, e) -> result.put(id, e.count()));
-        return result;
-    }
-
-    public static Component getNetworkDisplayName(int netId, ResourceLocation ammoId) {
-        Map<Integer, AmmoCountResponsePacket.NetEntry> nets = cache.get(ammoId.toString());
-        if (nets == null) return Component.literal("Net#" + netId);
-        AmmoCountResponsePacket.NetEntry entry = nets.get(netId);
-        if (entry == null) return Component.literal("Net#" + netId);
-        String name = entry.customName();
-        if (name != null && !name.isEmpty())
-            return Component.literal(name + " (Net#" + netId + ")");
-        return Component.translatable("menu.text.beyonddimensions.net.default_name", netId);
+    public static Map<Integer, Integer> getAllNetworks(ResourceLocation ammoId) {
+        if (!hasData) return Collections.emptyMap();
+        int count = getCount(ammoId);
+        if (count > 0) {
+            return Collections.singletonMap(-1, count);
+        }
+        return Collections.emptyMap();
     }
 
     public static void requestQuick(ResourceLocation ammoId) {
-        String id = ammoId.toString();
-        if (id.equals(pendingQuickId)) return;
-        pendingQuickId = id;
-        PacketHandler.sendToServer(new RequestAmmoCountPacket(ammoId, true));
+        if (requestPending) return;
+        requestPending = true;
+        PacketHandler.sendToServer(new RequestAmmoCountPacket());
     }
 
-    public static void requestFull(ResourceLocation ammoId) {
-        long now = System.currentTimeMillis();
-        if (now - lastFullUpdateMs < FULL_INTERVAL_MS) return;
-        String id = ammoId.toString();
-        if (id.equals(pendingFullId)) return;
-        pendingFullId = id;
-        lastFullUpdateMs = now;
-        PacketHandler.sendToServer(new RequestAmmoCountPacket(ammoId, false));
+    public static void update(Map<String, Integer> ammoMap) {
+        cache.clear();
+        cache.putAll(ammoMap);
+        hasData = true;
+        requestPending = false;
     }
 
-    public static void update(ResourceLocation ammoId, Map<Integer, AmmoCountResponsePacket.NetEntry> networks, boolean quick) {
-        cache.put(ammoId.toString(), new LinkedHashMap<>(networks));
-        if (quick) pendingQuickId = null;
-        else pendingFullId = null;
-        responded.add(ammoId.toString());
+    public static void applyPush(String ammoId, int newCount) {
+        if (newCount > 0) {
+            cache.put(ammoId, newCount);
+        } else {
+            cache.remove(ammoId);
+        }
     }
 
     public static void clear() {
         cache.clear();
-        responded.clear();
-        pendingQuickId = null;
-        pendingFullId = null;
-        lastFullUpdateMs = 0;
+        hasData = false;
+        requestPending = false;
     }
 }

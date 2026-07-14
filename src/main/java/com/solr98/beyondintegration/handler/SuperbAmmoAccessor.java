@@ -1,4 +1,5 @@
 package com.solr98.beyondintegration.handler;
+
 import java.util.Map;
 
 public interface SuperbAmmoAccessor {

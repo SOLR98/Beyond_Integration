@@ -1,46 +1,110 @@
 package com.solr98.beyondintegration.network;
+
 import com.solr98.beyondintegration.BeyondIntegration;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.simple.SimpleChannel;
 
-@EventBusSubscriber(modid = BeyondIntegration.MODID)
 public class PacketHandler {
-    @SubscribeEvent
-    public static void register(final RegisterPayloadHandlersEvent event) {
-        final PayloadRegistrar registrar = event.registrar("1");
-        registrar.playBidirectional(SuperbAmmoStatusResponsePacket.TYPE, SuperbAmmoStatusResponsePacket.STREAM_CODEC,
-                new DirectionalPayloadHandler<>(SuperbAmmoStatusResponsePacket::handle, SuperbAmmoStatusResponsePacket::handle));
-        registrar.playToServer(RequestSuperbAmmoStatusPacket.TYPE, RequestSuperbAmmoStatusPacket.STREAM_CODEC,
-                RequestSuperbAmmoStatusPacket::handle);
-        registrar.playToServer(RequestSuperbAmmoExtractPacket.TYPE, RequestSuperbAmmoExtractPacket.STREAM_CODEC,
-                RequestSuperbAmmoExtractPacket::handle);
-        registrar.playToServer(ToggleEnchantSeparationPacket.TYPE, ToggleEnchantSeparationPacket.STREAM_CODEC,
-                ToggleEnchantSeparationPacket::handle);
-        registrar.playToServer(RequestAmmoCountPacket.TYPE, RequestAmmoCountPacket.STREAM_CODEC,
-                RequestAmmoCountPacket::handle);
-        registrar.playToClient(AmmoCountResponsePacket.TYPE, AmmoCountResponsePacket.STREAM_CODEC,
-                AmmoCountResponsePacket::handle);
-        registrar.playToServer(RequestNetworkItemsPacket.TYPE, RequestNetworkItemsPacket.STREAM_CODEC,
-                RequestNetworkItemsPacket::handle);
-        registrar.playToClient(NetworkItemCountsPacket.TYPE, NetworkItemCountsPacket.STREAM_CODEC,
+
+    private static final String PROTOCOL_VERSION = "1";
+    private static int id = 0;
+
+    public static final SimpleChannel INSTANCE = NetworkRegistry.newSimpleChannel(
+            new ResourceLocation(BeyondIntegration.MODID, "main"),
+            () -> PROTOCOL_VERSION,
+            PROTOCOL_VERSION::equals,
+            PROTOCOL_VERSION::equals
+    );
+
+    public static void register() {
+        INSTANCE.registerMessage(id++, RecipeFillPacket.class,
+                RecipeFillPacket::encode,
+                RecipeFillPacket::decode,
+                RecipeFillPacket::handle);
+
+        INSTANCE.registerMessage(id++, ProtectItemPacket.class,
+                ProtectItemPacket::encode,
+                ProtectItemPacket::decode,
+                ProtectItemPacket::handle);
+
+        INSTANCE.registerMessage(id++, NetworkItemCountsPacket.class,
+                NetworkItemCountsPacket::encode,
+                NetworkItemCountsPacket::decode,
                 NetworkItemCountsPacket::handle);
-        registrar.playToServer(TaczCraftPacket.TYPE, TaczCraftPacket.STREAM_CODEC,
-                TaczCraftPacket::handle);
-        registrar.playToClient(YwzjVehicleDataResponsePacket.TYPE, YwzjVehicleDataResponsePacket.STREAM_CODEC,
-                YwzjVehicleDataResponsePacket::handle);
+
+        INSTANCE.registerMessage(id++, SetAnvilNamePacket.class,
+                SetAnvilNamePacket::encode,
+                SetAnvilNamePacket::decode,
+                SetAnvilNamePacket::handle);
+
+        INSTANCE.registerMessage(id++, OpenStorageMenuPacket.class,
+                OpenStorageMenuPacket::encode,
+                OpenStorageMenuPacket::decode,
+                OpenStorageMenuPacket::handle);
+
+        INSTANCE.registerMessage(id++, ToggleEnchantSeparationPacket.class,
+                ToggleEnchantSeparationPacket::encode,
+                ToggleEnchantSeparationPacket::decode,
+                ToggleEnchantSeparationPacket::handle);
+
+        INSTANCE.registerMessage(id++, EnchantSeparationSyncPacket.class,
+                EnchantSeparationSyncPacket::encode,
+                EnchantSeparationSyncPacket::decode,
+                EnchantSeparationSyncPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestEnchantSeparationPacket.class,
+                RequestEnchantSeparationPacket::encode,
+                RequestEnchantSeparationPacket::decode,
+                RequestEnchantSeparationPacket::handle);
+
+        if (ModList.get().isLoaded("superbwarfare")) {
+            INSTANCE.registerMessage(id++, SuperbAmmoStatusResponsePacket.class,
+                    SuperbAmmoStatusResponsePacket::encode,
+                    SuperbAmmoStatusResponsePacket::decode,
+                    SuperbAmmoStatusResponsePacket::handle);
+            INSTANCE.registerMessage(id++, RequestSuperbAmmoStatusPacket.class,
+                    RequestSuperbAmmoStatusPacket::encode,
+                    RequestSuperbAmmoStatusPacket::decode,
+                    RequestSuperbAmmoStatusPacket::handle);
+            INSTANCE.registerMessage(id++, RequestSuperbAmmoExtractPacket.class,
+                    RequestSuperbAmmoExtractPacket::encode,
+                    RequestSuperbAmmoExtractPacket::decode,
+                    RequestSuperbAmmoExtractPacket::handle);
+        }
+
+        if (ModList.get().isLoaded("tacz")) {
+            INSTANCE.registerMessage(id++, RequestNetworkItemsPacket.class,
+                    RequestNetworkItemsPacket::encode,
+                    RequestNetworkItemsPacket::decode,
+                    RequestNetworkItemsPacket::handle);
+            INSTANCE.registerMessage(id++, TaczCraftPacket.class,
+                    TaczCraftPacket::encode,
+                    TaczCraftPacket::decode,
+                    TaczCraftPacket::handle);
+            INSTANCE.registerMessage(id++, RequestAmmoCountPacket.class,
+                    RequestAmmoCountPacket::encode,
+                    RequestAmmoCountPacket::decode,
+                    RequestAmmoCountPacket::handle);
+            INSTANCE.registerMessage(id++, AmmoCountResponsePacket.class,
+                    AmmoCountResponsePacket::encode,
+                    AmmoCountResponsePacket::decode,
+                    AmmoCountResponsePacket::handle);
+            INSTANCE.registerMessage(id++, TaczAmmoPushS2CPacket.class,
+                    TaczAmmoPushS2CPacket::encode,
+                    TaczAmmoPushS2CPacket::decode,
+                    TaczAmmoPushS2CPacket::handle);
+        }
     }
 
-    public static void sendToServer(CustomPacketPayload packet) {
-        PacketDistributor.sendToServer(packet);
+    public static void sendToServer(Object msg) {
+        INSTANCE.sendToServer(msg);
     }
 
-    public static void sendToPlayer(ServerPlayer player, CustomPacketPayload packet) {
-        PacketDistributor.sendToPlayer(player, packet);
+    public static void sendToPlayer(ServerPlayer player, Object msg) {
+        INSTANCE.sendTo(msg, player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
     }
 }

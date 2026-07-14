@@ -1,57 +1,82 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.handler.VehicleNetStorage;
+import com.solr98.beyondintegration.CommandConfig;
+import com.solr98.beyondintegration.feature.bind.BindingTokenManager;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
-import com.wintercogs.beyonddimensions.common.init.BDDataComponents;
+import com.wintercogs.beyonddimensions.common.item.NetedItem;
+import com.wintercogs.beyonddimensions.common.item.NetTerminalItem;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(targets = "com.wintercogs.beyonddimensions.common.item.NetTerminalItem", remap = false)
+import java.util.UUID;
+
+@Mixin(value = NetTerminalItem.class, remap = false)
 public class NetTerminalItemMixin {
 
-    @Inject(method = "use", at = @At("HEAD"), cancellable = true, remap = true)
-    private void onUse(Level level, Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResultHolder<ItemStack>> cir) {
-        ItemStack stack = player.getItemInHand(hand);
-        int netId = stack.getOrDefault(BDDataComponents.NET_ID_DATA, -1);
+    private static final String TOKEN_KEY = "beyond$bindingToken";
+
+    @Inject(method = "use", at = @At("HEAD"), cancellable = true)
+    private void beyond$onUse(Level level, Player player, InteractionHand usedHand,
+                              CallbackInfoReturnable<InteractionResultHolder<ItemStack>> cir) {
+        if (!CommandConfig.enableTokenSystem()) return;
+        if (level.isClientSide()) return;
+
+        ItemStack stack = player.getItemInHand(usedHand);
+        int netId = NetedItem.getNetId(stack);
         if (netId < 0) return;
 
-        Entity vehicle = findVehicle(player);
-        if (vehicle == null) return;
+        UUID storedToken = beyond$readToken(stack);
+        if (storedToken == null) return;
 
-        cir.setReturnValue(InteractionResultHolder.sidedSuccess(stack, level.isClientSide()));
-        if (!level.isClientSide()) {
-            DimensionsNet net = DimensionsNet.getNetFromId(netId);
-            if (net != null) VehicleNetStorage.bindVehicle(vehicle.getUUID(), netId);
+        if (!BindingTokenManager.isTokenValid(netId, storedToken)) {
+            beyond$clearBinding(stack);
+            player.displayClientMessage(
+                    net.minecraft.network.chat.Component.translatable("msg.beyonddimensions.item_need_bound"), true);
+            cir.setReturnValue(InteractionResultHolder.fail(stack));
         }
     }
 
-    private static Entity findVehicle(Player player) {
-        Vec3 from = player.getEyePosition();
-        Vec3 look = player.getLookAngle();
-        Vec3 to = from.add(look.scale(8));
-        AABB box = new AABB(from, to).inflate(2);
-        for (Entity e : player.level().getEntities(player, box, e -> {
-            if (e == player) return false;
-            try {
-                Class<?> vc = Class.forName("com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity");
-                return vc.isInstance(e);
-            } catch (Exception ex) {
-                return false;
-            }
-        })) {
-            var hit = e.getBoundingBox().clip(from, to).orElse(null);
-            if (hit != null) return e;
+    @Inject(method = "createMenu", at = @At("HEAD"), cancellable = true)
+    private void beyond$onCreateMenu(int containerId, net.minecraft.world.entity.player.Inventory inventory,
+                                     Player player, CallbackInfoReturnable<net.minecraft.world.inventory.AbstractContainerMenu> cir) {
+        if (!CommandConfig.enableTokenSystem()) return;
+
+        var ctx = NetTerminalItem.contextMap.get(player);
+        if (ctx == null) return;
+
+        ItemStack stack = ctx.stack;
+        int netId = NetedItem.getNetId(stack);
+        if (netId < 0) return;
+
+        UUID storedToken = beyond$readToken(stack);
+        if (storedToken == null) return;
+
+        if (!BindingTokenManager.isTokenValid(netId, storedToken)) {
+            beyond$clearBinding(stack);
+            NetTerminalItem.contextMap.remove(player);
+            cir.setReturnValue(null);
+        }
+    }
+
+    private static UUID beyond$readToken(ItemStack stack) {
+        if (stack.hasTag() && stack.getTag().contains(TOKEN_KEY)) {
+            try { return UUID.fromString(stack.getTag().getString(TOKEN_KEY)); } catch (Exception ignored) {}
         }
         return null;
+    }
+
+    private static void beyond$clearBinding(ItemStack stack) {
+        if (stack.hasTag()) {
+            stack.getTag().remove("NetId");
+            stack.getTag().remove(TOKEN_KEY);
+            stack.getTag().remove("beyond$bindingOwner");
+        }
     }
 }
