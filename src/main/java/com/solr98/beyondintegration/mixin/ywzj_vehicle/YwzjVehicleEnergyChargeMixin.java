@@ -39,6 +39,7 @@ public class YwzjVehicleEnergyChargeMixin {
             return;
         }
 
+        if (self.energyInfo == null) return;
         float space = self.energyInfo.energyCapacity - self.getEnergy();
         if (space <= 0) return;
 
@@ -51,7 +52,7 @@ public class YwzjVehicleEnergyChargeMixin {
 
     private static void chargeFromFE(DimensionsNet net, AbstractVehicle vehicle, float space) {
         int conversion = CommandConfig.ywzjVehicleEnergyConversion();
-        long feNeeded = (long) (space * conversion);
+        long feNeeded = (long) Math.ceil(space * conversion);
         long want;
 
         if (CommandConfig.ywzjChargeMode() == ChargeMode.PERCENTAGE) {
@@ -66,7 +67,9 @@ public class YwzjVehicleEnergyChargeMixin {
         long got = net.getUnifiedStorage().extract(EnergyStackKey.INSTANCE, want, false, false).amount();
         if (got <= 0) return;
 
-        vehicle.addEnergy(got / conversion);
+        float fuelToAdd = (float) got / conversion;
+        if (fuelToAdd <= 0) return;
+        vehicle.addEnergy(fuelToAdd);
         net.setDirty();
     }
 

@@ -170,6 +170,8 @@ dependencies {
     implementation "curse.maven:sophisticated-storage-619320:8136817"
     implementation "curse.maven:create-328085:7963363"
     implementation "curse.maven:patchouli-306770:7730942"
+    implementation "curse.maven:tacz-addon-1238419:8266875"
+    implementation "curse.maven:appleskin-248787:7854442"
 
     implementation "curse.maven:limitless-vehicle-1446269:8068686"
     implementation fileTree(dir: 'libs', include: ['sentrymechanicalarm-neoforge-1.21.1-1.3.6.jar'])

@@ -25,6 +25,8 @@ public final class EnchantConfig {
         public final ModConfigSpec.IntValue baseCost;
         public final ModConfigSpec.DoubleValue levelMult;
         public final ModConfigSpec.DoubleValue defaultMult;
+        public final ModConfigSpec.ConfigValue<String> costFormula;
+        public final ModConfigSpec.BooleanValue useFormula;
         public final ModConfigSpec.ConfigValue<List<? extends String>> highCostList;
         public final ModConfigSpec.EnumValue<CommandConfig.EnchantFilterMode> filterMode;
         public final ModConfigSpec.ConfigValue<List<? extends String>> filterList;
@@ -38,6 +40,15 @@ public final class EnchantConfig {
             baseCost = builder.defineInRange("base_cost", 5, 0, 100);
             levelMult = builder.defineInRange("level_mult", 1.0, 0.0, 100.0);
             defaultMult = builder.defineInRange("default_mult", 1.0, 0.0, 100.0);
+            costFormula = builder
+                    .comment("自定义公式", "Custom formula",
+                            "变量: base, level, multiplier, books",
+                            "函数: sqrt, abs, log, log10, sin, cos, tan, min, max, round, ceil, floor",
+                            "支持: + - * / ^ ()")
+                    .define("formula", "base + level * level_mult");
+            useFormula = builder
+                    .comment("使用公式", "Use formula")
+                    .define("use_formula", false);
             highCostList = builder.defineList("high_cost",
                     Arrays.asList("minecraft:mending:3.0", "minecraft:frost_walker:3.0",
                             "minecraft:sharpness:1.2", "minecraft:protection:1.2"),
@@ -59,6 +70,8 @@ public final class EnchantConfig {
     public static int baseCost() { return fields.baseCost.get(); }
     public static double levelMult() { return fields.levelMult.get(); }
     public static double defaultMult() { return fields.defaultMult.get(); }
+    public static String costFormula() { return fields.costFormula.get(); }
+    public static boolean useFormula() { return fields.useFormula.get(); }
     public static List<? extends String> highCostList() { return fields.highCostList.get(); }
     public static CommandConfig.EnchantFilterMode filterMode() { return fields.filterMode.get(); }
     public static List<? extends String> filterList() { return fields.filterList.get(); }

@@ -4,8 +4,10 @@ import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.client.gui.extension.BDGUIExtensionRegistry;
 import com.wintercogs.beyonddimensions.client.gui.DimensionsNetGUI;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,6 +17,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(value = DimensionsNetGUI.class, remap = false)
 public class DimensionsNetGUIMixin {
     @Unique private static final Logger LOGGER = LogUtils.getLogger();
+
+    @Shadow(remap = false) protected EditBox searchField;
 
     @Inject(method = "init", at = @At("RETURN"))
     private void onInit(CallbackInfo ci) {

@@ -3,8 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/Beyond_Cmd_Extension.main.iml" filepath="$PROJECT_DIR$/.idea/modules/Beyond_Cmd_Extension.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/beyond-integration.main.iml" filepath="$PROJECT_DIR$/.idea/modules/beyond-integration.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/beyond-integration.test.iml" filepath="$PROJECT_DIR$/.idea/modules/beyond-integration.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/beyond-integration.iml" filepath="$PROJECT_DIR$/.idea/modules/beyond-integration.iml" />
     </modules>
   </component>
 </project>

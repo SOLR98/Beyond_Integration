@@ -7,7 +7,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.enchantment.Enchantment;
 import org.slf4j.Logger;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class EnchantCostCalculator {
 
@@ -19,12 +21,22 @@ public final class EnchantCostCalculator {
 
     public static long calcCost(List<EnchantmentBookSeparatorHandler.EnchantEntry> ench, long count) {
         long total = 0;
-        int base = CommandConfig.enchantBaseCost();
-        double lvlMult = CommandConfig.enchantLevelMult();
         for (EnchantmentBookSeparatorHandler.EnchantEntry e : ench) {
-            long xp = (long) ((base + (e.level() - 1) * lvlMult) * count);
             double mult = getMultiplier(e.holder());
-            total += (long) (xp * mult);
+            double perItemCost;
+            if (CommandConfig.useFormula()) {
+                Map<String, Double> vars = new HashMap<>();
+                vars.put("base", (double) CommandConfig.enchantBaseCost());
+                vars.put("level", (double) e.level());
+                vars.put("multiplier", mult);
+                vars.put("books", (double) count);
+                perItemCost = FormulaParser.evaluate(CommandConfig.costFormula(), vars);
+            } else {
+                int base = CommandConfig.enchantBaseCost();
+                double lvlMult = CommandConfig.enchantLevelMult();
+                perItemCost = (base + (e.level() - 1) * lvlMult) * mult;
+            }
+            total += (long) (perItemCost * count);
         }
         return total * 20;
     }

@@ -42,6 +42,8 @@ public class CommandConfig {
         public final ModConfigSpec.IntValue enchantBaseCost = EnchantConfig.fields().baseCost;
         public final ModConfigSpec.DoubleValue enchantLevelMult = EnchantConfig.fields().levelMult;
         public final ModConfigSpec.DoubleValue enchantDefaultMult = EnchantConfig.fields().defaultMult;
+        public final ModConfigSpec.ConfigValue<String> enchantCostFormula = EnchantConfig.fields().costFormula;
+        public final ModConfigSpec.BooleanValue enchantUseFormula = EnchantConfig.fields().useFormula;
         public final ModConfigSpec.ConfigValue<List<? extends String>> enchantHighCostList = EnchantConfig.fields().highCostList;
         public final ModConfigSpec.EnumValue<EnchantFilterMode> enchantFilterMode = EnchantConfig.fields().filterMode;
         public final ModConfigSpec.ConfigValue<List<? extends String>> enchantFilterList = EnchantConfig.fields().filterList;
@@ -83,6 +85,8 @@ public class CommandConfig {
     public static int enchantBaseCost() { return EnchantConfig.baseCost(); }
     public static double enchantLevelMult() { return EnchantConfig.levelMult(); }
     public static double enchantDefaultMult() { return EnchantConfig.defaultMult(); }
+    public static String costFormula() { return EnchantConfig.costFormula(); }
+    public static boolean useFormula() { return EnchantConfig.useFormula(); }
     public static List<? extends String> enchantHighCostList() { return EnchantConfig.highCostList(); }
     public static EnchantFilterMode enchantFilterMode() { return EnchantConfig.filterMode(); }
     public static List<? extends String> enchantFilterList() { return EnchantConfig.filterList(); }
