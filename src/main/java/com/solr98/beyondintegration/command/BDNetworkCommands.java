@@ -11,9 +11,6 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import com.solr98.beyondintegration.BeyondIntegration;
 import com.solr98.beyondintegration.command.network.*;
-import com.solr98.beyondintegration.command.network.AuditQueryCommand;
-import com.solr98.beyondintegration.command.network.BindingListCommand;
-import com.solr98.beyondintegration.command.InspectCommand;
 import com.solr98.beyondintegration.command.member.*;
 import com.solr98.beyondintegration.command.util.*;
 
@@ -24,6 +21,7 @@ import com.solr98.beyondintegration.command.util.*;
 @Mod.EventBusSubscriber(modid = BeyondIntegration.MODID)
 public final class BDNetworkCommands {
     
+    /** 私有构造器：纯静态工具类，禁止实例化。 */
     private BDNetworkCommands() {}
     
     @SubscribeEvent
@@ -41,11 +39,6 @@ public final class BDNetworkCommands {
                 // OP专用命令：可以打开任何网络
                 .then(NetworkOpenCommand.registerOpenAny())
                 .then(EnchantSeparateCommand.register())
-                .then(TokenCommand.register())
-                .then(InspectCommand.register())
-                .then(AuditQueryCommand.register())
-                .then(Commands.literal("binding")
-                        .then(BindingListCommand.register()))
         );
     }
 

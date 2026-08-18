@@ -9,11 +9,16 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
+/**
+ * 物品保护扩展：Ctrl + 右键 玩家背包槽位时，
+ * 切换该物品的附魔分离保护标记（NBT）并同步服务端，并显示提示消息。
+ */
 public class ItemProtectExtension implements IDimensionsNetGUIExtension {
 
     @Override
     public int priority() { return 2; }
 
+    /** Ctrl+右键玩家背包物品：切换保护标记并发送数据包（返回 true 表示已处理） */
     @Override
     public boolean onMouseClicked(DimensionsNetGUI<?> gui, double mx, double my, int button) {
         if (button != 1 || !Screen.hasControlDown()) return false;

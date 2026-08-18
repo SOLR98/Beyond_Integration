@@ -8,14 +8,28 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+/**
+ * 附魔分离命令。
+ * 注册 /bdtools enchant separate 子命令：将执行者主要网络中
+ * 带附魔的书籍/物品进行附魔分离处理。
+ */
 public class EnchantSeparateCommand {
 
+    /**
+     * 注册 enchant separate 子命令。
+     * @return 命令构造器，挂载到 bdtools 主命令下
+     */
     public static LiteralArgumentBuilder<CommandSourceStack> register() {
         return Commands.literal("enchant")
                 .then(Commands.literal("separate")
                         .executes(ctx -> separate(ctx.getSource())));
     }
 
+    /**
+     * 执行附魔分离逻辑：获取玩家与其主要网络，调用分离处理器并反馈结果。
+     * @param src 命令源
+     * @return 命令执行结果（成功返回 1）
+     */
     private static int separate(CommandSourceStack src) {
         try {
             ServerPlayer player = src.getPlayerOrException();

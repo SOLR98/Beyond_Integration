@@ -1,15 +1,11 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.feature.bind.AuditEntry;
-import com.solr98.beyondintegration.feature.bind.BindingAuditLog;
-import com.solr98.beyondintegration.feature.bind.BindingTokenManager;
-import com.solr98.beyondintegration.feature.bind.IBindingTokenHolder;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.solr98.beyondintegration.handler.NetworkNameProvider;
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
 import com.solr98.beyondintegration.handler.TaczCreativeAccessor;
+import com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.resources.ResourceLocation;
@@ -25,20 +21,29 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Map;
 
+/**
+ * 注入 BeyondDimensions 的 {@link DimensionsNet}，为其实现四个本模组扩展接口：
+ * SuperbAmmoAccessor（SW 网络弹药存取）、NetworkNameProvider（网络名称）、
+ * EnchantSeparationAccessor（附魔分离开关）、TaczCreativeAccessor（TACZ 创造弹药计数），
+ * 数据统一挂在 NetworkAmmoData 上，并订阅存储变化以同步创造模式弹药。
+ */
 @Mixin(targets = "com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet", remap = false)
-public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvider, EnchantSeparationAccessor, TaczCreativeAccessor, IBindingTokenHolder {
+public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvider, EnchantSeparationAccessor, TaczCreativeAccessor {
 
+    /** 增量钩子是否已初始化的标记（只初始化一次） */
     @Unique
     private boolean beyond$deltaInit = false;
 
+    /** 将 this 强转为 DimensionsNet（Mixin 惯用法） */
     private DimensionsNet self() { return (DimensionsNet) (Object) this; }
 
+    /** 订阅统一存储的增量事件：把进出的创造模式弹药（TACZ 弹盒 / SW 创造弹药）同步进网络弹药缓存 */
     @Unique
     private synchronized void beyond$initDeltaHook() {
         if (beyond$deltaInit) return;
         beyond$deltaInit = true;
-        DimensionsNet self = self();
-        self.getUnifiedStorage().subscribeDelta("beyond_creative", (key, size, insert) -> {
+        // 经统一订阅中心注册（弱引用订阅 + 网络销毁/服务器停止时自动清理）
+        BdSubscriptionHub.subscribe(self().getId(), this, (key, size, insert) -> {
                 if (!(key instanceof ItemStackKey ik)) return;
                 ItemStack stack = ik.getReadOnlyStack();
 
@@ -123,41 +128,5 @@ public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvid
         Map<String, Integer> map = NetworkAmmoData.getOrCreate(self().getId()).getTaczCreativeTypeCounts();
         map.clear();
         if (counts != null) map.putAll(counts);
-    }
-
-    // ========== Lifecycle audit hooks ==========
-
-    @Inject(method = "destroySelf", at = @At("HEAD"), remap = false)
-    private void beyond$onDestroySelf(CallbackInfo ci) {
-        if (!CommandConfig.enableAuditLog()) return;
-        DimensionsNet self = self();
-        BindingAuditLog.log(new AuditEntry(
-                System.currentTimeMillis(), "NET_DESTROY",
-                "-", null,
-                self.getId(), "-", "-",
-                true, "Network #" + self.getId() + " destroyed"
-        ));
-    }
-
-    @Inject(method = "mergeOtherNet", at = @At("HEAD"), remap = false)
-    private void beyond$onMergeOtherNet(DimensionsNet other, CallbackInfo ci) {
-        if (!CommandConfig.enableAuditLog()) return;
-        DimensionsNet self = self();
-        BindingAuditLog.log(new AuditEntry(
-                System.currentTimeMillis(), "NET_MERGE",
-                "-", null,
-                self.getId(), "-", String.valueOf(other.getId()),
-                true, "Network #" + other.getId() + " merged into #" + self.getId()
-        ));
-    }
-
-    @Override
-    public java.util.UUID getBindingToken() {
-        return BindingTokenManager.getOrCreateToken(self().getId(), self().getOwner());
-    }
-
-    @Override
-    public java.util.UUID resetBindingToken() {
-        return BindingTokenManager.resetToken(self().getId(), self().getOwner());
     }
 }

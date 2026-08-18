@@ -4,8 +4,9 @@ import com.atsuishio.superbwarfare.data.gun.Ammo;
 import com.atsuishio.superbwarfare.data.gun.AmmoConsumer;
 import com.atsuishio.superbwarfare.data.gun.GunData;
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetCache;
+import com.solr98.beyondintegration.handler.INetCachedVehicle;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
-import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.world.item.ItemStack;
@@ -14,9 +15,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * 注入超级战争(Superb Warfare)的 VehicleEntity：
+ * 扩展 getAmmo——当载具弹药/玩家背包弹药不足时，从绑定的维度网络读取
+ * 对应弹药类型（玩家弹药或物品弹药）的库存量，支持网络无限弹药标志。
+ */
 @Mixin(value = VehicleEntity.class, remap = false)
 public abstract class VehicleAmmoMixin {
 
+    /** 原返回无弹药时，从维度网络库存补充弹药数量（仅服务端） */
     @Inject(method = "getAmmo(Lcom/atsuishio/superbwarfare/data/gun/GunData;)I",
             at = @At("RETURN"), cancellable = true, remap = false)
     private void onGetAmmo(GunData data, CallbackInfoReturnable<Integer> cir) {
@@ -26,7 +33,8 @@ public abstract class VehicleAmmoMixin {
         VehicleEntity vehicle = (VehicleEntity) (Object) this;
         if (vehicle.level().isClientSide()) return;
 
-        DimensionsNet net = VehicleNetStorage.getNetworkForVehicle(vehicle.getUUID());
+        VehicleNetCache cache = ((INetCachedVehicle) vehicle).getNetCache();
+        DimensionsNet net = cache.getNet();
         if (net == null) return;
 
         AmmoConsumer consumer = data.selectedAmmoConsumer();
@@ -57,6 +65,7 @@ public abstract class VehicleAmmoMixin {
         }
     }
 
+    /** 统计网络中与目标物品同种（ItemStackKey）的库存总量 */
     private int countItemsInNetwork(DimensionsNet net, ItemStack target) {
         var opt = net.getUnifiedStorage().getBucket(ItemStackKey.ID);
         if (opt.isEmpty()) return 0;

@@ -14,8 +14,16 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
 
+/**
+ * 网络弹药处理工具（通用实体入口）
+ * 按 玩家网络 → 实体身上终端 → 女仆终端 的优先级顺序，
+ * 提供弹药可用性判断与弹药消耗（提取）功能。
+ */
 public class NetworkAmmoHandler {
 
+    /**
+     * 判断射击者是否拥有可用网络弹药（依次检查玩家网络、实体终端、女仆终端）
+     */
     public static boolean hasNetworkAmmo(LivingEntity shooter, ItemStack gun) {
         ServerPlayer player = findServerPlayer(shooter);
         if (player != null) {
@@ -34,6 +42,11 @@ public class NetworkAmmoHandler {
         return false;
     }
 
+    /**
+     * 从网络消耗弹药（依次尝试玩家网络、实体终端、女仆终端）
+     *
+     * @return 实际消耗数量；0 表示无可用弹药
+     */
     public static int consumeFromNetwork(LivingEntity shooter, ItemStack gun, int needed) {
         if (needed <= 0) return 0;
 
@@ -60,11 +73,17 @@ public class NetworkAmmoHandler {
         return 0;
     }
 
+    /**
+     * 将实体转换为服务端玩家（非玩家实体返回 null）
+     */
     @Nullable
     private static ServerPlayer findServerPlayer(LivingEntity shooter) {
         return shooter instanceof ServerPlayer sp ? sp : null;
     }
 
+    /**
+     * 在实体背包/物品栏中查找携带终端物品对应的第一个网络
+     */
     @Nullable
     public static DimensionsNet findTerminalOnEntity(LivingEntity entity) {
         Optional<IItemHandler> opt = entity.getCapability(
@@ -83,6 +102,9 @@ public class NetworkAmmoHandler {
         return null;
     }
 
+    /**
+     * 在指定物品栏处理器中查找携带终端物品对应的第一个网络
+     */
     @Nullable
     public static DimensionsNet findTerminalInHandler(IItemHandler inv) {
         for (int i = 0; i < inv.getSlots(); i++) {
@@ -97,6 +119,9 @@ public class NetworkAmmoHandler {
         return null;
     }
 
+    /**
+     * 获取枪械所需的弹药 ID（服务端）
+     */
     @Nullable
     public static ResourceLocation getAmmoId(ItemStack gun) {
         if (gun.isEmpty()) return null;

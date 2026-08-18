@@ -27,6 +27,11 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * 合成配方转移处理器（JEI 点击一键填充）：
+ * 客户端聚合可用物品（合成格已有 + 网络存储 + 玩家背包）逐槽匹配 JEI 输入，
+ * 生成 RecipeFillPacket 发送服务端填格；材料不足返回 COSMETIC 错误提示。
+ */
 public class CraftRecipeTransferHandler implements IRecipeTransferHandler<DimensionsCraftMenu, CraftingRecipe> {
 
     @Override
@@ -44,6 +49,7 @@ public class CraftRecipeTransferHandler implements IRecipeTransferHandler<Dimens
         return RecipeTypes.CRAFTING;
     }
 
+    // 构建物品池并逐槽匹配：doTransfer 时发送填充包；任一输入缺失则返回 COSMETIC 提示
     @Override
     public @Nullable IRecipeTransferError transferRecipe(DimensionsCraftMenu menu, CraftingRecipe recipe,
                                                          IRecipeSlotsView slotsView, Player player,
@@ -118,11 +124,13 @@ public class CraftRecipeTransferHandler implements IRecipeTransferHandler<Dimens
         return null;
     }
 
+    // 按物品（Item）归入可用池
     private static void addPool(Map<Item, List<Avail>> pool, ItemStackKey key, long count) {
         if (count <= 0) return;
         pool.computeIfAbsent(key.getSource(), k -> new ArrayList<>()).add(new Avail(key, count));
     }
 
+    // 可用物品条目：网络/背包的 key + 剩余可用量（匹配时递减防重复占用）
     private static class Avail {
         final ItemStackKey key;
         long remain;

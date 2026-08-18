@@ -1,58 +1,25 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.tacz.guns.api.TimelessAPI;
-import com.tacz.guns.api.client.gameplay.IClientPlayerGunOperator;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.client.input.ReloadKey;
-import com.tacz.guns.config.client.KeyConfig;
-import com.tacz.guns.resource.pojo.data.gun.Bolt;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.fml.LogicalSide;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.lwjgl.glfw.GLFW;
 
-import static com.tacz.guns.util.InputExtraCheck.isInGame;
-
+/**
+ * 注入 TACZ 客户端换弹按键处理 ReloadKey：
+ * 使"物品栏弹药"枪械也能通过 R 键手动换弹——将 useInventoryAmmo 判定改为始终 false，
+ * 放行手动换弹流程（网络弹药由本模组其他逻辑补弹）。
+ */
 @Mixin(value = ReloadKey.class, remap = false)
 public class ReloadKeyMixin {
 
+    // 仅保留 R 键手动换弹放行（useInventoryAmmo 枪也允许手动换弹）；
+    // autoReload 维持原版行为（原版对 useInventoryAmmo 枪跳过且要求弹量归零），不再注入
+    /** 强制 useInventoryAmmo 返回 false，使物品栏弹药枪械不跳过 R 键换弹 */
     @Redirect(method = "onReloadPress", at = @At(value = "INVOKE", target = "Lcom/tacz/guns/api/item/IGun;useInventoryAmmo(Lnet/minecraft/world/item/ItemStack;)Z", remap = false), remap = false)
     private static boolean allowReloadPress(IGun iGun, ItemStack stack) {
         return false;
-    }
-
-    @Inject(method = "autoReload", at = @At("HEAD"), cancellable = true)
-    private static void onAutoReload(TickEvent.PlayerTickEvent event, CallbackInfo ci) {
-        if (event.phase != TickEvent.Phase.START || event.side != LogicalSide.CLIENT) return;
-        if (!KeyConfig.AUTO_RELOAD.get()) return;
-
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null || player.isSpectator() || player.tickCount % 5 != 0) return;
-
-        ItemStack stack = player.getMainHandItem();
-        if (!(stack.getItem() instanceof IGun iGun)) return;
-
-        if (iGun.useInventoryAmmo(stack)) {
-            IClientPlayerGunOperator.fromLocalPlayer(player).reload();
-            ci.cancel();
-            return;
-        }
-
-        boolean flag = TimelessAPI.getCommonGunIndex(iGun.getGunId(stack))
-                .map(gunIndex -> gunIndex.getGunData().getBolt() != Bolt.OPEN_BOLT)
-                .orElse(false);
-        int ammoCount = iGun.getCurrentAmmoCount(stack) + (iGun.hasBulletInBarrel(stack) && flag ? 1 : 0);
-        if (ammoCount > 0) return;
-
-        IClientPlayerGunOperator.fromLocalPlayer(player).reload();
-        ci.cancel();
     }
 }

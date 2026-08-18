@@ -8,14 +8,22 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Mixin 配置插件：按目标类所属模组的加载状态决定是否应用对应 Mixin。
+ * 仅当目标模组（sentrymechanicalarm / tacz / superbwarfare）已加载时才注入，
+ * 防止在未安装这些模组的环境下因目标类缺失导致崩溃。
+ */
 public class MixinPlugin implements IMixinConfigPlugin {
 
+    /** 插件初始化回调（无操作） */
     @Override
     public void onLoad(String mixinPackage) {}
 
+    /** 返回空，不提供重映射配置 */
     @Override
     public String getRefMapperConfig() { return null; }
 
+    /** 根据目标类前缀判断对应模组是否已加载，决定 Mixin 是否生效 */
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         var modList = ModList.get();

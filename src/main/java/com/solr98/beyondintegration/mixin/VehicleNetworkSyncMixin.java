@@ -1,21 +1,14 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.atsuishio.superbwarfare.data.gun.AmmoConsumer;
-import com.atsuishio.superbwarfare.data.gun.GunData;
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
-import com.solr98.beyondintegration.handler.NetworkNameProvider;
-import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
-import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetCache;
+import com.solr98.beyondintegration.handler.INetCachedVehicle;
 import com.solr98.beyondintegration.network.PacketHandler;
+import com.solr98.beyondintegration.network.SuperbAmmoDeltaS2CPacket;
 import com.solr98.beyondintegration.network.SuperbAmmoStatusResponsePacket;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
-import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
-import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.registries.ForgeRegistries;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,108 +16,78 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.HashMap;
-import java.util.Map;
 
+/**
+ * 载具网络状态同步：读 VehicleNetCache（实体级缓存）。
+ * 仅在有乘客时刷新（B3）；乘客从无到有时强制全量（上车重建）；
+ * 解绑时向乘客推送 reset 包。
+ */
 @Mixin(value = VehicleEntity.class, remap = false)
 public abstract class VehicleNetworkSyncMixin {
 
+    /** 上次已同步的网络 ID，用于检测绑定变更 */
     @Unique
     private int beyond$lastBoundNetId = -1;
 
+    /** 上次的乘客状态，用于检测乘客上车（触发全量推送） */
     @Unique
-    private Map<String, Long> beyond$lastAmmo = new HashMap<>();
+    private boolean beyond$lastHasPassengers = false;
 
-    @Unique
-    private long beyond$lastEnergy = -1;
-
+    /** 每 tick 刷新网络弹药/能量状态并推送增量或全量包给乘客；解绑时发送 reset 包 */
     @Inject(method = "updateBackupAmmoCount", at = @At("HEAD"))
     private void beyond$syncNetworkStatus(CallbackInfo ci) {
         VehicleEntity vehicle = (VehicleEntity) (Object) this;
         if (vehicle.level().isClientSide()) return;
 
-        DimensionsNet net = VehicleNetStorage.getNetworkForVehicle(vehicle.getUUID());
+        VehicleNetCache cache = ((INetCachedVehicle) vehicle).getNetCache();
+        DimensionsNet net = cache.getNet();
 
         if (net == null) {
             if (beyond$lastBoundNetId >= 0) {
                 beyond$lastBoundNetId = -1;
-                beyond$lastAmmo.clear();
-                beyond$lastEnergy = -1;
                 sendResetToPassengers(vehicle);
             }
+            beyond$lastHasPassengers = !vehicle.getPassengers().isEmpty();
             return;
         }
 
         int boundNetId = net.getId();
+        boolean hasPassengers = !vehicle.getPassengers().isEmpty();
 
-        Map<String, Long> currentAmmo = buildAmmoMap(net);
-        long currentEnergy = net.getUnifiedStorage().getStackByKey(EnergyStackKey.INSTANCE).amount();
-
-        for (int seat = 0; seat < vehicle.getMaxPassengers(); seat++) {
-            GunData data = vehicle.getGunData(seat);
-            if (data == null) continue;
-            AmmoConsumer consumer = data.selectedAmmoConsumer();
-            if (consumer == null || consumer.getType() != AmmoConsumer.AmmoConsumeType.ITEM) continue;
-            String raw = consumer.stack().isEmpty() ? null
-                    : ForgeRegistries.ITEMS.getKey(consumer.stack().getItem()).toString();
-            if (raw == null || raw.isEmpty()) {
-                raw = consumer.getAmmo();
-            }
-            if (raw == null || raw.isEmpty()) continue;
-            raw = raw.strip();
-            int space = raw.indexOf(' ');
-            if (space > 0) raw = raw.substring(space + 1).strip();
-            if (raw.startsWith("@") || raw.startsWith("#")) raw = raw.substring(1);
-            String itemKey = "ITEM:" + raw;
-
-            long itemCount = 0;
-            try {
-                var item = ForgeRegistries.ITEMS.getValue(ResourceLocation.tryParse(raw));
-                if (item != null) {
-                    itemCount = net.getUnifiedStorage().getStackByKey(
-                            new ItemStackKey(new ItemStack(item))).amount();
-                }
-            } catch (Exception ignored) {}
-            if (itemCount > 0) {
-                currentAmmo.put(itemKey, itemCount);
-            }
+        if (boundNetId != beyond$lastBoundNetId || (hasPassengers && !beyond$lastHasPassengers)) {
+            // 新绑定或新乘客上车：强制全量
+            cache.forceFull();
         }
-
-        if (boundNetId == beyond$lastBoundNetId
-                && currentEnergy == beyond$lastEnergy
-                && currentAmmo.equals(beyond$lastAmmo)) return;
-
         beyond$lastBoundNetId = boundNetId;
-        beyond$lastEnergy = currentEnergy;
-        beyond$lastAmmo = currentAmmo;
+        beyond$lastHasPassengers = hasPassengers;
 
-        var packet = SuperbAmmoStatusResponsePacket.fromNet(
-                net, new HashMap<>(currentAmmo), currentEnergy, 1,
-                ((NetworkNameProvider) net).getCustomName());
+        // 无乘客不刷新（B3）
+        if (!hasPassengers) return;
+
+        VehicleNetCache.PushData push = cache.refresh();
+        if (push == null) return;
+
         for (Entity p : vehicle.getPassengers()) {
-            if (p instanceof ServerPlayer sp) {
-                PacketHandler.sendToPlayer(sp, packet);
+            if (!(p instanceof ServerPlayer sp)) continue;
+            if (push.full()) {
+                PacketHandler.sendToPlayer(sp, new SuperbAmmoStatusResponsePacket(
+                        boundNetId, push.netName(), push.energy(), push.enchantSeparation(),
+                        push.ammo(), cache.getAmmoList()));
+            } else {
+                PacketHandler.sendToPlayer(sp, new SuperbAmmoDeltaS2CPacket(
+                        boundNetId, true, false, push.ammo(), push.energy(),
+                        push.netName(), push.enchantSeparation()));
             }
         }
     }
 
+    /** 解绑时向所有乘客推送网络重置包（清除客户端缓存状态） */
+    @Unique
     private static void sendResetToPassengers(VehicleEntity vehicle) {
-        var reset = new SuperbAmmoStatusResponsePacket(-1, new HashMap<>(), -1, 1);
+        var reset = new SuperbAmmoStatusResponsePacket(-1, "", -1, true,
+                new HashMap<>(), null);
         for (Entity p : vehicle.getPassengers()) {
             if (p instanceof ServerPlayer sp) PacketHandler.sendToPlayer(sp, reset);
         }
-    }
-
-    private static Map<String, Long> buildAmmoMap(DimensionsNet net) {
-        if (net instanceof SuperbAmmoAccessor acc) {
-            Map<String, Long> map = new HashMap<>(acc.getSuperbAmmo());
-            if (hasInfiniteAmmo(net)) map.put("__infinite__", Long.MAX_VALUE);
-            return map;
-        }
-        return new HashMap<>();
-    }
-
-    private static boolean hasInfiniteAmmo(DimensionsNet net) {
-        if (!(net instanceof SuperbAmmoAccessor acc)) return false;
-        return acc.getSuperbAmmo().getOrDefault("__infinite__", 0L) > 0;
     }
 }

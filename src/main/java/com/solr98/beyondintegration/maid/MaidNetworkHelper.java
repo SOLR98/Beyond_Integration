@@ -1,7 +1,5 @@
 package com.solr98.beyondintegration.maid;
 
-import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.feature.bind.BindingTokenManager;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import net.minecraft.world.entity.LivingEntity;
@@ -9,10 +7,17 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fml.ModList;
 import top.theillusivec4.curios.api.type.inventory.IDynamicStackHandler;
 
-import java.util.UUID;
-
+/**
+ * 女仆网络查找助手。
+ * 帮助女仆实体找到其可用的维度网络：优先读缓存，其次依次扫描
+ * Curios 饰品栏与女仆饰物背包中的网络终端物品。
+ */
 public class MaidNetworkHelper {
 
+    /**
+     * 查找女仆可用的维度网络入口。
+     * 未加载 touhou_little_maid 或找不到终端时返回 null。
+     */
     public static DimensionsNet findTerminal(LivingEntity entity) {
         if (!ModList.get().isLoaded("touhou_little_maid")) return null;
 
@@ -34,6 +39,10 @@ public class MaidNetworkHelper {
         return null;
     }
 
+    /**
+     * 扫描女仆的 Curios 饰品栏，查找带有网络 ID 的终端物品。
+     * @return 找到的维度网络，未找到返回 null
+     */
     private static DimensionsNet scanCurios(com.github.tartaricacid.touhoulittlemaid.entity.passive.EntityMaid maid) {
         try {
             DimensionsNet[] result = {null};
@@ -47,12 +56,6 @@ public class MaidNetworkHelper {
                         int netId = NetedItem.getNetId(stack);
                         if (netId < 0) continue;
 
-                        if (handleInvalidToken(stack, netId)) {
-                            stacks.setStackInSlot(i, stack);
-                            continue;
-                        }
-
-                        ensureToken(stack, netId, maid.getUUID());
                         DimensionsNet n = DimensionsNet.getNetFromId(netId);
                         if (n != null) { result[0] = n; return; }
                     }
@@ -64,6 +67,10 @@ public class MaidNetworkHelper {
         }
     }
 
+    /**
+     * 扫描通用物品容器（如女仆饰物背包），查找网络终端物品。
+     * @return 找到的维度网络，未找到返回 null
+     */
     private static DimensionsNet scanInv(net.minecraftforge.items.IItemHandler inv) {
         for (int i = 0; i < inv.getSlots(); i++) {
             ItemStack stack = inv.getStackInSlot(i);
@@ -72,40 +79,13 @@ public class MaidNetworkHelper {
             int netId = NetedItem.getNetId(stack);
             if (netId < 0) continue;
 
-            if (handleInvalidToken(stack, netId)) continue;
-
-            ensureToken(stack, netId, null);
             DimensionsNet net = DimensionsNet.getNetFromId(netId);
             if (net != null) return net;
         }
         return null;
     }
 
-    /** @return true if token was invalid and binding was cleared */
-    private static boolean handleInvalidToken(ItemStack stack, int netId) {
-        if (!CommandConfig.enableTokenSystem()) return false;
-        UUID token = MaidTokenUtil.readToken(stack);
-        if (token == null) return false;
-        if (!BindingTokenManager.isTokenValid(netId, token)) {
-            MaidTokenUtil.clearBinding(stack);
-            return true;
-        }
-        return false;
-    }
-
-    private static void ensureToken(ItemStack stack, int netId, UUID ownerUuid) {
-        if (!CommandConfig.enableTokenSystem()) return;
-        if (BindingTokenManager.getInstance() == null) return;
-        if (MaidTokenUtil.readToken(stack) != null) return;
-
-        UUID owner = ownerUuid != null ? ownerUuid : UUID.randomUUID();
-        UUID token = BindingTokenManager.getOrCreateToken(netId, owner);
-        MaidTokenUtil.writeToken(stack, token);
-        if (ownerUuid != null) {
-            stack.getOrCreateTag().putString("beyond$bindingOwner", ownerUuid.toString());
-        }
-    }
-
+    /** 将找到的网络写入缓存并返回。 */
     private static DimensionsNet cache(LivingEntity entity, DimensionsNet net) {
         MaidNetworkCache.put(entity.getUUID(), net.getId());
         return net;

@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration;
 
 import com.mojang.logging.LogUtils;
-import com.solr98.beyondintegration.feature.ammo.sw.SwPlayerAmmoSyncer;
+import com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService;
 import com.solr98.beyondintegration.feature.vehicle.VehicleInteractHandler;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import org.slf4j.Logger;
@@ -15,16 +15,6 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 
-import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
-import com.solr98.beyondintegration.feature.bind.AuditEntry;
-import com.solr98.beyondintegration.feature.bind.BindingAuditLog;
-import com.solr98.beyondintegration.feature.bind.BindingTokenManager;
-import com.solr98.beyondintegration.feature.bind.MeterSnapshotTicker;
-import com.solr98.beyondintegration.feature.bind.NetworkBindingRegistry;
-import com.solr98.beyondintegration.feature.bind.NetworkMeters;
-import com.solr98.beyondintegration.handler.AuditInspectHandler;
-import com.solr98.beyondintegration.handler.GuiAuditHandler;
-import com.solr98.beyondintegration.handler.PlayerInspectData;
 import com.solr98.beyondintegration.handler.SentryNetIdAccessor;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
@@ -33,7 +23,6 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.LevelEvent;
-import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
@@ -47,13 +36,16 @@ import net.minecraftforge.registries.ForgeRegistries;
 import java.lang.reflect.Method;
 
 import com.solr98.beyondintegration.client.ClientRegistrar;
-import com.solr98.beyondintegration.feature.conversion.ConversionLoader;
-import com.solr98.beyondintegration.feature.conversion.RecipeConversionHandler;
-import com.solr98.beyondintegration.feature.extract.ExtractHandlerRegistry;
 import com.solr98.beyondintegration.init.ModMenus;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.api.distmarker.Dist;
 
+/**
+ * Beyond Integration 模组主类（Forge 1.20.1）。
+ * 负责模组初始化：注册菜单、通用配置、事件总线监听，
+ * 以及按依赖模组（tacz / superbwarfare / beyonddimensions）条件注册
+ * 各功能处理器（物品黑名单、弹药箱提取、SW 弹药轮询、载具绑定、哨戒炮绑定等）。
+ */
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(BeyondIntegration.MODID)
 public class BeyondIntegration {
@@ -63,6 +55,7 @@ public class BeyondIntegration {
     // Directly reference a slf4j logger
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    /** 模组构造器：注册 mod 总线事件、菜单、Forge 事件总线与通用配置 */
     @SuppressWarnings("removal")
     public BeyondIntegration() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -76,11 +69,6 @@ public class BeyondIntegration {
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
 
-        // Register datapack reload listener for conversion recipes
-        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.AddReloadListenerEvent event) -> {
-            event.addListener(new ConversionLoader());
-        });
-
         // Register common config (synced to client)
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, CommandConfig.SERVER_SPEC);
 
@@ -88,34 +76,50 @@ public class BeyondIntegration {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> ClientRegistrar::register);
     }
 
+    /** common 阶段初始化：按依赖条件注册全部功能处理器与网络包 */
     private void commonSetup(final FMLCommonSetupEvent event) {
         registerItemBlacklistHandler();
         registerEnchantmentBookSeparator();
         registerAmmoBoxExtractHandler();
         registerSuperbAmmoInsertHandler();
-        registerSuperbAmmoExtractHandler();
-        registerConversionHandler();
-        registerPlayerNetworkSyncHandler();
+        registerSwAmmoPollingService();
         registerVehicleInteractHandler();
-        registerAuditInspectHandler();
+        MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.AutoTotemHandler());
         com.solr98.beyondintegration.network.PacketHandler.register();
-        registerMeterSnapshotTicker();
-        registerGuiAuditHandler();
         registerTaczTrackerDrain();
+        registerSubscriptionHubCleanup();
     }
 
+    /** 注册统一订阅中心的全局清理（网络销毁 / 服务器停止时批量退订全部 BD 订阅） */
+    private void registerSubscriptionHubCleanup() {
+        MinecraftForge.EVENT_BUS.addListener(
+            (net.minecraftforge.event.server.ServerStoppingEvent event) -> {
+                com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub.clearAll();
+            }
+        );
+        MinecraftForge.EVENT_BUS.addListener(
+            (com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed event) -> {
+                com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub.onNetDestroyed(event.getDestroyedId());
+            }
+        );
+        LOGGER.info("Registered BdSubscriptionHub cleanup");
+    }
+
+    /** 注册附魔分离插入拦截器（多附魔书/附魔物品进网络时自动分离） */
     private void registerEnchantmentBookSeparator() {
         com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
                 .addHandler(new com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler());
         LOGGER.info("Registered EnchantmentBookSeparatorHandler");
     }
 
+    /** 注册物品黑名单插入拦截器 */
     private void registerItemBlacklistHandler() {
         com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
                 .addHandler(new com.solr98.beyondintegration.feature.blacklist.ItemBlacklistHandler());
         LOGGER.info("Registered ItemBlacklistHandler");
     }
 
+    /** 注册 TACZ 弹药箱自动提取拦截器（仅在 tacz 加载时） */
     private void registerAmmoBoxExtractHandler() {
         if (ModList.get().isLoaded("tacz")) {
             com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
@@ -124,6 +128,7 @@ public class BeyondIntegration {
         }
     }
 
+    /** 注册 SW 弹药插入拦截器（仅在 superbwarfare 加载时） */
     private void registerSuperbAmmoInsertHandler() {
         if (ModList.get().isLoaded("superbwarfare")) {
             com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
@@ -132,25 +137,28 @@ public class BeyondIntegration {
         }
     }
 
-    private void registerSuperbAmmoExtractHandler() {
+    /**
+     * 注册 SW 虚拟弹药轮询服务：每间隔推送差异，并在
+     * 服务器停止 / 网络销毁时清理弹药追踪数据。
+     */
+    private void registerSwAmmoPollingService() {
         if (ModList.get().isLoaded("superbwarfare")) {
-            ExtractHandlerRegistry.register(new com.solr98.beyondintegration.feature.extract.sw.SuperbAmmoExtractHandler());
-            LOGGER.info("Registered SuperbAmmoExtractHandler");
+            MinecraftForge.EVENT_BUS.register(new SwAmmoPollingService());
+            MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.server.ServerStoppingEvent event) -> {
+                    com.solr98.beyondintegration.feature.ammo.sw.SwAmmoTracker.clear();
+                }
+            );
+            MinecraftForge.EVENT_BUS.addListener(
+                (com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed event) -> {
+                    com.solr98.beyondintegration.feature.ammo.sw.SwAmmoTracker.removeById(event.getDestroyedId());
+                }
+            );
+            LOGGER.info("Registered SwAmmoPollingService");
         }
     }
 
-    private void registerConversionHandler() {
-        ExtractHandlerRegistry.register(new RecipeConversionHandler());
-        LOGGER.info("Registered RecipeConversionHandler");
-    }
-
-    private void registerPlayerNetworkSyncHandler() {
-        if (ModList.get().isLoaded("superbwarfare")) {
-            MinecraftForge.EVENT_BUS.register(new SwPlayerAmmoSyncer());
-            LOGGER.info("Registered SwPlayerAmmoSyncer");
-        }
-    }
-
+    /** 注册载具右键绑定处理器（仅在 superbwarfare 加载时） */
     private void registerVehicleInteractHandler() {
         if (ModList.get().isLoaded("superbwarfare")) {
             MinecraftForge.EVENT_BUS.register(new VehicleInteractHandler());
@@ -158,43 +166,41 @@ public class BeyondIntegration {
         }
     }
 
-    private void registerAuditInspectHandler() {
-        MinecraftForge.EVENT_BUS.register(new AuditInspectHandler());
-        LOGGER.info("Registered AuditInspectHandler");
-    }
-
-    private void registerGuiAuditHandler() {
-        if (CommandConfig.enableAuditLog()) {
-            MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.handler.GuiAuditHandler());
-            LOGGER.info("Registered GuiAuditHandler");
-        }
-    }
-
-    private void registerMeterSnapshotTicker() {
-        if (CommandConfig.enableAuditLog()) {
-            MeterSnapshotTicker.register();
-            LOGGER.info("Registered MeterSnapshotTicker");
-        }
-    }
-
+    /**
+     * 注册 TACZ 弹药追踪服务：周期性扫描网络弹药并推送，
+     * 并在服务器停止 / 网络销毁 / 玩家登出时清理对应追踪数据。
+     */
     private void registerTaczTrackerDrain() {
         if (ModList.get().isLoaded("tacz")) {
+            MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoPollingService());
             MinecraftForge.EVENT_BUS.addListener(
-                (TickEvent.ServerTickEvent event) -> {
-                    if (event.phase == TickEvent.Phase.END) {
-                        com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoTracker.drainAllPending();
+                (net.minecraftforge.event.server.ServerStoppingEvent event) -> {
+                    com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoTracker.clear();
+                    com.solr98.beyondintegration.feature.ammo.tacz.PlayerNetUsageTracker.clear();
+                }
+            );
+            MinecraftForge.EVENT_BUS.addListener(
+                (com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed event) -> {
+                    com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoTracker.removeById(event.getDestroyedId());
+                    NetworkAmmoData.remove(event.getDestroyedId());
+                }
+            );
+            MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) -> {
+                    if (event.getEntity() != null) {
+                        com.solr98.beyondintegration.feature.ammo.tacz.PlayerNetUsageTracker.remove(event.getEntity().getUUID());
                     }
                 }
             );
-            LOGGER.info("Registered TaczAmmoTracker drain");
+            LOGGER.info("Registered TaczAmmoPollingService");
         }
     }
 
-    // You can use SubscribeEvent and let the Event Bus discover methods to call
-    @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
-    }
-
+    /**
+     * 左键点击哨戒机械臂（sentrymechanicalarm）事件：
+     * 手持已接入网络的物品时，将网络 ID 绑定到哨戒炮
+     * （反射调用其 getHeldItem / addAmmoBox），成功后扣除玩家物品。
+     */
     @SubscribeEvent
     public void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
         Level level = event.getLevel();
@@ -234,61 +240,25 @@ public class BeyondIntegration {
                 player.displayClientMessage(
                         net.minecraft.network.chat.Component.translatable("message.beyond_integration.sentry_net_bound", boundNetId),
                         true);
-                if (CommandConfig.enableAuditLog()) {
-                    String sentryDisplay = level.getBlockState(pos).getBlock().getName().getString();
-                    BindingAuditLog.log(AuditEntry.bind(
-                            player.getName().getString(), player.getUUID(),
-                            boundNetId, "SENTRY", pos.toShortString(), sentryDisplay));
-                    NetworkBindingRegistry.recordSentryBind(boundNetId, pos,
-                            player.getName().getString(), player.getUUID(), sentryDisplay);
-                }
             } else {
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable("sentry.tooltip.ammobox_1"), true);
             }
         } catch (Exception ignored) {}
     }
 
-    @SubscribeEvent
-    public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) {
-            // BDNetworkHelper and NetworkNotificationTracker removed - caches are client-side
-        }
-    }
-
+    /** 主世界加载时初始化网络弹药持久化数据 */
     @SubscribeEvent
     public void onWorldLoad(LevelEvent.Load event) {
         if (event.getLevel() instanceof ServerLevel serverLevel && serverLevel.dimension() == ServerLevel.OVERWORLD) {
             NetworkAmmoData.initialize(serverLevel);
-            if (CommandConfig.enableTokenSystem()) {
-                BindingTokenManager.initialize(serverLevel);
-                NetworkMeters.initialize(serverLevel);
-                PlayerInspectData.initialize(serverLevel);
-                if (CommandConfig.enableAuditLog()) {
-                    NetworkBindingRegistry.initialize(serverLevel);
-                    BindingAuditLog.initialize(serverLevel);
-                }
-            }
         }
     }
 
+    /** 主世界保存时标记网络弹药数据为待保存 */
     @SubscribeEvent
     public void onWorldSave(LevelEvent.Save event) {
         if (event.getLevel() instanceof ServerLevel serverLevel && serverLevel.dimension() == ServerLevel.OVERWORLD) {
             NetworkAmmoData.markDirty();
-            if (CommandConfig.enableAuditLog()) {
-                NetworkMeters.markDirty();
-                BindingAuditLog.flush();
-            }
-        }
-    }
-
-    @SubscribeEvent
-    public void onWorldUnload(LevelEvent.Unload event) {
-        if (event.getLevel() instanceof ServerLevel serverLevel && serverLevel.dimension() == ServerLevel.OVERWORLD) {
-            VehicleNetStorage.cleanupStale();
-            if (CommandConfig.enableAuditLog()) {
-                BindingAuditLog.close();
-            }
         }
     }
 

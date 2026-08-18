@@ -1,8 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
-import com.solr98.beyondintegration.feature.bind.BindingTokenManager;
 import com.solr98.beyondintegration.handler.SentryNetIdAccessor;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.resource.pojo.data.gun.Bolt;
@@ -14,13 +12,18 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 
-import java.util.UUID;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * 注入哨戒机械臂的 SentryArmBlockEntity：
+ * 扩展 performInstantReload——哨戒发射弹药后，自动从绑定的维度网络直接补充弹匣
+ * （支持无限弹药与按弹药类型计数），实现哨戒的"网络供弹"。
+ */
 @Pseudo
 @Mixin(targets = "euphy.upo.sentrymechanicalarm.content.SentryArmBlockEntity", remap = false)
 public class SentryArmReloadMixin {
 
+    /** 拦截哨戒瞬时换弹：从网络弹药库扣取并填入枪械弹匣，成功后跳过原逻辑 */
     @Inject(method = "performInstantReload", at = @At("HEAD"), cancellable = true)
     private void onReload(net.minecraftforge.common.util.FakePlayer fakePlayer,
                            com.tacz.guns.api.item.IGun iGun,
@@ -57,6 +60,7 @@ public class SentryArmReloadMixin {
         } catch (Exception ignored) {}
     }
 
+    /** 获取哨戒绑定的维度网络；仅在服务端且已绑定时返回，否则为 null */
     @Unique
     private DimensionsNet getTerminalNetwork() {
         BlockEntity be = (BlockEntity) (Object) this;
@@ -64,13 +68,6 @@ public class SentryArmReloadMixin {
         if (!(be instanceof SentryNetIdAccessor accessor)) return null;
         int netId = accessor.getSentryNetId();
         if (netId < 0) return null;
-        if (CommandConfig.enableTokenSystem()) {
-            UUID token = accessor.getSentryToken();
-            if (token != null && !BindingTokenManager.isTokenValid(netId, token)) {
-                accessor.clearSentryBinding();
-                return null;
-            }
-        }
         return DimensionsNet.getNetFromId(netId);
     }
 }

@@ -8,11 +8,15 @@ import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 
+/** 网络包注册与发送中心：统一创建 SimpleChannel，注册全部数据包并封装向服务端/客户端发送的方法 */
 public class PacketHandler {
 
+    /** 网络协议版本号，客户端与服务端不一致时拒绝连接 */
     private static final String PROTOCOL_VERSION = "1";
+    /** 自增的包 ID 计数器 */
     private static int id = 0;
 
+    /** 模组主网络通道实例 */
     public static final SimpleChannel INSTANCE = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(BeyondIntegration.MODID, "main"),
             () -> PROTOCOL_VERSION,
@@ -20,6 +24,7 @@ public class PacketHandler {
             PROTOCOL_VERSION::equals
     );
 
+    /** 注册所有数据包；superbwarfare 与 tacz 相关包仅在对应模组加载时注册 */
     public static void register() {
         INSTANCE.registerMessage(id++, RecipeFillPacket.class,
                 RecipeFillPacket::encode,
@@ -45,6 +50,11 @@ public class PacketHandler {
                 OpenStorageMenuPacket::encode,
                 OpenStorageMenuPacket::decode,
                 OpenStorageMenuPacket::handle);
+
+        INSTANCE.registerMessage(id++, CleanWorkstationPacket.class,
+                CleanWorkstationPacket::encode,
+                CleanWorkstationPacket::decode,
+                CleanWorkstationPacket::handle);
 
         INSTANCE.registerMessage(id++, ToggleEnchantSeparationPacket.class,
                 ToggleEnchantSeparationPacket::encode,
@@ -74,6 +84,18 @@ public class PacketHandler {
                     RequestSuperbAmmoExtractPacket::encode,
                     RequestSuperbAmmoExtractPacket::decode,
                     RequestSuperbAmmoExtractPacket::handle);
+            INSTANCE.registerMessage(id++, SuperbAmmoDeltaS2CPacket.class,
+                    SuperbAmmoDeltaS2CPacket::encode,
+                    SuperbAmmoDeltaS2CPacket::decode,
+                    SuperbAmmoDeltaS2CPacket::handle);
+            INSTANCE.registerMessage(id++, RequestItemAmmoPacket.class,
+                    RequestItemAmmoPacket::encode,
+                    RequestItemAmmoPacket::decode,
+                    RequestItemAmmoPacket::handle);
+            INSTANCE.registerMessage(id++, ItemAmmoResponsePacket.class,
+                    ItemAmmoResponsePacket::encode,
+                    ItemAmmoResponsePacket::decode,
+                    ItemAmmoResponsePacket::handle);
         }
 
         if (ModList.get().isLoaded("tacz")) {
@@ -100,10 +122,12 @@ public class PacketHandler {
         }
     }
 
+    /** 客户端 → 服务端发送 */
     public static void sendToServer(Object msg) {
         INSTANCE.sendToServer(msg);
     }
 
+    /** 服务端 → 指定玩家发送 */
     public static void sendToPlayer(ServerPlayer player, Object msg) {
         INSTANCE.sendTo(msg, player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
     }

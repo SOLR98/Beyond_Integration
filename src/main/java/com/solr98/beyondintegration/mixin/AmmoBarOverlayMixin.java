@@ -47,9 +47,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.text.NumberFormat;
 
+/**
+ * 注入 Superb Warfare 的 {@link AmmoBarOverlay}，在原有弹药条之上追加渲染
+ * 当前维度网络的三行信息：网络名称(Net#id)、网络能量(FE)、网络弹药数量(玩家弹药/物品弹药)。
+ */
 @Mixin(value = AmmoBarOverlay.class, remap = false)
 public abstract class AmmoBarOverlayMixin {
 
+    /** 在原弹药条渲染完毕后，追加绘制维度网络弹药状态（名称/能量/数量） */
     @Inject(method = "render(Lcom/atsuishio/superbwarfare/client/overlay/RenderContext;)V", at = @At("RETURN"), remap = false)
     private void beyond$renderNetworkStatus(RenderContext context, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
@@ -118,7 +123,14 @@ public abstract class AmmoBarOverlayMixin {
                 if (raw.startsWith("@") || raw.startsWith("#")) raw = raw.substring(1);
                 String itemId = raw;
                 if (itemId != null) {
-                    long count = SuperbAmmoCache.getCount("ITEM:" + itemId);
+                    String itemKey = "ITEM:" + itemId;
+                    long count = SuperbAmmoCache.getItemCount(itemKey, false);
+                    if (count < 0) {
+                        // 现查现用（换枪检测在 ClientRegistrar 统一触发，此处兜底）
+                        SuperbAmmoCache.requestItems(SuperbAmmoCache.getNetId(),
+                                java.util.Collections.singletonList(itemKey), false);
+                        count = 0;
+                    }
                     if (count > 0) {
                         var item = ForgeRegistries.ITEMS.getValue(ResourceLocation.tryParse(itemId));
                         if (item != null && item != Items.AIR) {

@@ -6,11 +6,20 @@ import org.apache.commons.lang3.tuple.Pair;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * 模组通用配置（ForgeConfigSpec 服务端配置）。
+ * 集中定义全部可配置项：语言、网络列表分页、附魔分离、载具充能、
+ * 物品黑名单、合成冷却、弹药提取映射、TACZ/SW 弹药轮询、
+ * 铁砧工作台计费与自动图腾等，并提供静态访问入口。
+ */
 public class CommandConfig
 {
+    /** 服务端配置规格（同步到客户端） */
     public static final ForgeConfigSpec SERVER_SPEC;
+    /** 服务端配置对象实例 */
     public static final ServerConfig SERVER;
 
+    /** 构建配置规格与配置实例 */
     static
     {
         final Pair<ServerConfig, ForgeConfigSpec> specPair = new ForgeConfigSpec.Builder().configure(ServerConfig::new);
@@ -18,6 +27,7 @@ public class CommandConfig
         SERVER = specPair.getLeft();
     }
 
+    /** 命令输出语言选项 */
     public enum Language
     {
         EN_US("en_us"), ZH_CN("zh_cn");
@@ -27,11 +37,19 @@ public class CommandConfig
         public String getCode() { return code; }
     }
 
+    /** 载具充能模式：按固定速率（FE/tick）或按缺失能量的百分比 */
     public enum VehicleChargeMode
     {
         RATE, PERCENTAGE
     }
 
+    /** 铁砧工作台计费模式：按等级或按经验点数 */
+    public enum AnvilChargeMode
+    {
+        LEVEL, POINTS
+    }
+
+    /** 配置项定义类：在构造器中分区注册全部配置条目 */
     public static class ServerConfig
     {
         public final ForgeConfigSpec.EnumValue<Language> language;
@@ -61,14 +79,25 @@ public class CommandConfig
         public final ForgeConfigSpec.BooleanValue BLOCK_BD_CONTAINER_READER;
 
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> AMMO_EXTRACT_MAPPINGS;
-        public final ForgeConfigSpec.BooleanValue ENABLE_TOKEN_SYSTEM;
-        public final ForgeConfigSpec.BooleanValue ENABLE_AUDIT_LOG;
-        public final ForgeConfigSpec.ConfigValue<String> AUDIT_STORAGE;
-        public final ForgeConfigSpec.ConfigValue<String> AUDIT_SQLITE_PATH;
-        public final ForgeConfigSpec.ConfigValue<String> AUDIT_MYSQL_URL;
-        public final ForgeConfigSpec.ConfigValue<String> AUDIT_MYSQL_USER;
-        public final ForgeConfigSpec.ConfigValue<String> AUDIT_MYSQL_PASSWORD;
-        public final ForgeConfigSpec.BooleanValue ALLOW_LEGACY_BINDINGS;
+
+        // TACZ ammo polling
+        public final ForgeConfigSpec.BooleanValue TACZ_AMMO_POLL_ENABLED;
+        public final ForgeConfigSpec.IntValue TACZ_AMMO_POLL_INTERVAL_TICKS;
+
+        // SW ammo polling
+        public final ForgeConfigSpec.BooleanValue SW_AMMO_POLL_ENABLED;
+        public final ForgeConfigSpec.IntValue SW_AMMO_POLL_INTERVAL_TICKS;
+
+        // Anvil workstation
+        public final ForgeConfigSpec.EnumValue<AnvilChargeMode> anvilCostMode;
+        public final ForgeConfigSpec.IntValue anvilLevelCap;
+        public final ForgeConfigSpec.LongValue anvilPointsCap;
+
+        // Auto totem (network only)
+        public final ForgeConfigSpec.BooleanValue AUTO_TOTEM_ENABLED;
+        public final ForgeConfigSpec.IntValue AUTO_TOTEM_COOLDOWN_SECONDS;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> AUTO_TOTEM_DAMAGE_BLACKLIST;
+        public final ForgeConfigSpec.BooleanValue AUTO_TOTEM_RESPECT_BYPASSES;
 
         public ServerConfig(ForgeConfigSpec.Builder builder)
         {
@@ -161,39 +190,59 @@ public class CommandConfig
                             obj -> obj instanceof String);
             builder.pop();
 
-            builder.comment("Token system (network security)").push("token");
-            ENABLE_TOKEN_SYSTEM = builder
-                    .comment("Enable network binding token system. Disabling this removes all token-based security.")
-                    .define("enable", true);
-            ALLOW_LEGACY_BINDINGS = builder
-                    .comment("Allow legacy bindings (items/blocks bound before token system)")
-                    .define("allow_legacy_bindings", true);
+            builder.comment("TACZ network ammo polling settings").push("tacz_ammo");
+            TACZ_AMMO_POLL_ENABLED = builder
+                    .comment("Enable server-side polling of tacz:ammo items per network (full rescan + push to clients)")
+                    .define("ammo_poll_enabled", true);
+            TACZ_AMMO_POLL_INTERVAL_TICKS = builder
+                    .comment("Ticks between full ammo rescans and pushes to clients")
+                    .defineInRange("ammo_poll_interval_ticks", 10, 1, 1200);
             builder.pop();
 
-            builder.comment("Audit log settings").push("audit");
-            ENABLE_AUDIT_LOG = builder
-                    .comment("Enable audit log. Fully disable to eliminate all logging.")
-                    .define("enable", true);
-            AUDIT_STORAGE = builder
-                    .comment("Storage backend: JSONL (file), SQLITE (embedded), MYSQL (remote)")
-                    .define("storage", "SQLITE");
-            AUDIT_SQLITE_PATH = builder
-                    .comment("SQLite database file path (relative to world directory)")
-                    .define("sqlite_path", "beyond_audit.db");
-            AUDIT_MYSQL_URL = builder
-                    .comment("MySQL JDBC URL (e.g. jdbc:mysql://host:3306/dbname)")
-                    .define("mysql_url", "");
-            AUDIT_MYSQL_USER = builder
-                    .comment("MySQL username")
-                    .define("mysql_user", "");
-            AUDIT_MYSQL_PASSWORD = builder
-                    .comment("MySQL password")
-                    .define("mysql_password", "");
+            builder.comment("SW network ammo polling settings").push("sw_ammo");
+            SW_AMMO_POLL_ENABLED = builder
+                    .comment("Enable server-side polling of SW virtual ammo + FE per network (diff-based delta push)")
+                    .define("ammo_poll_enabled", true);
+            SW_AMMO_POLL_INTERVAL_TICKS = builder
+                    .comment("Ticks between SW ammo/FE diff checks and pushes to clients")
+                    .defineInRange("ammo_poll_interval_ticks", 10, 1, 1200);
+            builder.pop();
+
+            builder.comment("Anvil workstation settings").push("anvil");
+            anvilCostMode = builder
+                    .comment("Anvil XP charge mode: LEVEL = vanilla levels (network XP tops up player levels first), POINTS = fixed XP points (network XP pays first)")
+                    .defineEnum("costMode", AnvilChargeMode.POINTS);
+            anvilLevelCap = builder
+                    .comment("LEVEL mode 'too expensive' level cap (40 = vanilla default, 2147483647 = no cap)")
+                    .defineInRange("levelCap", 40, 1, Integer.MAX_VALUE);
+            anvilPointsCap = builder
+                    .comment("POINTS mode 'too expensive' XP point cap (9223372036854775807 = no cap)")
+                    .defineInRange("pointsCap", Long.MAX_VALUE, 1L, Long.MAX_VALUE);
+            builder.pop();
+
+            builder.comment("Auto totem settings (uses totems from your network only)").push("auto_totem");
+            AUTO_TOTEM_ENABLED = builder
+                    .comment("Automatically use a totem from your network when dying")
+                    .define("enabled", true);
+            AUTO_TOTEM_COOLDOWN_SECONDS = builder
+                    .comment("Cooldown between auto-totem uses (seconds, 0 = no cooldown)")
+                    .defineInRange("cooldown_seconds", 10, 0, 3600);
+            AUTO_TOTEM_DAMAGE_BLACKLIST = builder
+                    .comment("Damage types that will NOT trigger auto-totem (msgId or minecraft:msgId)")
+                    .defineList("damage_blacklist",
+                            Arrays.asList("outOfWorld", "fellOutOfWorld", "genericKill", "command"),
+                            obj -> obj instanceof String);
+            AUTO_TOTEM_RESPECT_BYPASSES = builder
+                    .comment("Whether auto-totem respects the vanilla BYPASSES_INVULNERABILITY rule ",
+                             "(damage like void/out_of_world and /kill never triggers totem). ",
+                             "true = keep vanilla behavior; false = allow triggering on such damage (damage_blacklist still applies)")
+                    .define("respect_bypasses_invulnerability", false);
             builder.pop();
         }
 
     }
 
+    // ─── 配置读取静态入口（供各处代码调用） ───
     public static Language getCommandLanguage() { return SERVER.language.get(); }
     public static int maxNetworksPerPage() { return SERVER.maxNetworksPerPage.get(); }
 
@@ -219,12 +268,19 @@ public class CommandConfig
     public static boolean blockBdContainerReader() { return SERVER.BLOCK_BD_CONTAINER_READER.get(); }
 
     public static List<? extends String> ammoExtractMappings() { return SERVER.AMMO_EXTRACT_MAPPINGS.get(); }
-    public static boolean enableTokenSystem() { return SERVER.ENABLE_TOKEN_SYSTEM.get(); }
-    public static boolean enableAuditLog() { return SERVER.ENABLE_AUDIT_LOG.get(); }
-    public static String auditStorage() { return SERVER.AUDIT_STORAGE.get(); }
-    public static String auditSqlitePath() { return SERVER.AUDIT_SQLITE_PATH.get(); }
-    public static String auditMysqlUrl() { return SERVER.AUDIT_MYSQL_URL.get(); }
-    public static String auditMysqlUser() { return SERVER.AUDIT_MYSQL_USER.get(); }
-    public static String auditMysqlPassword() { return SERVER.AUDIT_MYSQL_PASSWORD.get(); }
-    public static boolean allowLegacyBindings() { return SERVER.ALLOW_LEGACY_BINDINGS.get(); }
+
+    public static boolean taczAmmoPollEnabled() { return SERVER.TACZ_AMMO_POLL_ENABLED.get(); }
+    public static int taczAmmoPollIntervalTicks() { return SERVER.TACZ_AMMO_POLL_INTERVAL_TICKS.get(); }
+
+    public static boolean swAmmoPollEnabled() { return SERVER.SW_AMMO_POLL_ENABLED.get(); }
+    public static int swAmmoPollIntervalTicks() { return SERVER.SW_AMMO_POLL_INTERVAL_TICKS.get(); }
+
+    public static AnvilChargeMode anvilCostMode() { return SERVER.anvilCostMode.get(); }
+    public static int anvilLevelCap() { return SERVER.anvilLevelCap.get(); }
+    public static long anvilPointsCap() { return SERVER.anvilPointsCap.get(); }
+
+    public static boolean autoTotemEnabled() { return SERVER.AUTO_TOTEM_ENABLED.get(); }
+    public static int autoTotemCooldownSeconds() { return SERVER.AUTO_TOTEM_COOLDOWN_SECONDS.get(); }
+    public static List<? extends String> autoTotemDamageBlacklist() { return SERVER.AUTO_TOTEM_DAMAGE_BLACKLIST.get(); }
+    public static boolean autoTotemRespectBypassesInvulnerability() { return SERVER.AUTO_TOTEM_RESPECT_BYPASSES.get(); }
 }

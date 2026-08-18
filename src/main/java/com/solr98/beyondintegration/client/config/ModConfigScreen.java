@@ -7,8 +7,13 @@ import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+/**
+ * Cloth Config 配置界面：将服务端配置按分类展示（语言/分页、附魔分离、
+ * 载具充电、物品黑名单、合成参数），修改后直接写入服务端配置。
+ */
 public class ModConfigScreen {
 
+    /** 创建配置界面（parent 为返回界面），通过 Cloth Config API 构建各分类条目 */
     public static Screen createScreen(Screen parent) {
         ConfigBuilder builder = ConfigBuilder.create()
                 .setParentScreen(parent)

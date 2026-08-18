@@ -1,7 +1,5 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.feature.bind.BindingTokenManager;
 import com.solr98.beyondintegration.handler.SentryNetIdAccessor;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import net.minecraft.world.item.ItemStack;
@@ -12,12 +10,16 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.UUID;
-
+/**
+ * 注入哨戒机械臂的 SentryArmBlockEntity：
+ * 在 performInstantReload 前把哨戒绑定的网络 ID 写入 FakePlayer 快捷栏第 9 格
+ * （伪装成 NetedItem），供 TACZ 枪械 API 感知网络弹药，实现哨戒从网络补弹。
+ */
 @Pseudo
 @Mixin(targets = "euphy.upo.sentrymechanicalarm.content.SentryArmBlockEntity", remap = false)
 public class SentryFakePlayerSyncMixin {
 
+    /** 换弹前将网络 ID 同步进 FakePlayer 物品栏（仅在服务端生效） */
     @Inject(method = "performInstantReload", at = @At("HEAD"))
     private void onBeforeReload(net.minecraftforge.common.util.FakePlayer fakePlayer,
                                  com.tacz.guns.api.item.IGun iGun,
@@ -27,34 +29,12 @@ public class SentryFakePlayerSyncMixin {
             if (fakePlayer == null) return;
 
             int netId = -1;
-            UUID storedToken = null;
-            UUID ownerUuid = null;
             if (((Object) this) instanceof SentryNetIdAccessor accessor) {
                 netId = accessor.getSentryNetId();
-                storedToken = accessor.getSentryToken();
-                ownerUuid = accessor.getSentryOwner();
             }
             if (netId < 0) return;
 
-            // Ensure a token exists for this sentry
-            if (storedToken == null && BindingTokenManager.getInstance() != null) {
-                UUID owner = ownerUuid != null ? ownerUuid : UUID.randomUUID();
-                storedToken = BindingTokenManager.getOrCreateToken(netId, owner);
-                if (((Object) this) instanceof SentryNetIdAccessor accessor) {
-                    accessor.setSentryToken(storedToken);
-                }
-            }
-
-            if (CommandConfig.enableTokenSystem() && storedToken != null
-                    && BindingTokenManager.getInstance() != null
-                    && !BindingTokenManager.isTokenValid(netId, storedToken)) {
-                if (((Object) this) instanceof SentryNetIdAccessor accessor) {
-                    accessor.clearSentryBinding();
-                }
-                return;
-            }
-
-            // Only need netId on the terminal — the sentry's own token is already validated
+            // Only need netId on the terminal — the sentry's own binding is already validated
             ItemStack terminal = new ItemStack(Items.STONE, 1);
             NetedItem.setNetId(terminal, netId);
             fakePlayer.getInventory().setItem(8, terminal);

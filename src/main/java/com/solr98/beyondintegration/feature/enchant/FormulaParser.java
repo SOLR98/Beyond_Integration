@@ -8,10 +8,19 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * 数学公式解析器：解析附魔分离费用公式字符串并求值。
+ * 支持四则运算、括号、幂（^）、一元负号、变量替换、常用数学常量
+ * （pi、e）与函数（sqrt/abs/log/sin/cos/tan/min/max/round/ceil/floor 等）。
+ */
 public class FormulaParser {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    /**
+     * 求值公式：先替换变量，再去空白并归一化数学符号，最后递归解析表达式。
+     * 解析失败时记录错误日志并返回 0。
+     */
     public static double evaluate(String formula, Map<String, Double> variables) {
         if (formula == null || formula.trim().isEmpty()) {
             return 0;
@@ -33,6 +42,7 @@ public class FormulaParser {
         }
     }
 
+    /** 将公式中的变量名（整词匹配）替换为数值字符串 */
     private static String replaceVariables(String formula, Map<String, Double> variables) {
         String result = formula;
         for (Map.Entry<String, Double> entry : variables.entrySet()) {
@@ -42,6 +52,7 @@ public class FormulaParser {
         return result;
     }
 
+    /** 将 ×·÷− 等数学符号归一化为 * / - */
     private static String simplifyMathSymbols(String expression) {
         return expression
                 .replaceAll("[×·]", "*")
@@ -49,6 +60,7 @@ public class FormulaParser {
                 .replaceAll("−", "-");
     }
 
+    /** 解析加/减表达式（最低优先级） */
     private static double parseExpression(String expr, int[] pos) {
         double result = parseTerm(expr, pos);
 
@@ -67,6 +79,7 @@ public class FormulaParser {
         return result;
     }
 
+    /** 解析乘/除表达式（除数为 0 时抛异常） */
     private static double parseTerm(String expr, int[] pos) {
         double result = parseFactor(expr, pos);
 
@@ -89,6 +102,10 @@ public class FormulaParser {
         return result;
     }
 
+    /**
+     * 解析最小单元：括号表达式、数字字面量、一元负号、
+     * 常量（pi/e）或函数调用，并处理其后的幂运算。
+     */
     private static double parseFactor(String expr, int[] pos) {
         if (pos[0] >= expr.length()) {
             throw new IllegalArgumentException("Unexpected end of expression");
@@ -149,6 +166,7 @@ public class FormulaParser {
         throw new IllegalArgumentException("Invalid character at position " + pos[0] + ": " + firstChar);
     }
 
+    /** 处理幂运算：支持 base ^ exponent */
     private static double parsePower(String expr, double base, int[] pos) {
         if (pos[0] < expr.length() && expr.charAt(pos[0]) == '^') {
             pos[0]++;
@@ -158,6 +176,7 @@ public class FormulaParser {
         return base;
     }
 
+    /** 应用数学函数：一元函数（sqrt/abs/log 等）与二元函数（min/max，支持逗号分隔第二个参数） */
     private static double applyFunction(String funcName, double arg, String expr, int[] pos) {
         double arg2 = 0;
         if (pos[0] < expr.length() && expr.charAt(pos[0]) == ',') {
@@ -183,6 +202,7 @@ public class FormulaParser {
         }
     }
 
+    /** 校验公式合法性：用默认测试变量试求值，抛异常则视为不合法 */
     public static boolean validateFormula(String formula) {
         if (formula == null || formula.trim().isEmpty()) {
             return false;
@@ -202,6 +222,7 @@ public class FormulaParser {
         }
     }
 
+    /** 提取公式中出现的全部自定义变量名（排除函数名与常量 pi/e） */
     public static String[] extractVariables(String formula) {
         if (formula == null || formula.trim().isEmpty()) {
             return new String[0];
@@ -221,6 +242,7 @@ public class FormulaParser {
         return variables.toArray(new String[0]);
     }
 
+    /** 判断名称是否为内置函数（忽略大小写） */
     private static boolean isFunction(String name) {
         String[] functions = {"sqrt", "abs", "log", "log10", "sin", "cos", "tan",
                 "min", "max", "round", "ceil", "floor"};
@@ -232,6 +254,7 @@ public class FormulaParser {
         return false;
     }
 
+    /** 判断名称是否为内置常量（pi/e） */
     private static boolean isConstant(String name) {
         return "pi".equalsIgnoreCase(name) || "e".equalsIgnoreCase(name);
     }

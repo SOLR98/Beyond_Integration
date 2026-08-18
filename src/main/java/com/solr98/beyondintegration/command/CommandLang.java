@@ -6,8 +6,14 @@ import com.solr98.beyondintegration.CommandConfig;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 命令多语言文本管理器。
+ * 以 key 为索引存储各语言的翻译文本（静态初始化块中注册），
+ * 根据当前配置的语言返回对应的字符串或聊天组件。
+ */
 public class CommandLang
 {
+    /** 翻译表：key -> (语言 -> 文本)。 */
     private static final Map<String, Map<CommandConfig.Language, String>> TRANSLATIONS = new HashMap<>();
 
     static
@@ -898,234 +904,26 @@ public class CommandLang
                 CommandConfig.Language.EN_US, "Insertion failed, %s remaining",
                 CommandConfig.Language.ZH_CN, "插入失败，剩余 %s 个");
 
-        register("network.reset.success",
-                CommandConfig.Language.EN_US, "Network %s (ID: %s) binding token has been reset",
-                CommandConfig.Language.ZH_CN, "网络 %s (ID: %s) 的绑定凭据已重置");
-
-        // ========== 审计日志命令 ==========
-        register("audit.log_not_available",
-                CommandConfig.Language.EN_US, "Audit log not available.",
-                CommandConfig.Language.ZH_CN, "审计日志不可用。");
-
-        register("audit.no_entries",
-                CommandConfig.Language.EN_US, "No audit entries for network #%s",
-                CommandConfig.Language.ZH_CN, "网络 #%s 无审计记录");
-
-        register("audit.title",
-                CommandConfig.Language.EN_US, "=== Audit Log for Network #%s (Page %s) ===",
-                CommandConfig.Language.ZH_CN, "=== 网络 #%s 审计日志 (第 %s 页) ===");
-
-        register("audit.entry",
-                CommandConfig.Language.EN_US, "[%s] %s %s by %s %s",
-                CommandConfig.Language.ZH_CN, "[%s] %s %s 由 %s %s");
-
-        register("audit.no_player_entries",
-                CommandConfig.Language.EN_US, "No audit entries for player %s",
-                CommandConfig.Language.ZH_CN, "玩家 %s 无审计记录");
-
-        register("audit.player_title",
-                CommandConfig.Language.EN_US, "=== Audit Log for %s (Page %s) ===",
-                CommandConfig.Language.ZH_CN, "=== 玩家 %s 审计日志 (第 %s 页) ===");
-
-        register("audit.player_entry",
-                CommandConfig.Language.EN_US, "[%s] %s %s #%d %s",
-                CommandConfig.Language.ZH_CN, "[%s] %s %s #%d %s");
-
-        register("audit.player_not_found",
-                CommandConfig.Language.EN_US, "Player not found.",
-                CommandConfig.Language.ZH_CN, "未找到该玩家。");
-
-        register("audit.no_meter",
-                CommandConfig.Language.EN_US, "No meter data for network #%s",
-                CommandConfig.Language.ZH_CN, "网络 #%s 无累计数据");
-
-        register("audit.meter_title",
-                CommandConfig.Language.EN_US, "=== Network #%s Accumulated Totals ===",
-                CommandConfig.Language.ZH_CN, "=== 网络 #%s 累计提取统计 ===");
-
-        register("audit.meter.interface",
-                CommandConfig.Language.EN_US, "Interface at %s: %d ops",
-                CommandConfig.Language.ZH_CN, "接口 %s: %d 次操作");
-
-        register("audit.meter.item",
-                CommandConfig.Language.EN_US, "  %s: %d",
-                CommandConfig.Language.ZH_CN, "  %s: %d");
-
-        register("audit.meter.cell",
-                CommandConfig.Language.EN_US, "Cell %s...",
-                CommandConfig.Language.ZH_CN, "存储盘 %s...");
-
-        register("audit.meter.in",
-                CommandConfig.Language.EN_US, "  IN %s: %d",
-                CommandConfig.Language.ZH_CN, "  入 %s: %d");
-
-        register("audit.meter.out",
-                CommandConfig.Language.EN_US, "  OUT %s: %d",
-                CommandConfig.Language.ZH_CN, "  出 %s: %d");
-
-        register("audit.recent_title",
-                CommandConfig.Language.EN_US, "=== Recent Audit Events ===",
-                CommandConfig.Language.ZH_CN, "=== 最近审计事件 ===");
-
-        register("audit.recent_entry",
-                CommandConfig.Language.EN_US, "[%s] %s %s #%d by %s %s",
-                CommandConfig.Language.ZH_CN, "[%s] %s %s #%d 由 %s %s");
-
-        register("audit.token_usage",
-                CommandConfig.Language.EN_US, "Usage: /bdtools audit token <netId>",
-                CommandConfig.Language.ZH_CN, "用法: /bdtools audit token <netId>");
-
-        register("audit.token.title",
-                CommandConfig.Language.EN_US, "Network #%s %s",
-                CommandConfig.Language.ZH_CN, "网络 #%s %s");
-
-        register("audit.token.value",
-                CommandConfig.Language.EN_US, "  Token: %s",
-                CommandConfig.Language.ZH_CN, "  令牌: %s");
-
-        register("audit.token.owner",
-                CommandConfig.Language.EN_US, "  Owner: %s",
-                CommandConfig.Language.ZH_CN, "  所有者: %s");
-
-        // ========== 绑定管理命令 ==========
-        register("binding.no_bindings",
-                CommandConfig.Language.EN_US, "Network #%s - No bindings recorded",
-                CommandConfig.Language.ZH_CN, "网络 #%s — 无绑定记录");
-
-        register("binding.title",
-                CommandConfig.Language.EN_US, "=== Network #%s %s - Bindings (%s) ===",
-                CommandConfig.Language.ZH_CN, "=== 网络 #%s %s — 绑定 (%s) ===");
-
-        register("binding.blocks",
-                CommandConfig.Language.EN_US, "[Blocks]",
-                CommandConfig.Language.ZH_CN, "[方块]");
-
-        register("binding.block_entry",
-                CommandConfig.Language.EN_US, "  %s by %s [%s]",
-                CommandConfig.Language.ZH_CN, "  %s 由 %s [%s]");
-
-        register("binding.items",
-                CommandConfig.Language.EN_US, "[Items (last operator)]",
-                CommandConfig.Language.ZH_CN, "[物品 (最近操作者)]");
-
-        register("binding.item_entry",
-                CommandConfig.Language.EN_US, "  %s by %s [%s]",
-                CommandConfig.Language.ZH_CN, "  %s 由 %s [%s]");
-
-        register("binding.vehicles",
-                CommandConfig.Language.EN_US, "[Vehicles]",
-                CommandConfig.Language.ZH_CN, "[载具]");
-
-        register("binding.vehicle_entry",
-                CommandConfig.Language.EN_US, "  %s by %s [%s]",
-                CommandConfig.Language.ZH_CN, "  %s 由 %s [%s]");
-
-        register("binding.sentries",
-                CommandConfig.Language.EN_US, "[Sentries]",
-                CommandConfig.Language.ZH_CN, "[哨戒臂]");
-
-        register("binding.sentry_entry",
-                CommandConfig.Language.EN_US, "  %s by %s [%s]",
-                CommandConfig.Language.ZH_CN, "  %s 由 %s [%s]");
-
-        register("binding.network_not_found",
-                CommandConfig.Language.EN_US, "Network #%s not found",
-                CommandConfig.Language.ZH_CN, "网络 #%s 不存在");
-
-        // ========== 操作类型中文翻译 ==========
-        register("action.BIND",
-                CommandConfig.Language.EN_US, "BIND",
-                CommandConfig.Language.ZH_CN, "绑定");
-        register("action.UNBIND",
-                CommandConfig.Language.EN_US, "UNBIND",
-                CommandConfig.Language.ZH_CN, "解绑");
-        register("action.AUTO_BIND",
-                CommandConfig.Language.EN_US, "AUTO_BIND",
-                CommandConfig.Language.ZH_CN, "自动绑定");
-        register("action.RESET",
-                CommandConfig.Language.EN_US, "RESET",
-                CommandConfig.Language.ZH_CN, "重置");
-        register("action.DENY",
-                CommandConfig.Language.EN_US, "DENY",
-                CommandConfig.Language.ZH_CN, "拒绝");
-        register("action.MIGRATE",
-                CommandConfig.Language.EN_US, "MIGRATE",
-                CommandConfig.Language.ZH_CN, "迁移");
-        register("action.METER",
-                CommandConfig.Language.EN_US, "METER",
-                CommandConfig.Language.ZH_CN, "提取");
-        register("action.CFG_CHG",
-                CommandConfig.Language.EN_US, "CFG_CHG",
-                CommandConfig.Language.ZH_CN, "配置变更");
-        register("action.MEMBER_ADD",
-                CommandConfig.Language.EN_US, "MEMBER_ADD",
-                CommandConfig.Language.ZH_CN, "添加成员");
-        register("action.MEMBER_REMOVE",
-                CommandConfig.Language.EN_US, "MEMBER_REMOVE",
-                CommandConfig.Language.ZH_CN, "移除成员");
-        register("action.OP_INTERVENE",
-                CommandConfig.Language.EN_US, "OP_INTERVENE",
-                CommandConfig.Language.ZH_CN, "OP干预");
-
-        // ========== 目标类型中文翻译 ==========
-        register("target.BLOCK",
-                CommandConfig.Language.EN_US, "BLOCK",
-                CommandConfig.Language.ZH_CN, "方块");
-        register("target.ITEM",
-                CommandConfig.Language.EN_US, "ITEM",
-                CommandConfig.Language.ZH_CN, "物品");
-        register("target.VEHICLE",
-                CommandConfig.Language.EN_US, "VEHICLE",
-                CommandConfig.Language.ZH_CN, "载具");
-        register("target.SENTRY",
-                CommandConfig.Language.EN_US, "SENTRY",
-                CommandConfig.Language.ZH_CN, "哨戒臂");
-        register("target.GUI",
-                CommandConfig.Language.EN_US, "GUI",
-                CommandConfig.Language.ZH_CN, "GUI操作");
-        register("target.IFACE",
-                CommandConfig.Language.EN_US, "IFACE",
-                CommandConfig.Language.ZH_CN, "网络接口");
-        register("target.BATCH",
-                CommandConfig.Language.EN_US, "BATCH",
-                CommandConfig.Language.ZH_CN, "批量");
-
-        // ========== 通用UI文本 ==========
-        register("ui.by",
-                CommandConfig.Language.EN_US, "by",
-                CommandConfig.Language.ZH_CN, "由");
-        register("ui.success",
-                CommandConfig.Language.EN_US, "success",
-                CommandConfig.Language.ZH_CN, "成功");
-        register("ui.fail",
-                CommandConfig.Language.EN_US, "failed",
-                CommandConfig.Language.ZH_CN, "失败");
-
-        // ========== 审计模式 ==========
-        register("inspect.no_network",
-                CommandConfig.Language.EN_US, "This block is not bound to any network.",
-                CommandConfig.Language.ZH_CN, "该方块未绑定任何网络。");
-        register("inspect.title",
-                CommandConfig.Language.EN_US, "Network #%s — %s (%s events)",
-                CommandConfig.Language.ZH_CN, "网络 #%s — %s (%s 条记录)");
-        register("inspect.no_records",
-                CommandConfig.Language.EN_US, "No audit records.",
-                CommandConfig.Language.ZH_CN, "暂无审计记录。");
-        register("inspect.click_here",
-                CommandConfig.Language.EN_US, "Click here",
-                CommandConfig.Language.ZH_CN, "点击查看");
-        register("inspect.view_full",
-                CommandConfig.Language.EN_US, "for full list",
-                CommandConfig.Language.ZH_CN, "完整列表");
-
     }
 
+    /**
+     * 注册一个 key 的双语言翻译。
+     * @param key   翻译键
+     * @param lang1 第一种语言
+     * @param text1 第一种语言的文本
+     * @param lang2 第二种语言
+     * @param text2 第二种语言的文本
+     */
     private static void register(String key, CommandConfig.Language lang1, String text1, CommandConfig.Language lang2, String text2)
     {
         TRANSLATIONS.computeIfAbsent(key, k -> new HashMap<>()).put(lang1, text1);
         TRANSLATIONS.computeIfAbsent(key, k -> new HashMap<>()).put(lang2, text2);
     }
 
+    /**
+     * 按当前配置的语言获取翻译文本。
+     * 找不到翻译时返回 key 本身；当前语言缺失时回退到英文。
+     */
     public static String get(String key)
     {
         CommandConfig.Language lang = CommandConfig.getCommandLanguage();
@@ -1138,16 +936,19 @@ public class CommandLang
         return text != null ? text : langMap.get(CommandConfig.Language.EN_US);
     }
 
+    /** 获取翻译文本并应用参数格式化（占位符 %s 等）。 */
     public static String get(String key, Object... args)
     {
         return String.format(get(key), args);
     }
 
+    /** 获取翻译文本并包装为聊天组件。 */
     public static Component component(String key)
     {
         return Component.literal(get(key));
     }
 
+    /** 获取格式化后的翻译文本并包装为聊天组件。 */
     public static Component component(String key, Object... args)
     {
         return Component.literal(get(key, args));

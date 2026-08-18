@@ -29,6 +29,12 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * 注入 TACZ 的 {@link GunSmithTableScreen}（枪械工作台界面），
+ * 扩展为支持维度网络材料：网络材料计入配方原料计数、额外显示网络数量徽标、
+ * 新增“网络模式”与“产物入网络”切换按钮（偏好持久化到配置文件），
+ * 并拦截合成按钮发包，使合成产物可选择输出到维度网络。
+ */
 @Mixin(value = GunSmithTableScreen.class, remap = false)
 public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<GunSmithTableMenu> {
 
@@ -36,35 +42,47 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         super(menu, inventory, title);
     }
 
+    /** 界面是否已初始化（延迟到首次渲染时加载偏好） */
     @Unique
     private static boolean beyond$loaded = false;
+    /** 是否安装了 taczaddon 兼容模组 */
     @Unique
     private static boolean beyond$hasTaczAddon;
+    /** 兼容模组是否已检查过 */
     @Unique
     private static boolean beyond$compatChecked = false;
+    /** 当前是否启用“网络材料”模式（默认开启） */
     @Unique
     private boolean beyond$useNetwork = true;
 
+    /** 影射：配方原料在当前玩家背包中的数量 */
     @Shadow(remap = false)
     private Int2IntArrayMap playerIngredientCount;
 
+    /** 影射：当前选中的合成配方 */
     @Shadow(remap = false)
     private GunSmithTableRecipe selectedRecipe;
 
+    /** 影射：原类刷新玩家原料数量的方法 */
     @Shadow(remap = false)
     private void getPlayerIngredientCount(GunSmithTableRecipe recipe) {}
 
+    /** 合成产物是否输出到网络 */
     @Unique
     private boolean beyond$outputToNetwork = false;
+    /** 网络物品缓存版本号（用于判定计数缓存失效） */
     @Unique
     private int beyond$netVersion = -1;
+    /** “产物输出”切换按钮 */
     @Unique
     private Button beyond$outputBtn;
 
+    /** 枪械工作台界面贴图 */
     @Unique
     private static final ResourceLocation beyond$tex =
             ResourceLocation.tryParse("tacz:textures/gui/gun_smith_table.png");
 
+    /** 绘制 18x18 的切换按钮（含悬停高亮）并叠加物品图标 */
     @Unique
     private void beyond$drawButton(GuiGraphics g, int x, int y, int mx, int my, ItemStack icon) {
         boolean hover = mx >= x && mx < x + 18 && my >= y && my < y + 18;
@@ -73,9 +91,11 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         if (!icon.isEmpty()) g.renderFakeItem(icon, x + 1, y + 1);
     }
 
+    /** 偏好文件（config/BeyondIntegration_gui.properties） */
     @Unique
     private static java.io.File beyond$prefsFile;
 
+    /** 从偏好文件加载 useNetwork / outputToNetwork 设置 */
     @Unique
     private void beyond$loadPrefs() {
         try {
@@ -93,6 +113,7 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         }
     }
 
+    /** 将当前 useNetwork / outputToNetwork 设置写入偏好文件 */
     @Unique
     private void beyond$savePrefs() {
         try {
@@ -109,14 +130,18 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         }
     }
 
+    /** 网络材料计数缓存（按配方输入下标），配切换配方或缓存版本变化时重建 */
     @Unique
     private int[] beyond$cachedNetworkCounts;
+    /** 上次计算网络计数的配方 ID */
     @Unique
     private String beyond$lastRecipeKey;
 
+    /** 产物输出按钮的物品图标（net_creater） */
     @Unique
     private static ItemStack beyond$debugIcon = ItemStack.EMPTY;
 
+    /** 惰性检测是否安装了 taczaddon（只检查一次） */
     @Unique
     private static boolean beyond$isTaczAddonLoaded() {
         if (!beyond$compatChecked) {
@@ -130,6 +155,7 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         return beyond$hasTaczAddon;
     }
 
+    /** 初始化输出按钮图标（beyonddimensions:net_creater） */
     @Unique
     private static void beyond$initIcons() {
         if (!beyond$debugIcon.isEmpty()) return;
@@ -140,11 +166,13 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         }
     }
 
+    /** 关闭界面时保存按钮偏好设置 */
     @Inject(method = "onClose", at = @At("HEAD"), remap = true)
     private void onScreenClose(CallbackInfo ci) {
         beyond$savePrefs();
     }
 
+    /** 渲染末尾：绘制网络连接状态文本与模式/输出切换按钮（首次渲染时加载偏好） */
     @Inject(method = "render", at = @At("TAIL"), remap = true)
     private void onRenderTick(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (!beyond$loaded) {
@@ -170,12 +198,10 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         graphics.drawString(font, netText, left + 254, top + 33, netColor, false);
 
         {
-            if (beyond$isTaczAddonLoaded()) {
-                var modeIcon = beyond$useNetwork
-                        ? new ItemStack(net.minecraft.world.item.Items.ENDER_EYE)
-                        : new ItemStack(net.minecraft.world.item.Items.CRAFTING_TABLE);
-                beyond$drawButton(graphics, left + 322, top + 50, mouseX, mouseY, modeIcon);
-            }
+            var modeIcon = beyond$useNetwork
+                    ? new ItemStack(net.minecraft.world.item.Items.ENDER_EYE)
+                    : new ItemStack(net.minecraft.world.item.Items.CRAFTING_TABLE);
+            beyond$drawButton(graphics, left + 322, top + 50, mouseX, mouseY, modeIcon);
 
             if (beyond$useNetwork) {
                 var outIcon = beyond$outputToNetwork ? beyond$debugIcon : new ItemStack(net.minecraft.world.item.Items.CHEST);
@@ -184,6 +210,7 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         }
     }
 
+    /** 原料渲染后追加网络材料数量徽标（"+" 数量，缓存失效时先重新计算） */
     @Inject(method = "renderIngredient", at = @At("RETURN"))
     private void onRenderIngredient(GuiGraphics graphics, CallbackInfo ci) {
         if (!beyond$useNetwork) return;
@@ -222,6 +249,7 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         }
     }
 
+    /** 原料计数后叠加网络材料数量：刷新网络缓存，把各原料网络数量加进 playerIngredientCount */
     @Inject(method = "getPlayerIngredientCount", at = @At("RETURN"))
     private void addNetworkCounts(GunSmithTableRecipe recipe, CallbackInfo ci) {
         if (!beyond$useNetwork) return;
@@ -272,21 +300,20 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         }
     }
 
+    /** 合成按钮创建后追加“网络模式”与“产物输出”两个切换按钮 */
     @Inject(method = "addCraftButton", at = @At("TAIL"))
     private void onAddCraftButton(CallbackInfo ci) {
         var self = (GunSmithTableScreen) (Object) this;
         int left = self.getGuiLeft(), top = self.getGuiTop();
 
-        if (beyond$isTaczAddonLoaded()) {
-            var modeBtn = addRenderableWidget(Button.builder(Component.empty(), b -> {
-                beyond$useNetwork = !beyond$useNetwork;
-                if (beyond$outputBtn != null) beyond$outputBtn.visible = beyond$useNetwork;
-                if (selectedRecipe != null) getPlayerIngredientCount(selectedRecipe);
-                b.setTooltip(Tooltip.create(Component.translatable(
-                        beyond$useNetwork ? "gui.beyond_integration.mode.network" : "gui.beyond_integration.mode.vanilla")));
-            }).bounds(left + 322, top + 50, 18, 18).build());
-            modeBtn.setTooltip(Tooltip.create(Component.translatable("gui.beyond_integration.mode.network")));
-        }
+        var modeBtn = addRenderableWidget(Button.builder(Component.empty(), b -> {
+            beyond$useNetwork = !beyond$useNetwork;
+            if (beyond$outputBtn != null) beyond$outputBtn.visible = beyond$useNetwork;
+            if (selectedRecipe != null) getPlayerIngredientCount(selectedRecipe);
+            b.setTooltip(Tooltip.create(Component.translatable(
+                    beyond$useNetwork ? "gui.beyond_integration.mode.network" : "gui.beyond_integration.mode.vanilla")));
+        }).bounds(left + 322, top + 50, 18, 18).build());
+        modeBtn.setTooltip(Tooltip.create(Component.translatable("gui.beyond_integration.mode.network")));
 
         beyond$outputBtn = addRenderableWidget(Button.builder(Component.empty(), b -> {
             beyond$outputToNetwork = !beyond$outputToNetwork;
@@ -302,6 +329,7 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         beyond$outputBtn.visible = beyond$useNetwork;
     }
 
+    /** 拦截合成按钮发包：网络模式下改发 TaczCraftPacket（可输出到网络，Shift 批量 64） */
     @Redirect(method = "lambda$addCraftButton$5",
               at = @At(value = "INVOKE",
                        target = "Lnet/minecraftforge/network/simple/SimpleChannel;sendToServer(Ljava/lang/Object;)V",
@@ -316,6 +344,7 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
         PacketHandler.sendToServer(new TaczCraftPacket(selectedRecipe.getId(), count, beyond$outputToNetwork));
     }
 
+    /** 从网络物品缓存读取配方各原料的数量（键：配方ID|下标） */
     @Unique
     private int[] calcNetworkCounts(GunSmithTableRecipe recipe) {
         var inputs = recipe.getInputs();

@@ -15,25 +15,35 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
+/**
+ * C2S：客户端请求从"主网络"提取指定数量的 SW 固定弹药到玩家背包，
+ * 服务端扣除库存、发放物品并回发最新弹药状态快照。
+ */
 public class RequestSuperbAmmoExtractPacket {
 
+    /** 弹药类型键（serializationName），"__infinite__" 表示无限弹药 */
     private final String ammoType;
+    /** 请求提取的数量 */
     private final long count;
 
+    /** 构造提取请求 */
     public RequestSuperbAmmoExtractPacket(String ammoType, long count) {
         this.ammoType = ammoType;
         this.count = count;
     }
 
+    /** 编码：写入弹药类型与数量 */
     public static void encode(RequestSuperbAmmoExtractPacket msg, FriendlyByteBuf buf) {
         buf.writeUtf(msg.ammoType);
         buf.writeVarLong(msg.count);
     }
 
+    /** 解码：读出弹药类型与数量 */
     public static RequestSuperbAmmoExtractPacket decode(FriendlyByteBuf buf) {
         return new RequestSuperbAmmoExtractPacket(buf.readUtf(), buf.readVarLong());
     }
 
+    /** 服务端处理：校验并扣除弹药（无限弹药不扣），发放给玩家背包，回发状态快照 */
     public static void handle(RequestSuperbAmmoExtractPacket msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
@@ -45,6 +55,10 @@ public class RequestSuperbAmmoExtractPacket {
             Map<String, Long> ammoMap = acc.getSuperbAmmo();
 
             if ("__infinite__".equals(msg.ammoType)) return;
+
+            // 先找弹药定义，找不到直接返回，避免先扣后找造成物品丢失
+            Ammo ammo = findAmmoBySerialization(msg.ammoType);
+            if (ammo == null) return;
 
             long infinite = ammoMap.getOrDefault("__infinite__", 0L);
             long current = ammoMap.getOrDefault(msg.ammoType, 0L);
@@ -64,8 +78,7 @@ public class RequestSuperbAmmoExtractPacket {
             }
             net.setDirty();
 
-            Ammo ammo = findAmmoBySerialization(msg.ammoType);
-            if (ammo != null) {
+            {
                 long giveCount = toExtract;
                 while (giveCount > 0) {
                     int stackSize = (int) Math.min(giveCount, ammo.getItem().getMaxStackSize());
@@ -78,17 +91,15 @@ public class RequestSuperbAmmoExtractPacket {
             }
 
             Map<String, Long> fullMap = new HashMap<>(ammoMap);
-            if (fullMap.containsKey("__infinite__")) {
-                fullMap.put("__infinite__", Long.MAX_VALUE);
-            }
             long energy = net.getUnifiedStorage().getStackByKey(EnergyStackKey.INSTANCE).amount();
             String netName = net instanceof NetworkNameProvider nnp ? nnp.getCustomName() : "";
-            PacketHandler.sendToPlayer(player,
-                SuperbAmmoStatusResponsePacket.fromNet(net, fullMap, energy, 0, netName));
+            PacketHandler.sendToPlayer(player, SuperbAmmoStatusResponsePacket.fromNet(
+                    net, fullMap, energy, netName));
         });
         ctx.get().setPacketHandled(true);
     }
 
+    /** 按 serializationName 查找对应的 Ammo 枚举，找不到返回 null */
     private static Ammo findAmmoBySerialization(String name) {
         for (Ammo ammo : Ammo.values()) {
             if (ammo.serializationName.equals(name)) return ammo;

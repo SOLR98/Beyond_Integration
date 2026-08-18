@@ -23,13 +23,22 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * 注入 TACZ 的 {@link LocalPlayerReload}（客户端玩家换弹逻辑），
+ * 在 reload 头部提前执行客户端换弹流程（锁定状态、触发事件、发包并调用 doReload），
+ * 以配合扩展后的 canReload —— 使维度网络弹药也能正常触发客户端换弹。
+ */
 @Mixin(value = LocalPlayerReload.class, remap = false)
 public class LocalPlayerReloadMixin {
 
+    /** 影射：本地玩家数据（状态锁等） */
     @Shadow private LocalPlayerDataHolder data;
+    /** 影射：本地玩家 */
     @Shadow private LocalPlayer player;
+    /** 影射：原类执行换弹的方法 */
     @Shadow private void doReload(IGun iGun, GunDisplayInstance display, GunData gunData, ItemStack mainHandItem) {}
 
+    /** 在 reload 头部注入：校验换弹可行性后接管流程，锁定状态并通知服务端 */
     @Inject(method = "reload", at = @At("HEAD"), cancellable = true)
     private void onReload(CallbackInfo ci) {
         ItemStack mainHandItem = player.getMainHandItem();

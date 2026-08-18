@@ -46,9 +46,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.text.NumberFormat;
 
+/**
+ * 注入超级战争的载具 HUD 渲染 VehicleHudOverlay：
+ * 在原 HUD 上方追加三行网络信息——网络名称、网络 FE 能量、网络弹药
+ * （玩家弹药/物品弹药，支持无限标志），并自动向服务端补拉缺失的物品弹药数据。
+ */
 @Mixin(value = VehicleHudOverlay.class, remap = false)
 public abstract class VehicleHudNetworkMixin {
 
+    /** 原 HUD 渲染结束后追加网络状态信息（仅乘员视角） */
     @Inject(method = "render(Lcom/atsuishio/superbwarfare/client/overlay/RenderContext;)V",
             at = @At("RETURN"), remap = false)
     private void beyond$renderVehicleNetworkInfo(RenderContext context, CallbackInfo ci) {
@@ -62,6 +68,18 @@ public abstract class VehicleHudNetworkMixin {
 
         if (!SuperbAmmoCache.vehicleHasData()) return;
         if (SuperbAmmoCache.getVehicleNetId() < 0) return;
+
+        // ITEM 弹药现查：按固定弹药列表批量补缺失项
+        int vehicleNetId = SuperbAmmoCache.getVehicleNetId();
+        java.util.List<String> ammoList = SuperbAmmoCache.getVehicleAmmoList();
+        java.util.List<String> itemKeys = new java.util.ArrayList<>();
+        for (String k : ammoList) {
+            if (k.startsWith("ITEM:")) itemKeys.add(k);
+        }
+        java.util.List<String> missing = SuperbAmmoCache.getMissingItemKeys(itemKeys, true);
+        if (!missing.isEmpty()) {
+            SuperbAmmoCache.requestItems(vehicleNetId, missing, true);
+        }
 
         Font font = mc.font;
         int h = context.getScreenHeight();
@@ -115,7 +133,7 @@ public abstract class VehicleHudNetworkMixin {
                         itemId = raw;
                     }
                     if (itemId != null) {
-                        long count = SuperbAmmoCache.getVehicleCount("ITEM:" + itemId);
+                        long count = SuperbAmmoCache.getItemCount("ITEM:" + itemId, true);
                         if (count > 0) {
                             var item = ForgeRegistries.ITEMS.getValue(ResourceLocation.tryParse(itemId));
                             if (item != null && item != Items.AIR) {

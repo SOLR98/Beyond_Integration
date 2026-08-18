@@ -13,10 +13,16 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * 注入超级战争的 VehicleEntity（仅客户端）：
+ * 修复手持带 NetId 的维度网络物品右键载具时被原版交互（如打开载具界面）抢占的问题——
+ * 直接返回 SUCCESS 拦截交互，保留给服务端网络逻辑处理。
+ */
 @OnlyIn(Dist.CLIENT)
 @Mixin(value = VehicleEntity.class, remap = false)
 public class VehicleClientInteractMixin {
 
+    /** 手持网络物品时吞掉客户端交互结果 */
     @Inject(method = "interact", at = @At("HEAD"), cancellable = true)
     private void beyond$onInteract(Player player, InteractionHand hand,
                                    CallbackInfoReturnable<InteractionResult> cir) {

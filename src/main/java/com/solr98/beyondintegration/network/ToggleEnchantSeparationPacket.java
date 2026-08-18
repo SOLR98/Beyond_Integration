@@ -9,16 +9,24 @@ import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
+/**
+ * C2S：客户端请求切换"主网络"的附魔分离开关，
+ * 服务端校验玩家为网络的经理/所有者后取反开关，并回发同步包。
+ */
 public class ToggleEnchantSeparationPacket {
 
+    /** 空构造：本包无字段 */
     public ToggleEnchantSeparationPacket() {}
 
+    /** 编码：无字段，为空操作 */
     public static void encode(ToggleEnchantSeparationPacket msg, FriendlyByteBuf buf) {}
 
+    /** 解码：无字段，直接返回新实例 */
     public static ToggleEnchantSeparationPacket decode(FriendlyByteBuf buf) {
         return new ToggleEnchantSeparationPacket();
     }
 
+    /** 服务端处理：权限校验通过后取反开关状态、标记网络已修改并回发 EnchantSeparationSyncPacket */
     public static void handle(ToggleEnchantSeparationPacket msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();

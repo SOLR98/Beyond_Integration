@@ -11,9 +11,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * 注入 TACZ 的 {@link GunAnimationStateContext}（动画状态机上下文），
+ * 扩展 hasAmmoToConsume：背包弹药耗尽时，若维度网络缓存中仍有对应弹药（客户端视角），
+ * 则视为可继续消耗，保证换弹/射击动画正常触发。
+ */
 @Mixin(value = GunAnimationStateContext.class, remap = false)
 public class GunAnimationStateContextMixin {
 
+    /** 扩展 hasAmmoToConsume：网络弹药也算作可用弹药（数据未加载时先请求缓存） */
     @Inject(method = "hasAmmoToConsume", at = @At("RETURN"), cancellable = true)
     private void onHasAmmoToConsume(CallbackInfoReturnable<Boolean> cir) {
         if (cir.getReturnValue()) return;

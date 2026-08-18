@@ -8,16 +8,22 @@ import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
 import net.minecraft.resources.ResourceLocation;
 
+/**
+ * JEI 集成插件：注册本模组工作台菜单的配方转移处理器（合成台 / 切石机）。
+ */
 @JeiPlugin
 public class BDJeiPlugin implements IModPlugin {
 
+    // 插件唯一标识（beyond_integration:jei_plugin）
     @Override
     public ResourceLocation getPluginUid() {
         return ResourceLocation.tryParse(BeyondIntegration.MODID + ":jei_plugin");
     }
 
+    // 注册配方转移处理器：合成配方 → DimensionsCraftMenu，切石配方 → DimensionsCutMenu
     @Override
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
         registration.addRecipeTransferHandler(new CraftRecipeTransferHandler(), RecipeTypes.CRAFTING);
+        registration.addRecipeTransferHandler(new CutRecipeTransferHandler(), RecipeTypes.STONECUTTING);
     }
 }

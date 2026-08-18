@@ -30,23 +30,25 @@ public final class BDGUIExtensionRegistry {
     /** BD 原版左侧按钮占据的行数（行 0~7） */
     public static final int BD_BUTTON_COUNT = 8;
 
+    /** 已注册扩展列表（按优先级升序排列） */
     private static final List<IDimensionsNetGUIExtension> EXTENSIONS = new ArrayList<>();
     private static boolean registered;
 
+    /** 首次调用时注册内置扩展（存储界面、物品保护；附魔开关与弹药面板由 Mixin 直接处理） */
     public static void ensureRegistered() {
         if (registered) return;
         registered = true;
-        register(new EnchantSeparationExtension());
-        register(new AmmoPanelExtension());
         register(new ItemProtectExtension());
-        // 模式按钮已移至 DimensionsNetGUIMixin 右侧渲染（x=177），不再使用左侧工具栏扩展
+        // 附魔开关与弹药面板已由 DimensionsNetGUIMixin 直接处理
     }
 
+    /** 注册扩展并按优先级升序排序（低优先级先执行） */
     public static void register(IDimensionsNetGUIExtension ext) {
         EXTENSIONS.add(ext);
         EXTENSIONS.sort(Comparator.comparingInt(IDimensionsNetGUIExtension::priority));
     }
 
+    /** 获取已注册的扩展列表 */
     public static List<IDimensionsNetGUIExtension> getExtensions() {
         return EXTENSIONS;
     }

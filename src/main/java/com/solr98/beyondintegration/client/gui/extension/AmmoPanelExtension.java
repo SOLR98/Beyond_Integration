@@ -19,22 +19,31 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * SW（Superb Warfare）弹药面板扩展：在 BD 网络界面右侧渲染 5 种弹药数量槽位
+ * （含无限弹药标记），左键点击提取弹药，Shift 点击批量提取 256 发。
+ */
 public class AmmoPanelExtension implements IDimensionsNetGUIExtension {
 
+    /** SW 弹药物品注册名（5 种，与 AMMO_NAMES 一一对应） */
     private static final String[] AMMO_ITEMS = {
         "superbwarfare:handgun_ammo", "superbwarfare:rifle_ammo", "superbwarfare:shotgun_ammo",
         "superbwarfare:sniper_ammo", "superbwarfare:heavy_ammo"
     };
+    /** 网络缓存中弹药计数的键名（与 AMMO_ITEMS 一一对应） */
     private static final String[] AMMO_NAMES = {
         "HandgunAmmo", "RifleAmmo", "ShotgunAmmo", "SniperAmmo", "HeavyAmmo"
     };
+    /** 面板槽位尺寸与间距 */
     private static final int SLOT_SIZE = 18;
     private static final int SLOT_GAP = 2;
+    /** 当前悬浮的槽位序号（-1 表示无悬浮） */
     private int hoveredSlot = -1;
 
     @Override
     public int priority() { return 1; }
 
+    /** 界面初始化时向服务端请求弹药状态 */
     @Override
     public void onInit(DimensionsNetGUI<?> gui) {
         if (!ModList.get().isLoaded("superbwarfare")) return;
@@ -43,6 +52,7 @@ public class AmmoPanelExtension implements IDimensionsNetGUIExtension {
             PacketHandler.sendToServer(new RequestSuperbAmmoStatusPacket());
     }
 
+    /** 渲染弹药面板：槽位背景、物品图标、数量文本（无限显示 ∞）与悬浮 tooltip */
     @Override
     public void onRender(DimensionsNetGUI<?> gui, GuiGraphics g, int mx, int my, float pt) {
         if (!ModList.get().isLoaded("superbwarfare")) return;
@@ -94,6 +104,7 @@ public class AmmoPanelExtension implements IDimensionsNetGUIExtension {
         }
     }
 
+    /** 点击弹药槽位提取：左键 64 发，Shift 256 发（不超过当前存量） */
     @Override
     public boolean onMouseClicked(DimensionsNetGUI<?> gui, double mx, double my, int button) {
         if (button != 0) return false;

@@ -1,51 +1,91 @@
 package com.solr98.beyondintegration.client.gui;
 
-import com.solr98.beyondintegration.client.gui.WorkstationModeConstants;
-import com.solr98.beyondintegration.core.util.WSStateHelper;
 import com.solr98.beyondintegration.feature.crafting.DimensionsStorageMenu;
-import com.solr98.beyondintegration.network.OpenStorageMenuPacket;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.wintercogs.beyonddimensions.client.gui.DimensionsNetGUI;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
-import org.lwjgl.glfw.GLFW;
 
+/**
+ * 工作站通用界面基类：在 BD 网络存储界面之上叠加工作站面板，
+ * 负责面板背景分段拼接、面板高度计算、操作按钮（清空/归还方向）与标签重排。
+ */
 public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends DimensionsNetGUI<T> {
+    /** BD 网络界面各段背景纹理（顶栏 / 槽位条 / 连接条 / 玩家背包等） */
     protected static final ResourceLocation
         TEX_TOP  = ResourceLocation.tryParse("beyonddimensions:textures/gui/top_base.png"),
         TEX_TSL  = ResourceLocation.tryParse("beyonddimensions:textures/gui/top_slots.png"),
         TEX_MSL  = ResourceLocation.tryParse("beyonddimensions:textures/gui/mid_slots.png"),
         TEX_BSL  = ResourceLocation.tryParse("beyonddimensions:textures/gui/bottom_slots.png"),
         TEX_PINV = ResourceLocation.tryParse("beyonddimensions:textures/gui/player_inv.png"),
-        TEX_BTN  = ResourceLocation.tryParse("beyonddimensions:textures/gui/sprites/widget/slot_button.png"),
-        TEX_BH   = ResourceLocation.tryParse("beyonddimensions:textures/gui/sprites/widget/slot_button_hovered.png");
+        TEX_CONN = ResourceLocation.tryParse("beyonddimensions:textures/gui/common_connection.png");
 
     public DimensionsStorageGUI(T c, Inventory p, Component t) { super(c,p,t); }
+    /** 最近一次渲染的鼠标坐标（供子类面板交互使用） */
     protected int mouseX, mouseY;
 
+    /** 工作站面板顶部 Y 坐标（位于存储网格与玩家背包之间的间隙处） */
     protected int getGapY() { return this.topPos + 24 + 18 + (this.menu.getLines() - 2) * 18 + 26; }
+    /** 工作站面板高度（默认 62px，合成界面覆盖为 72px） */
     protected int getPanelHeight() { return 62; }
+    /** 子类渲染工作站面板内容（默认空实现） */
     protected void renderWorkstationPanel(GuiGraphics g) {}
 
-    private boolean hasModeButtons() {
-        return this instanceof DimensionsAnvilGUI || this instanceof DimensionsCutGUI ||
-               this instanceof DimensionsGrindGUI || this instanceof DimensionsSmithGUI ||
-               this instanceof DimensionsCraftGUI;
-    }
-
+    /** 初始化时注册工作站操作按钮 */
     @Override protected void init() {
         super.init();
-        if(WSStateHelper.pendingRestore){
-            this.menu.lineData = Math.min(WSStateHelper.lineData, this.menu.maxLineData);
-            long win = Minecraft.getInstance().getWindow().getWindow();
-            GLFW.glfwSetCursorPos(win, WSStateHelper.mouseX, WSStateHelper.mouseY);
-            WSStateHelper.pendingRestore = false;
-        }
+        addWorkstationActionButtons();
     }
 
+    // ═══ 工作站面板右上角操作按钮（仅工作站界面）：清空到背包 / 清空到网络 / 关闭归还方向 ═══
+    // 渲染在工作站面板顶部（gy+2，同 BD），8x8 紧贴排列（步进 8）、右对齐留 8px
+    /** 归还方向：物品清空后回到背包 或 回到网络 */
+    private enum ReturnMode { INV, STORAGE }
+    /** 归还方向切换按钮（两态：背包 / 网络） */
+    private com.wintercogs.beyonddimensions.client.gui.widget.shared.StatusButton returnDirButton;
+
+    /** 添加清空到背包 / 清空到网络 / 归还方向 三个操作按钮（仅工作站界面生效） */
+    private void addWorkstationActionButtons() {
+        if (!(this instanceof DimensionsCraftGUI || this instanceof DimensionsCutGUI
+                || this instanceof DimensionsSmithGUI || this instanceof DimensionsGrindGUI
+                || this instanceof DimensionsAnvilGUI)) return;
+        int bxInv = this.leftPos + 144; // 面板右缘 leftPos+176，留 8px：160+8 = 168 → 144/152/160
+        int by = getGapY() + 2;
+
+        com.wintercogs.beyonddimensions.client.gui.widget.shared.IconButton clearToInv = new com.wintercogs.beyonddimensions.client.gui.widget.shared.IconButton(
+                bxInv, by, 8, 8, ResourceLocation.tryParse("beyonddimensions:textures/gui/sprites/widget/down_arrow.png"),
+                b -> PacketHandler.sendToServer(new com.solr98.beyondintegration.network.CleanWorkstationPacket(false)));
+        clearToInv.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.beyond_integration.clean_to_inv")));
+
+        com.wintercogs.beyonddimensions.client.gui.widget.shared.IconButton clearToNet = new com.wintercogs.beyonddimensions.client.gui.widget.shared.IconButton(
+                bxInv + 8, by, 8, 8, ResourceLocation.tryParse("beyonddimensions:textures/gui/sprites/widget/up_arrow.png"),
+                b -> PacketHandler.sendToServer(new com.solr98.beyondintegration.network.CleanWorkstationPacket(true)));
+        clearToNet.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.beyond_integration.clean_to_net")));
+
+        returnDirButton = new com.wintercogs.beyonddimensions.client.gui.widget.shared.StatusButton(
+                bxInv + 16, by, 8, 8, b -> {
+            returnDirButton.toggleState();
+            this.menu.setReturnDir(returnDirButton.currentState == ReturnMode.STORAGE);
+            this.menu.writeAndSendQuickData();
+        }) {
+            @Override protected void initButton() {
+                iconMap.put(ReturnMode.INV, ResourceLocation.tryParse("beyonddimensions:textures/gui/sprites/widget/sort_desc.png"));
+                iconMap.put(ReturnMode.STORAGE, ResourceLocation.tryParse("beyonddimensions:textures/gui/sprites/widget/sort_asc.png"));
+                tooltipMap.put(ReturnMode.INV, net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.beyond_integration.return_dir_inv")));
+                tooltipMap.put(ReturnMode.STORAGE, net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.beyond_integration.return_dir_net")));
+                states.add(ReturnMode.INV);
+                states.add(ReturnMode.STORAGE);
+                setState(menu.firstCraftReturnDir ? ReturnMode.STORAGE : ReturnMode.INV);
+            }
+        };
+        addRenderableWidget(clearToInv);
+        addRenderableWidget(clearToNet);
+        addRenderableWidget(returnDirButton);
+    }
+
+    /** 渲染背景：分段拼接 BD 网络纹理，随后渲染工作站面板与玩家背包 */
     @Override protected void renderBg(GuiGraphics g, float pt, int mx, int my) {
         mouseX = mx; mouseY = my;
         int dy = this.topPos;
@@ -54,58 +94,17 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
         for (int i = 0; i < this.menu.getLines() - 2; i++) { g.blit(TEX_MSL, this.leftPos, dy, 0,0,194,18,194,18); dy += 18; }
         g.blit(TEX_BSL, this.leftPos, dy, 0,0,194,26,194,26); dy += 26;
         renderWorkstationPanel(g);
-        renderModeButtons(g, mx, my);
         dy += getPanelHeight();
+        g.blit(TEX_CONN, this.leftPos, dy, 0,0,176,8,176,8); dy += 8;
         g.blit(TEX_PINV, this.leftPos, dy, 0,0,176,89,176,89);
     }
 
-    private void renderModeButtons(GuiGraphics g, int mx, int my) {
-        if(!hasModeButtons()) return;
-        int gy = getGapY();
-        var font = Minecraft.getInstance().font;
-        for (int i = 0; i < WorkstationModeConstants.MODES.length; i++) {
-            int bx=this.leftPos+WorkstationModeConstants.MX[i], by=gy+WorkstationModeConstants.MY[i];
-            boolean on=this.menu.getClass()==getMenuClass(WorkstationModeConstants.MODES[i]), h=mx>=bx&&mx<bx+16&&my>=by&&my<by+16;
-            g.blit(h||on?TEX_BH:TEX_BTN, bx,by, 0,0,16,16,16,16);
-            var p=g.pose(); p.pushPose(); p.translate(bx+1,by+1,1); p.scale(0.85f,0.85f,1);
-            g.renderFakeItem(WorkstationModeConstants.ICONS[i],0,0); p.popPose();
-            if (h) {
-                g.renderTooltip(font, Component.translatable("gui.beyond_integration.mode." + WorkstationModeConstants.MODES[i].name().toLowerCase()), mx, my);
-            }
-        }
-    }
-
-    private Class<?> getMenuClass(OpenStorageMenuPacket.Type t) {
-        return switch(t){
-            case ANVIL -> com.solr98.beyondintegration.feature.crafting.DimensionsAnvilMenu.class;
-            case CUT -> com.solr98.beyondintegration.feature.crafting.DimensionsCutMenu.class;
-            case GRIND -> com.solr98.beyondintegration.feature.crafting.DimensionsGrindMenu.class;
-            case SMITH -> com.solr98.beyondintegration.feature.crafting.DimensionsSmithMenu.class;
-            case CRAFT -> com.solr98.beyondintegration.feature.crafting.DimensionsCraftMenu.class;
-            default -> com.solr98.beyondintegration.feature.crafting.DimensionsStorageMenu.class;
-        };
-    }
-
-    @Override public boolean mouseClicked(double mx, double my, int btn) {
-        if(hasModeButtons()){
-            int gy=getGapY();
-            for(int i=0;i<WorkstationModeConstants.MODES.length;i++){
-                int bx=this.leftPos+WorkstationModeConstants.MX[i], by=gy+WorkstationModeConstants.MY[i];
-                if(mx>=bx&&mx<bx+16&&my>=by&&my<by+16){
-                    if(!WSStateHelper.pendingRestore){
-                        WSStateHelper.lineData=this.menu.lineData;
-                        WSStateHelper.pendingRestore=true;
-                    }
-                    PacketHandler.sendToServer(new OpenStorageMenuPacket(WorkstationModeConstants.MODES[i]));
-                    return true;
-                }
-            }
-        }
-        return super.mouseClicked(mx, my, btn);
-    }
-
-    @Override protected int rebuildImageHeight() { int ph = this.menu.getPanelHeight(); return 24+18+(this.menu.getLines()-2)*18+26+ph+89; }
-    @Override protected void rebuildLabelHeight() { int ph = this.menu.getPanelHeight(); this.titleLabelY = 8; this.inventoryLabelY = 24 + this.menu.getLines() * 18 + 5 + ph; }
-    @Override protected int calMaxLines() { int ph = this.menu.getPanelHeight(); return (int)((this.height - 36 - (24+18+26+ph+89)) / 18 + 2); }
-    @Override public void onClose() { WSStateHelper.clear(); super.onClose(); }
+    /** 计算界面总高度（含工作站面板高度，供重建图像尺寸用） */
+    @Override protected int rebuildImageHeight() { int ph = this.menu.getPanelHeight(); return 24+18+(this.menu.getLines()-2)*18+26+ph+8+89; }
+    /** 重排标题与背包标签的 Y 坐标（含工作站面板高度） */
+    @Override protected void rebuildLabelHeight() { int ph = this.menu.getPanelHeight(); this.titleLabelY = 8; this.inventoryLabelY = 24 + this.menu.getLines() * 18 + 5 + ph + 8; }
+    /** 按当前屏幕可用高度计算存储网格最大行数（扣除工作站面板占位） */
+    @Override protected int calMaxLines() { int ph = this.menu.getPanelHeight(); return (int)((this.height - 36 - (24+18+26+ph+8+89)) / 18 + 2); }
+    /** 关闭界面时清除工作站切换上下文标记 */
+    @Override public void onClose() { WorkstationTransferHelper.clearPending(); super.onClose(); }
 }

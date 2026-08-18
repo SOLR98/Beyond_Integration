@@ -15,6 +15,12 @@ import java.util.Map;
  * Implement this to add BD-network-aware crafting for Tacz, SuperbWarfare,
  * YWZJ, or any other mod that has a recipe system.
  */
+/**
+ * 合成集成扩展点：为特定模组的合成系统提供从 BD 网络存储取料的合成能力。
+ * <p>
+ * 实现此接口可为 Tacz、SuperbWarfare、YWZJ 或其他带配方系统的模组
+ * 接入 BD 网络感知的合成（替代或补充玩家背包取料）。
+ */
 public interface ICraftingIntegration {
 
     /** The mod ID this integration handles (e.g. "tacz", "superbwarfare"). */

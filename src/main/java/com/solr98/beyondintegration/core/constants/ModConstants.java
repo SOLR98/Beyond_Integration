@@ -1,5 +1,10 @@
 package com.solr98.beyondintegration.core.constants;
 
+/**
+ * 模组全局常量表：集中定义网络 ID 上限、提取/合成堆叠数、
+ * 哨戒弹药上限、附魔分离系数、流体/能量换算、缓存 TTL、
+ * 同步间隔、游戏时间阈值、配置默认值、NBT 阈值与 HUD/GUI 布局参数。
+ */
 public final class ModConstants {
 
     private ModConstants() {

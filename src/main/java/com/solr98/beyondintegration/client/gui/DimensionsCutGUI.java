@@ -3,120 +3,137 @@ package com.solr98.beyondintegration.client.gui;
 import com.solr98.beyondintegration.feature.crafting.DimensionsCutMenu;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.StonecutterRecipe;
-
 import java.util.List;
 
+/**
+ * 切石机工作站界面：对齐原版切石机逻辑，提供配方网格、
+ * 滚动条（拖拽/滚轮）与配方选择交互（本地先行选中 + 服务端确认）。
+ */
 public class DimensionsCutGUI extends DimensionsStorageGUI<DimensionsCutMenu> {
-    private static final ResourceLocation BG=ResourceLocation.tryParse("beyond_integration:textures/gui/stonecutter.png");
-    private static final ResourceLocation BTN=ResourceLocation.tryParse("beyond_integration:textures/gui/stonecutter_button.png");
-    private static final ResourceLocation TH=ResourceLocation.tryParse("beyond_integration:textures/gui/scroll_thumb.png");
-
+    /** 工作站面板背景纹理 */
+    private static final ResourceLocation BG = ResourceLocation.tryParse("beyond_integration:textures/gui/stonecutter.png");
+    /** 配方按钮纹理（可用/选中/悬浮三态，纵向 54px） */
+    private static final ResourceLocation BTN = ResourceLocation.tryParse("beyond_integration:textures/gui/stonecutter_button.png");
+    /** 滚动条滑块纹理 */
+    private static final ResourceLocation TH = ResourceLocation.tryParse("beyond_integration:textures/gui/scroll_thumb.png");
+    /** 配方网格布局参数：起点、4x3 网格、单元格尺寸 */
     private static final int GRID_X = 52, GRID_Y = 3, GRID_COLS = 4, GRID_ROWS = 3, CELL_W = 16, CELL_H = 18;
+    /** 滚动条 X 坐标与滑块尺寸 */
     private static final int SCROLL_X = 119, THUMB_W = 12, THUMB_H = 15;
+    /** 配方网格总高度 */
     private static final int GRID_H = GRID_ROWS * CELL_H;
-
+    /** 当前滚动偏移（0~1） */
     private float scrollOffs;
+    /** 是否正在拖动滚动条 */
     private boolean scrolling;
 
-    public DimensionsCutGUI(DimensionsCutMenu c, Inventory p, Component t) { super(c,p,t); }
+    public DimensionsCutGUI(DimensionsCutMenu c, Inventory p, Component t) { super(c, p, t); }
 
-    private int getMaxScrollRows() {
-        int numRecipes = this.menu.getNumRecipes();
-        return Math.max(0, (numRecipes + GRID_COLS - 1) / GRID_COLS - GRID_ROWS);
-    }
+    /** 配方行数超出网格高度时的最大滚动行数 */
+    private int getMaxScrollRows() { int r = this.menu.getNumRecipes(); return Math.max(0, (r + GRID_COLS - 1) / GRID_COLS - GRID_ROWS); }
+    // 原版：round 后乘 4（非 floor）
+    /** 由滚动偏移计算配方网格起始索引（对齐原版 round 后再乘 4） */
+    private int getStartIdx() { return (int)((double)(scrollOffs * (float)getMaxScrollRows()) + 0.5D) * GRID_COLS; }
 
-    private int getStartIdx() {
-        return (int)(scrollOffs * getMaxScrollRows()) * GRID_COLS;
-    }
-
+    /** 渲染工作站面板：背景、滚动条、配方网格按钮与物品图标 */
     @Override protected void renderWorkstationPanel(GuiGraphics g) {
-        int gy=getGapY();g.blit(BG,this.leftPos,gy,0,0,176,62,176,62);
+        int gy = getGapY(); g.blit(BG, this.leftPos, gy, 0, 0, 176, 62, 176, 62);
         g.drawString(Minecraft.getInstance().font, Component.translatable("gui.beyond_integration.workstation.cut"), this.leftPos + 6, gy - 7, 0x404040, false);
         List<StonecutterRecipe> recipes = this.menu.getRecipes();
-        int numRecipes = recipes.size();
-        int sel = this.menu.getSelectedRecipeIndex();
-        if (sel < 0 || sel >= numRecipes) sel = -1;
-        int startIdx = getStartIdx();
+        int num = recipes.size(), sel = this.menu.getSelectedRecipeIndex();
+        if (sel < 0 || sel >= num) sel = -1;
+        // 原版行为：无论是否有输入/配方都渲染滚动条（禁用态 u=12），行程 41 与原版 k=41*scrollOffs 一致
+        boolean hasInput = !this.menu.getInput().isEmpty();
+        boolean scrollActive = hasInput && num > GRID_ROWS * GRID_COLS;
+        int ty = gy + GRID_Y + (scrollActive ? (int) (41.0F * scrollOffs) : 0);
+        g.blit(TH, this.leftPos + SCROLL_X, ty, scrollActive ? 0 : 12, 0, THUMB_W, THUMB_H, 24, 15);
+        if (!hasInput || num <= 0) return;
+        int start = getStartIdx();
         double guiScale = Minecraft.getInstance().getWindow().getGuiScale();
-        int mx = (int)(Minecraft.getInstance().mouseHandler.xpos() / guiScale);
-        int my = (int)(Minecraft.getInstance().mouseHandler.ypos() / guiScale);
-        for(int r=0;r<GRID_ROWS;r++)for(int c=0;c<GRID_COLS;c++){
-            int idx = startIdx + r * GRID_COLS + c;
-            int bx = this.leftPos + GRID_X + c * CELL_W;
-            int by = gy + GRID_Y + r * CELL_H;
-            boolean isSelected = idx == sel;
-            boolean isHovered = mx >= bx && mx < bx + CELL_W && my >= by && my < by + CELL_H;
-            int srcY = isSelected ? 36 : isHovered ? 18 : 0;
-            g.blit(BTN, bx, by, 0, srcY, 16, 18, 16, 54);
-            if (idx < numRecipes) {
+        int mx = (int)(Minecraft.getInstance().mouseHandler.xpos() / guiScale), my = (int)(Minecraft.getInstance().mouseHandler.ypos() / guiScale);
+        for (int r = 0; r < GRID_ROWS; r++) for (int c = 0; c < GRID_COLS; c++) {
+            int idx = start + r * GRID_COLS + c, bx = this.leftPos + GRID_X + c * CELL_W, by = gy + GRID_Y + r * CELL_H;
+            boolean isSel = idx == sel, isHov = mx >= bx && mx < bx + CELL_W && my >= by && my < by + CELL_H;
+            // 纹理三态：0=可用 18=已选择 36=悬浮高亮
+            g.blit(BTN, bx, by, 0, isHov ? 36 : isSel ? 18 : 0, 16, 18, 16, 54);
+            if (idx < num) {
                 ItemStack output = recipes.get(idx).getResultItem(Minecraft.getInstance().level.registryAccess());
                 g.renderFakeItem(output, bx, by + 1);
-                if (isHovered) {
-                    g.renderTooltip(Minecraft.getInstance().font, output, mx, my);
+            }
+        }
+    }
+
+    // 配方 tooltip 在 render 末尾渲染（对齐原版 StonecutterScreen），避免被后续渲染（BD 控件/面板 blit）覆盖
+    /** 渲染配方 tooltip：配方悬浮提示放于渲染末尾，避免被面板后续绘制覆盖 */
+    @Override
+    public void render(GuiGraphics g, int mx, int my, float pt) {
+        super.render(g, mx, my, pt);
+        if (this.menu.getInput().isEmpty()) return;
+        List<StonecutterRecipe> recipes = this.menu.getRecipes();
+        int num = recipes.size();
+        if (num <= 0) return;
+        int gy = getGapY();
+        int start = getStartIdx();
+        for (int r = 0; r < GRID_ROWS; r++) for (int c = 0; c < GRID_COLS; c++) {
+            int idx = start + r * GRID_COLS + c;
+            if (idx >= num) continue;
+            int bx = this.leftPos + GRID_X + c * CELL_W, by = gy + GRID_Y + r * CELL_H;
+            if (mx >= bx && mx < bx + CELL_W && my >= by && my < by + CELL_H) {
+                ItemStack output = recipes.get(idx).getResultItem(Minecraft.getInstance().level.registryAccess());
+                g.renderTooltip(Minecraft.getInstance().font, output, mx, my);
+                return;
+            }
+        }
+    }
+
+    /** 点击处理：滚动条拖拽区 或 配方选择（本地先行选中再发服务端确认） */
+    @Override public boolean mouseClicked(double mx, double my, int btn) {
+        int gy = getGapY();
+        // 原版：滚动条点击区从轨道顶上方 6px 开始（StonecutterScreen: j = topPos + 9）
+        if (this.menu.getNumRecipes() > GRID_ROWS * GRID_COLS) { int sx = this.leftPos + SCROLL_X, sy = gy + GRID_Y - 6; if (mx >= sx && mx < sx + THUMB_W && my >= sy && my < sy + GRID_H) { scrolling = true; return true; } }
+        int rx = this.leftPos + GRID_X, ry = gy + GRID_Y;
+        if (mx >= rx && mx < rx + GRID_COLS * CELL_W && my >= ry && my < ry + GRID_ROWS * CELL_H) {
+            int col = (int)((mx - rx) / CELL_W), row = (int)((my - ry) / CELL_H), idx = getStartIdx() + row * GRID_COLS + col;
+            List<StonecutterRecipe> recipes = this.menu.getRecipes();
+            if (idx < recipes.size()) {
+                // 原版行为：先本地选中配方（立即刷新结果），再发服务端
+                if (this.menu.clickMenuButton(this.minecraft.player, idx)) {
+                    Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_STONECUTTER_SELECT_RECIPE, 1.0F));
+                    if (Minecraft.getInstance().gameMode != null)
+                        Minecraft.getInstance().gameMode.handleInventoryButtonClick(this.menu.containerId, idx);
                 }
             }
-        }
-        if (numRecipes > GRID_ROWS * GRID_COLS) {
-            int thumbY = gy + GRID_Y + (int)(scrollOffs * (GRID_H - THUMB_H));
-            g.blit(TH, this.leftPos + SCROLL_X, thumbY, 0, 0, THUMB_W, THUMB_H, 24, 15);
-        }
-    }
-
-    @Override public boolean mouseClicked(double mx, double my, int btn) {
-        int gy=getGapY();
-        if (this.menu.getNumRecipes() > GRID_ROWS * GRID_COLS) {
-            int sx = this.leftPos + SCROLL_X;
-            int sy = gy + GRID_Y;
-            if (mx >= sx && mx < sx + THUMB_W && my >= sy && my < sy + GRID_H) {
-                scrolling = true;
-                return true;
-            }
-        }
-        int rx=this.leftPos+GRID_X, ry=gy+GRID_Y;
-        if(mx>=rx&&mx<rx+GRID_COLS*CELL_W&&my>=ry&&my<ry+GRID_ROWS*CELL_H){
-            int col=(int)((mx-rx)/CELL_W), row=(int)((my-ry)/CELL_H);
-            int idx = getStartIdx() + row * GRID_COLS + col;
-            List<StonecutterRecipe> recipes = this.menu.getRecipes();
-            if (idx < recipes.size() && Minecraft.getInstance().gameMode!=null)
-                Minecraft.getInstance().gameMode.handleInventoryButtonClick(this.menu.containerId, idx);
             return true;
         }
-        return super.mouseClicked(mx,my,btn);
+        return super.mouseClicked(mx, my, btn);
     }
 
-    @Override
-    public boolean mouseDragged(double mx, double my, int btn, double dx, double dy) {
-        if (scrolling && btn == 0) {
-            int gy = getGapY();
-            if (getMaxScrollRows() > 0) {
-                float relY = (float)(my - (gy + GRID_Y + THUMB_H / 2.0F));
-                scrollOffs = Mth.clamp(relY / (GRID_H - THUMB_H), 0.0F, 1.0F);
-                return true;
-            }
-        }
+    /** 拖动滚动条时按鼠标位置更新滚动偏移（0~1 内钳制） */
+    @Override public boolean mouseDragged(double mx, double my, int btn, double dx, double dy) {
+        if (scrolling && btn == 0 && getMaxScrollRows() > 0) { scrollOffs = Mth.clamp((float)(my - (getGapY() + GRID_Y + THUMB_H / 2.0F)) / (GRID_H - THUMB_H), 0.0F, 1.0F); return true; }
         return super.mouseDragged(mx, my, btn, dx, dy);
     }
 
-    @Override
-    public boolean mouseReleased(double mx, double my, int btn) {
-        if (btn == 0) scrolling = false;
-        return super.mouseReleased(mx, my, btn);
-    }
+    /** 松开鼠标左键时结束滚动条拖拽 */
+    @Override public boolean mouseReleased(double mx, double my, int btn) { if (btn == 0) scrolling = false; return super.mouseReleased(mx, my, btn); }
 
-    @Override
-    public boolean mouseScrolled(double mx, double my, double delta) {
-        if (this.menu.getNumRecipes() > GRID_ROWS * GRID_COLS) {
-            int maxRows = getMaxScrollRows();
-            if (maxRows > 0) {
-                scrollOffs = Mth.clamp(scrollOffs - (float)(delta / maxRows), 0.0F, 1.0F);
-                return true;
-            }
+    /** 滚轮处理：配方网格/滚动条区域滚动配方，其余交给父类（BD 存储滚动条） */
+    @Override public boolean mouseScrolled(double mx, double my, double delta) {
+        // 双滚动条聚焦：鼠标在配方网格/滚动条区域 → 滚配方；否则交给父类（BD 存储滚动条）
+        int gy = getGapY();
+        boolean inRecipeArea = mx >= this.leftPos + GRID_X && mx < this.leftPos + SCROLL_X + THUMB_W
+                && my >= gy + GRID_Y - 6 && my < gy + GRID_Y + GRID_H;
+        if (inRecipeArea && this.menu.getNumRecipes() > GRID_ROWS * GRID_COLS) {
+            int max = getMaxScrollRows();
+            if (max > 0) { scrollOffs = Mth.clamp(scrollOffs - (float)(delta / max), 0.0F, 1.0F); return true; }
         }
         return super.mouseScrolled(mx, my, delta);
     }

@@ -5,16 +5,16 @@ import com.atsuishio.superbwarfare.data.gun.AmmoConsumer;
 import com.atsuishio.superbwarfare.data.gun.GunData;
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.atsuishio.superbwarfare.tools.InventoryTool;
-import com.solr98.beyondintegration.feature.bind.ExtractFlag;
-import com.solr98.beyondintegration.handler.NetworkNameProvider;
+import com.solr98.beyondintegration.feature.ammo.sw.SwAmmoTracker;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetCache;
+import com.solr98.beyondintegration.handler.INetCachedVehicle;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
-import com.solr98.beyondintegration.feature.vehicle.VehicleNetStorage;
 import com.solr98.beyondintegration.maid.MaidNetworkHelper;
 import com.solr98.beyondintegration.network.PacketHandler;
+import com.solr98.beyondintegration.network.SuperbAmmoDeltaS2CPacket;
 import com.solr98.beyondintegration.network.SuperbAmmoStatusResponsePacket;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
-import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -28,31 +28,42 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 注入 Superb Warfare 的 {@link AmmoConsumer}，扩展弹药消耗逻辑：
+ * 玩家背包弹药不足时优先从维度网络（主网络优先、其余兜底）扣取弹药/物品，
+ * 并覆盖载具（VehicleEntity）与女仆（Maid）等实体的网络弹药消耗场景。
+ */
 @Mixin(value = AmmoConsumer.class, remap = false)
 public abstract class AmmoConsumerMixin {
 
     @Unique
+    /** 玩家 UUID -> 上次“使用网络弹药”提示时间 */
     private static final Map<UUID, Long> beyond$notifiedPlayers = new ConcurrentHashMap<>();
     @Unique
+    /** 使用网络弹药提示的最小间隔（毫秒） */
     private static final long NOTIFY_INTERVAL_MS = 300_000;
 
+    /** 弹药消耗类型（玩家弹药 / 物品弹药） */
     @Shadow(remap = false)
     private AmmoConsumer.AmmoConsumeType type;
 
+    /** 玩家弹药类型定义 */
     @Shadow(remap = false)
     private Ammo playerAmmoType;
 
+    /** 每次消耗的弹药数量（装填一发所需弹药数） */
     @Shadow(remap = false)
     private int loadAmount;
 
+    /** 物品弹药消耗的对应物品 */
     @Shadow(remap = false)
     private ItemStack stack;
 
+    /** 拦截原消耗逻辑，按弹药类型分发到玩家/载具/女仆的网络消耗处理 */
     @Inject(method = "consume(Lcom/atsuishio/superbwarfare/data/gun/GunData;Lnet/minecraft/world/entity/Entity;I)I",
             at = @At("HEAD"), cancellable = true, remap = false)
     private void onConsume(GunData data, Entity entity, int loads,
@@ -78,6 +89,7 @@ public abstract class AmmoConsumerMixin {
         }
     }
 
+    /** 玩家弹药消耗：先扣个人存档与背包，不足时从维度网络扣取，并记录使用来源网络 */
     @Unique
     private void consumePlayerAmmoFromServerPlayer(ServerPlayer player, int loads,
                                                     CallbackInfoReturnable<Integer> cir) {
@@ -104,30 +116,31 @@ public abstract class AmmoConsumerMixin {
 
         DimensionsNet usedNet = null;
         if (remaining > 0) {
-            for (DimensionsNet net : DimensionsNet.getAllNetFromPlayer(player)) {
-                if (!(net instanceof SuperbAmmoAccessor acc)) continue;
+            // 仅从玩家主网络扣除（寻找范围限制为主网络）
+            DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
+            if (net instanceof SuperbAmmoAccessor acc) {
                 var map = acc.getSuperbAmmo();
                 if (map.getOrDefault("__infinite__", 0L) > 0) {
                     consumed = loads;
                     remaining = 0;
                     usedNet = net;
-                    break;
-                }
-                long avail = map.getOrDefault(key, 0L);
-                if (avail > 0) {
-                    long take = Math.min(avail, remaining);
-                    map.put(key, avail - take);
-                    consumed += (int) (take / loadAmount);
-                    remaining -= (int) take;
-                    net.setDirty();
-                    usedNet = net;
-                    if (remaining <= 0) break;
+                } else {
+                    long avail = map.getOrDefault(key, 0L);
+                    if (avail > 0) {
+                        long take = Math.min(avail, remaining);
+                        map.put(key, avail - take);
+                        consumed += (int) (take / loadAmount);
+                        remaining -= (int) take;
+                        net.setDirty();
+                        usedNet = net;
+                    }
                 }
             }
         }
 
         cir.setReturnValue(Math.min(consumed, loads));
         if (consumed > 0 && usedNet != null) {
+            com.solr98.beyondintegration.feature.ammo.tacz.PlayerNetUsageTracker.record(player.getUUID(), usedNet.getId());
             pushUpdate(player, usedNet);
             if (shouldNotify(player.getUUID())) {
                 var primary = DimensionsNet.getPrimaryNetFromPlayer(player);
@@ -140,10 +153,12 @@ public abstract class AmmoConsumerMixin {
         }
     }
 
+    /** 载具开火消耗：从载具绑定的网络扣除玩家弹药 */
     @Unique
     private void consumePlayerAmmoFromVehicle(VehicleEntity vehicle, int loads,
                                                CallbackInfoReturnable<Integer> cir) {
-        DimensionsNet boundNet = VehicleNetStorage.getNetworkForVehicle(vehicle.getUUID());
+        VehicleNetCache cache = ((INetCachedVehicle) vehicle).getNetCache();
+        DimensionsNet boundNet = cache.getNet();
         if (!(boundNet instanceof SuperbAmmoAccessor acc)) return;
 
         var map = acc.getSuperbAmmo();
@@ -167,21 +182,16 @@ public abstract class AmmoConsumerMixin {
             cir.setReturnValue(Math.min(taken, loads));
             int netId = boundNet.getId();
             for (Entity p : vehicle.getPassengers())
-                if (p instanceof ServerPlayer sp) pushVehicleUpdate(sp, boundNet, netId);
+                if (p instanceof ServerPlayer sp) pushUpdate(sp, boundNet);
         }
     }
 
+    /** 女仆开火消耗：从女仆关联终端的网络扣除玩家弹药 */
     @Unique
     private void consumePlayerAmmoFromMaid(LivingEntity living, int loads,
                                              CallbackInfoReturnable<Integer> cir) {
-        try {
-            String name = living.hasCustomName() ? living.getCustomName().getString() : living.getName().getString();
-            ExtractFlag.setMaidConsumption(living.getUUID(), name, living.blockPosition());
-        } catch (Exception ignored) {}
-
         DimensionsNet net = MaidNetworkHelper.findTerminal(living);
         if (net == null || !(net instanceof SuperbAmmoAccessor acc)) {
-            ExtractFlag.clear();
             return;
         }
 
@@ -203,7 +213,6 @@ public abstract class AmmoConsumerMixin {
         }
 
         if (taken > 0) cir.setReturnValue(Math.min(taken, loads));
-        ExtractFlag.clear();
     }
 
     @Unique
@@ -223,7 +232,8 @@ public abstract class AmmoConsumerMixin {
     @Unique
     private void consumeItemFromVehicle(VehicleEntity vehicle, int loads,
                                          CallbackInfoReturnable<Integer> cir) {
-        DimensionsNet net = VehicleNetStorage.getNetworkForVehicle(vehicle.getUUID());
+        VehicleNetCache cache = ((INetCachedVehicle) vehicle).getNetCache();
+        DimensionsNet net = cache.getNet();
         if (net == null) return;
 
         int taken = 0;
@@ -255,17 +265,18 @@ public abstract class AmmoConsumerMixin {
 
         if (taken < loads) {
             ItemStackKey itemKey = new ItemStackKey(stack);
-            for (DimensionsNet net : DimensionsNet.getAllNetFromPlayer(player)) {
+            // 仅从玩家主网络扣除 ITEM 弹药（寻找范围限制为主网络）
+            DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
+            if (net != null) {
                 if (net instanceof SuperbAmmoAccessor acc && acc.getSuperbAmmo().getOrDefault("__infinite__", 0L) > 0) {
                     taken = loads;
-                    break;
+                } else {
+                    KeyAmount extracted = net.getUnifiedStorage().extract(itemKey, loads - taken, false, false);
+                    if (extracted.amount() > 0) {
+                        taken += (int) extracted.amount();
+                        net.setDirty();
+                    }
                 }
-                KeyAmount extracted = net.getUnifiedStorage().extract(itemKey, loads - taken, false, false);
-                if (extracted.amount() > 0) {
-                    taken += (int) extracted.amount();
-                    net.setDirty();
-                }
-                if (taken >= loads) break;
             }
         }
 
@@ -275,14 +286,8 @@ public abstract class AmmoConsumerMixin {
     @Unique
     private void consumeItemFromMaid(LivingEntity living, int loads,
                                       CallbackInfoReturnable<Integer> cir) {
-        try {
-            String name = living.hasCustomName() ? living.getCustomName().getString() : living.getName().getString();
-            ExtractFlag.setMaidConsumption(living.getUUID(), name, living.blockPosition());
-        } catch (Exception ignored) {}
-
         DimensionsNet maidNet = MaidNetworkHelper.findTerminal(living);
         if (maidNet == null) {
-            ExtractFlag.clear();
             return;
         }
 
@@ -299,27 +304,29 @@ public abstract class AmmoConsumerMixin {
         }
 
         if (taken > 0) cir.setReturnValue(taken);
-        ExtractFlag.clear();
     }
 
+    /** 将网络弹药变化推送给客户端（全量状态包或增量包），保持 HUD 同步 */
     @Unique
     private static void pushUpdate(ServerPlayer player, DimensionsNet net) {
-        if (!(net instanceof SuperbAmmoAccessor acc)) return;
-        long energy = net.getUnifiedStorage().getStackByKey(EnergyStackKey.INSTANCE).amount();
-        PacketHandler.sendToPlayer(player, SuperbAmmoStatusResponsePacket.fromNet(
-                net, new HashMap<>(acc.getSuperbAmmo()), energy, 0,
-                ((NetworkNameProvider) net).getCustomName()));
+        if (net == null) return;
+        SwAmmoTracker tracker = SwAmmoTracker.getOrCreate(net);
+        if (tracker == null) return;
+        tracker.markDirty();
+        SwAmmoTracker.DeltaResult result = tracker.drain(net);
+        if (result == null) return;
+        if (result.full()) {
+            PacketHandler.sendToPlayer(player, new SuperbAmmoStatusResponsePacket(
+                    net.getId(), result.netName(), result.energy(), result.enchantSeparation(),
+                    result.ammo(), null));
+        } else {
+            PacketHandler.sendToPlayer(player, new SuperbAmmoDeltaS2CPacket(
+                    net.getId(), false, false, result.ammo(), result.energy(),
+                    result.netName(), result.enchantSeparation()));
+        }
     }
 
-    @Unique
-    private static void pushVehicleUpdate(ServerPlayer player, DimensionsNet net, int netId) {
-        if (!(net instanceof SuperbAmmoAccessor acc)) return;
-        long energy = net.getUnifiedStorage().getStackByKey(EnergyStackKey.INSTANCE).amount();
-        PacketHandler.sendToPlayer(player, SuperbAmmoStatusResponsePacket.fromNet(
-                net, new HashMap<>(acc.getSuperbAmmo()), energy, 1,
-                ((NetworkNameProvider) net).getCustomName()));
-    }
-
+    /** 判断是否超过通知间隔，避免“使用网络弹药”提示刷屏 */
     @Unique
     private static boolean shouldNotify(UUID uuid) {
         long now = System.currentTimeMillis();

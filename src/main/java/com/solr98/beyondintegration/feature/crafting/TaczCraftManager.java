@@ -1,9 +1,6 @@
 package com.solr98.beyondintegration.feature.crafting;
 
-import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.api.ICraftingIntegration;
-import com.solr98.beyondintegration.feature.bind.AuditEntry;
-import com.solr98.beyondintegration.feature.bind.BindingAuditLog;
 import com.solr98.beyondintegration.network.NetworkItemCountsPacket;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.RequestNetworkItemsPacket;
@@ -23,6 +20,11 @@ import net.minecraft.world.item.crafting.RecipeManager;
 
 import java.util.*;
 
+/**
+ * TACZ 枪械工作台合成管理器（单例）：实现 ICraftingIntegration。
+ * 从网络存储匹配/消耗材料批量合成（背包优先 → 网络补充），消耗前先 simulate 预检防中途失败，
+ * 产物可入网络或掉落；结束后同步客户端物品计数与合成状态。
+ */
 public final class TaczCraftManager implements ICraftingIntegration {
 
     private static final TaczCraftManager INSTANCE = new TaczCraftManager();
@@ -31,9 +33,11 @@ public final class TaczCraftManager implements ICraftingIntegration {
 
     public static TaczCraftManager get() { return INSTANCE; }
 
+    // 所属模组 ID：tacz
     @Override
     public String modId() { return "tacz"; }
 
+    // 收集枪械工作台全部配方 ID
     @Override
     public Collection<ResourceLocation> getRecipeIds(RecipeManager manager) {
         List<ResourceLocation> ids = new ArrayList<>();
@@ -43,11 +47,13 @@ public final class TaczCraftManager implements ICraftingIntegration {
         return ids;
     }
 
+    // 判定配方是否属于枪械工作台合成
     @Override
     public boolean canCraft(ResourceLocation recipeId, RecipeManager manager) {
         return manager.byKey(recipeId).map(r -> r instanceof GunSmithTableRecipe).orElse(false);
     }
 
+    // 执行批量合成：预扫网络建索引，最多 64 轮，材料不足即停并提示；产物入网络或掉落，结束后同步客户端
     @Override
     public CraftResult executeCraft(ServerPlayer player, DimensionsNet net,
                                      ResourceLocation recipeId, int requested, boolean toNetwork) {
@@ -60,95 +66,60 @@ public final class TaczCraftManager implements ICraftingIntegration {
             return new CraftResult(0, ItemStack.EMPTY, Collections.emptyMap());
 
         RequestNetworkItemsPacket.ensureIndex(player);
-        Map<String, Long> idCounts = new HashMap<>();
-        Map<String, Long> exactCounts = new HashMap<>();
-        Map<Integer, List<ItemStackKey>> ingredientKeys = new HashMap<>();
-        boolean[] ingredientHasNbt = new boolean[inputs.size()];
-        Set<String>[] ingredientIdSets = new Set[inputs.size()];
 
+        // 配方驱动定向扫描：构建材料输入清单（无 NBT → IDENTITY 定向精确键；
+        // partial_nbt 候选 → PARTIAL_NBT 先定向、不足时全桶兜底）
+        List<RecipeMaterialScanner.MaterialInput> materialInputs = new ArrayList<>();
         for (int ii = 0; ii < inputs.size(); ii++) {
-            Ingredient ing = inputs.get(ii).getIngredient();
-            if (ing == null) continue;
-            Set<String> ids = new HashSet<>();
+            GunSmithTableIngredient gi = inputs.get(ii);
+            if (gi == null) continue;
+            Ingredient ing = gi.getIngredient();
+            if (ing == null || ing.isEmpty()) continue;
+            boolean hasNbt = false;
             for (ItemStack m : ing.getItems()) {
-                if (m.isEmpty()) continue;
-                ids.add(m.getItem().toString());
-                if (!ingredientHasNbt[ii] && m.hasTag() && !m.getTag().isEmpty()) {
-                    ingredientHasNbt[ii] = true;
+                if (!m.isEmpty() && m.hasTag() && !m.getTag().isEmpty()) {
+                    hasNbt = true;
+                    break;
                 }
             }
-            ingredientIdSets[ii] = ids;
+            materialInputs.add(new RecipeMaterialScanner.MaterialInput(ii, List.of(ing.getItems()),
+                    hasNbt ? RecipeMaterialScanner.MatchMode.PARTIAL_NBT : RecipeMaterialScanner.MatchMode.IDENTITY,
+                    ing, gi.getCount()));
         }
 
-        var storage = net.getUnifiedStorage();
-        storage.getBucket(ItemStackKey.ID).ifPresent(bucket -> {
-            for (int bi = 0; bi < bucket.size(); bi++) {
-                IStackKey<?> rawKey = bucket.get(bi);
-                if (!(rawKey instanceof ItemStackKey ik)) continue;
-                long amount = storage.getStackByKey(ik).amount();
-                if (amount <= 0) continue;
-                ItemStack stored = ik.getReadOnlyStack();
-                if (stored.isEmpty()) continue;
-
-                String itemId = stored.getItem().toString();
-                idCounts.merge(itemId, amount, Long::sum);
-
-                List<RequestNetworkItemsPacket.TaczIngredient> related =
-                    RequestNetworkItemsPacket.TACZ_INDEX.get(itemId);
-                if (related != null) {
-                    for (var ti : related) {
-                        if (!ti.hasNbt()) continue;
-                        if (!ti.ingredient().test(stored)) continue;
-                        exactCounts.merge(ti.recipeId() + "|" + ti.idx(), amount, Long::sum);
-                        if (ti.recipeId().equals(recipeId)) {
-                            ingredientKeys.computeIfAbsent(ti.idx(), k -> new ArrayList<>()).add(ik);
-                        }
-                    }
-                }
-
-                for (int ii = 0; ii < inputs.size(); ii++) {
-                    if (ingredientHasNbt[ii]) continue;
-                    Set<String> ids = ingredientIdSets[ii];
-                    if (ids != null && ids.contains(itemId)) {
-                        ingredientKeys.computeIfAbsent(ii, k -> new ArrayList<>()).add(ik);
-                        continue;
-                    }
-                    GunSmithTableIngredient gi = inputs.get(ii);
-                    if (gi == null) continue;
-                    Ingredient ing = gi.getIngredient();
-                    if (ing != null && !ing.isEmpty() && ing.test(stored)) {
-                        ingredientKeys.computeIfAbsent(ii, k -> new ArrayList<>()).add(ik);
-                    }
-                }
-            }
-        });
+        var scanResult = RecipeMaterialScanner.scan(net.getUnifiedStorage(), materialInputs);
+        Map<Integer, Long> slotTotals = scanResult.slotTotals();
+        Map<Integer, List<ItemStackKey>> ingredientKeys = scanResult.slotKeys();
 
         int crafted = 0;
         for (int c = 0; c < 64; c++) {
             if (requested > 0 && crafted >= requested) break;
-            String missing = checkIngredients(player, inputs, idCounts, exactCounts, recipeId);
+            String missing = checkIngredients(player, inputs, slotTotals);
             if (missing != null) {
                 if (crafted == 0) player.sendSystemMessage(Component.literal(missing));
                 break;
             }
-            if (!consumeInputs(player, net, inputs, ingredientKeys, idCounts, exactCounts, recipeId)) break;
+            if (!consumeInputs(player, net, inputs, ingredientKeys, slotTotals)) break;
 
             ItemStack result = recipe.getResultItem(player.level().registryAccess());
             if (!result.isEmpty()) {
                 if (toNetwork) {
-                    net.getUnifiedStorage().insert(new ItemStackKey(result), result.getCount(), false);
+                    long left = net.getUnifiedStorage()
+                            .insert(new ItemStackKey(result), result.getCount(), false).amount();
+                    if (left > 0) {
+                        // 网络容量不足：余量掉落兜底，避免产物丢失
+                        ItemStack drop = result.copy();
+                        drop.setCount((int) left);
+                        var entity = new net.minecraft.world.entity.item.ItemEntity(
+                                player.level(), player.getX(), player.getY() + 0.5, player.getZ(), drop);
+                        entity.setPickUpDelay(0);
+                        player.level().addFreshEntity(entity);
+                    }
                 } else {
                     var entity = new net.minecraft.world.entity.item.ItemEntity(
                             player.level(), player.getX(), player.getY() + 0.5, player.getZ(), result.copy());
                     entity.setPickUpDelay(0);
                     player.level().addFreshEntity(entity);
-                }
-                if (CommandConfig.enableAuditLog()) {
-                    BindingAuditLog.log(new AuditEntry(
-                            System.currentTimeMillis(), "GUI_CRAFT",
-                            player.getName().getString(), player.getUUID(),
-                            net.getId(), "ITEM", recipe.getId().toString(),
-                            true, "tacz_crafted " + result.getCount() + "x " + result.getDisplayName().getString()));
                 }
             }
             crafted++;
@@ -156,16 +127,21 @@ public final class TaczCraftManager implements ICraftingIntegration {
 
         updateClient(player);
 
+        // 回传客户端：按界面读取键 "recipeId|idx"（与 scanNetworkItems 输出格式一致）
+        Map<String, Long> clientCounts = new HashMap<>();
+        for (var e : slotTotals.entrySet()) {
+            clientCounts.put(recipeId + "|" + e.getKey(), e.getValue());
+        }
         ItemStack toastItem = crafted > 0 ? recipe.getResultItem(player.level().registryAccess()) : ItemStack.EMPTY;
-        PacketHandler.sendToPlayer(player, new NetworkItemCountsPacket(idCounts, true, true,
+        PacketHandler.sendToPlayer(player, new NetworkItemCountsPacket(clientCounts, true, true,
                 net.getId(), toastItem, crafted));
 
-        return new CraftResult(crafted, toastItem, idCounts);
+        return new CraftResult(crafted, toastItem, clientCounts);
     }
 
+    // 校验每种输入：背包存量 + 网络可用（槽位定向/兜底聚合总量）是否足够，不足返回本地化缺失提示
     private static String checkIngredients(ServerPlayer player, List<GunSmithTableIngredient> inputs,
-                                            Map<String, Long> idCounts, Map<String, Long> exactCounts,
-                                            ResourceLocation recipeId) {
+                                            Map<Integer, Long> slotTotals) {
         for (int i = 0; i < inputs.size(); i++) {
             GunSmithTableIngredient gi = inputs.get(i);
             if (gi == null) continue;
@@ -179,9 +155,7 @@ public final class TaczCraftManager implements ICraftingIntegration {
                 if (!stack.isEmpty() && ing.test(stack)) inInv += stack.getCount();
             }
 
-            String exactKey = recipeId + "|" + i;
-            long exact = exactCounts.getOrDefault(exactKey, 0L);
-            long inNet = exact > 0 ? exact : countFromIdMap(idCounts, ing);
+            long inNet = slotTotals.getOrDefault(i, 0L);
             if (inInv + inNet < need) {
                 ItemStack ex = ing.getItems().length > 0 ? ing.getItems()[0] : ItemStack.EMPTY;
                 return Component.translatable("message.beyond_integration.material_insufficient",
@@ -191,21 +165,52 @@ public final class TaczCraftManager implements ICraftingIntegration {
         return null;
     }
 
-    private static long countFromIdMap(Map<String, Long> idCounts, Ingredient ing) {
-        long total = 0;
-        for (ItemStack m : ing.getItems()) {
-            if (m.isEmpty()) continue;
-            total += idCounts.getOrDefault(m.getItem().toString(), 0L);
-        }
-        return total;
-    }
-
+    // 真实消耗材料：先 simulate 预检（同一网络 key 跨输入精确累积），再背包→网络按序扣减并更新槽位计数；失败提示并返回 false
     private static boolean consumeInputs(ServerPlayer player, DimensionsNet net,
                                           List<GunSmithTableIngredient> inputs,
                                           Map<Integer, List<ItemStackKey>> ingredientKeys,
-                                          Map<String, Long> idCounts, Map<String, Long> exactCounts,
-                                          ResourceLocation recipeId) {
+                                          Map<Integer, Long> slotTotals) {
         var storage = net.getUnifiedStorage();
+        // 预检：按真实抽取的同一顺序模拟扣减（simulate 不改状态），
+        // 跨输入共享同一网络 key 时也精确校验（simUsed 累积），通过则真实抽取必成功
+        Map<ItemStackKey, Long> simUsed = new HashMap<>();
+        for (int i = 0; i < inputs.size(); i++) {
+            GunSmithTableIngredient gi = inputs.get(i);
+            if (gi == null) continue;
+            Ingredient ing = gi.getIngredient();
+            int need = gi.getCount();
+            if (ing == null || ing.isEmpty() || need <= 0) continue;
+            int inInv = 0;
+            for (int j = 0; j < player.getInventory().getContainerSize(); j++) {
+                ItemStack stack = player.getInventory().getItem(j);
+                if (!stack.isEmpty() && ing.test(stack)) inInv += stack.getCount();
+            }
+            need -= inInv;
+            if (need <= 0) continue;
+            List<ItemStackKey> keys = ingredientKeys.get(i);
+            if (keys == null || keys.isEmpty()) {
+                ItemStack ex0 = ing.getItems().length > 0 ? ing.getItems()[0] : ItemStack.EMPTY;
+                player.sendSystemMessage(Component.translatable("message.beyond_integration.material_insufficient",
+                        ex0.isEmpty() ? Component.translatable("command.beyond_integration.error.unknown") : ex0.getHoverName()));
+                return false;
+            }
+            for (ItemStackKey ik : keys) {
+                if (need <= 0) break;
+                long total = storage.extract(ik, Long.MAX_VALUE, true, false).amount();
+                long avail = total - simUsed.getOrDefault(ik, 0L);
+                if (avail <= 0) continue;
+                long take = Math.min(need, avail);
+                simUsed.merge(ik, take, Long::sum);
+                need -= (int) take;
+            }
+            if (need > 0) {
+                ItemStack ex1 = ing.getItems().length > 0 ? ing.getItems()[0] : ItemStack.EMPTY;
+                player.sendSystemMessage(Component.translatable("message.beyond_integration.material_insufficient",
+                        ex1.isEmpty() ? Component.translatable("command.beyond_integration.error.unknown") : ex1.getHoverName()));
+                return false;
+            }
+        }
+
         for (int i = 0; i < inputs.size(); i++) {
             GunSmithTableIngredient gi = inputs.get(i);
             if (gi == null) continue;
@@ -233,26 +238,24 @@ public final class TaczCraftManager implements ICraftingIntegration {
                     long extracted = extractResult.amount();
                     if (extracted > 0) {
                         need -= extracted;
-                        String itemId = ik.getReadOnlyStack().getItem().toString();
-                        idCounts.merge(itemId, -extracted, Long::sum);
-                        List<RequestNetworkItemsPacket.TaczIngredient> rel =
-                            RequestNetworkItemsPacket.TACZ_INDEX.get(itemId);
-                        if (rel != null) {
-                            for (var ti : rel) {
-                                if (ti.hasNbt() && ti.ingredient().test(ik.getReadOnlyStack())) {
-                                    exactCounts.merge(ti.recipeId() + "|" + ti.idx(), -extracted, Long::sum);
-                                }
-                            }
-                        }
+                        // 扣减槽位网络总量（回传客户端用）
+                        slotTotals.merge(i, -extracted, Long::sum);
                     }
                 }
             }
-            if (need > 0) return false;
+            if (need > 0) {
+                // 预检已保证网络可抽量，走到此处说明网络状态在抽取过程中变化，提示而非静默失败
+                ItemStack ex = ing.getItems().length > 0 ? ing.getItems()[0] : ItemStack.EMPTY;
+                player.sendSystemMessage(Component.translatable("message.beyond_integration.material_insufficient",
+                        ex.isEmpty() ? Component.translatable("command.beyond_integration.error.unknown") : ex.getHoverName()));
+                return false;
+            }
         }
         net.setDirty();
         return true;
     }
 
+    // 若玩家正打开枪械工作台 GUI：广播背包全量状态并通知客户端刷新合成界面
     private static void updateClient(ServerPlayer player) {
         if (player.containerMenu instanceof com.tacz.guns.inventory.GunSmithTableMenu menu) {
             player.inventoryMenu.broadcastFullState();

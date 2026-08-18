@@ -1,16 +1,11 @@
 package com.solr98.beyondintegration.feature.vehicle;
 
+import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.mojang.logging.LogUtils;
-import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.feature.bind.AuditEntry;
-import com.solr98.beyondintegration.feature.bind.BindingAuditLog;
-import com.solr98.beyondintegration.feature.bind.NetworkBindingRegistry;
-import com.solr98.beyondintegration.handler.NetworkNameProvider;
-import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
+import com.solr98.beyondintegration.handler.INetCachedVehicle;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.SuperbAmmoStatusResponsePacket;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
-import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,14 +14,23 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.slf4j.Logger;
 
-import java.util.HashMap;
-
+/**
+ * 载具绑定交互处理器：玩家手持已接入网络的 NetedItem
+ * 右键载具（Superb Warfare）时，将该网络绑定到载具的网络缓存，
+ * 并向玩家发送全量状态（弹药、能量、网络名、附魔开关）。
+ */
 public class VehicleInteractHandler {
 
     private static final Logger LOGGER = LogUtils.getLogger();
+    /** 是否已探测过载具类（惰性加载缓存） */
     private static boolean vehicleChecked = false;
+    /** 缓存的载具实体类引用，null 表示目标模组未加载 */
     private static Class<?> vehicleClass = null;
 
+    /**
+     * 实体交互事件：拦截对载具的右键操作并执行网络绑定。
+     * 服务端才执行绑定逻辑；无网络或未持接入物品时直接忽略。
+     */
     @SubscribeEvent
     public void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         if (!isVehicleEntity(event.getTarget())) return;
@@ -46,31 +50,24 @@ public class VehicleInteractHandler {
             return;
         }
 
-        VehicleNetStorage.bindVehicle(event.getTarget().getUUID(), netId, event.getEntity().getUUID());
-        LOGGER.info("Vehicle {} bound to net {}", event.getTarget().getUUID(), netId);
-
-        if (CommandConfig.enableAuditLog()) {
-            String vehName = event.getTarget().getDisplayName().getString();
-            BindingAuditLog.log(AuditEntry.bind(
-                    event.getEntity().getName().getString(), event.getEntity().getUUID(),
-                    netId, "VEHICLE", event.getTarget().getUUID().toString(), vehName));
-            NetworkBindingRegistry.recordVehicleBind(netId, event.getTarget().getUUID(),
-                    event.getEntity().getName().getString(), event.getEntity().getUUID(), vehName);
-        }
+        VehicleEntity vehicle = (VehicleEntity) event.getTarget();
+        VehicleNetCache cache = ((INetCachedVehicle) vehicle).getNetCache();
+        cache.attach(netId, null);
 
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
-            String netName = net instanceof NetworkNameProvider nnp ? nnp.getCustomName() : "";
             serverPlayer.sendSystemMessage(
                     Component.translatable("message.beyond_integration.vehicle_bound", netId));
 
-            if (net instanceof SuperbAmmoAccessor acc) {
-                long energy = net.getUnifiedStorage().getStackByKey(EnergyStackKey.INSTANCE).amount();
-                PacketHandler.sendToPlayer(serverPlayer, SuperbAmmoStatusResponsePacket.fromNet(
-                        net, new HashMap<>(acc.getSuperbAmmo()), energy, 1, netName));
+            VehicleNetCache.PushData push = cache.refresh();
+            if (push != null && push.full()) {
+                PacketHandler.sendToPlayer(serverPlayer, new SuperbAmmoStatusResponsePacket(
+                        netId, push.netName(), push.energy(), push.enchantSeparation(),
+                        push.ammo(), cache.getAmmoList()));
             }
         }
     }
 
+    /** 判断目标实体是否为载具（类名反射探测，仅探测一次） */
     private static boolean isVehicleEntity(Object target) {
         if (!vehicleChecked) {
             vehicleChecked = true;
