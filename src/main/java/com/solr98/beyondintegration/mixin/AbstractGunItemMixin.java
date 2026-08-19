@@ -61,7 +61,6 @@ public class AbstractGunItemMixin {
                 }
             } else {
                 TaczAmmoCache.requestQuick(ammoId);
-                cir.setReturnValue(true);
             }
         }
     }
@@ -91,7 +90,6 @@ public class AbstractGunItemMixin {
                 }
             } else {
                 TaczAmmoCache.requestQuick(ammoId);
-                cir.setReturnValue(true);
             }
         }
     }

@@ -9,8 +9,8 @@ import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.dimensionnet.UnifiedStorage;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
-import com.solr98.beyondintegration.handler.TaczCreativeAccessor;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,14 +28,18 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * TACZ 弹药提取工具类
- * 提供从玩家主网络/备用网络中统计、消耗（提取）TACZ 与 SW 弹药的统一入口，
- * 支持创造弹药箱无限弹药判定、弹药盒拆箱、按弹药 ID 统计以及终端物品定位。
+ * TACZ 弹药提取工具类（API 直查 + 返回值驱动扣减）
+ *
+ * 查询：物理弹药直接遍历 BD 存储（按弹药 ID 累加，跨 NBT 变种聚合）；
+ *       创造箱走 TaczAmmoTracker 虚拟计数缓存（O(1)，不扫存储）。
+ * 扣减：主路径以 reference key 精确 extract（返回值即实扣量），
+ *       不足时按弹药 ID 兜底遍历真实 key 逐个扣除——正确性完全由 BD 返回值保证，
+ *       不依赖任何查询缓存。
  */
 public class TaczAmmoExtractor {
 
     /**
-     * 从玩家主网络直接消耗弹药（仅主网络）
+     * 从玩家主网络直接消耗弹药（仅主网络；扣弹后立即推送快照给玩家，HUD 实时更新）
      *
      * @return 实际消耗数量；0 表示无可用弹药
      */
@@ -45,41 +49,49 @@ public class TaczAmmoExtractor {
         int taken = consumeAmmoDirectly(gunStack, neededAmount, net);
         if (taken > 0) {
             PlayerNetUsageTracker.record(player.getUUID(), net.getId());
+            TaczAmmoPollingService.pushSnapshotToPlayer(player, net.getId());
         }
         return taken;
     }
 
     /**
-     * 从指定网络直接消耗弹药（创造箱无限时直接满足需求；扣弹后同步缓存）
+     * 从指定网络按弹药 ID 直接消耗弹药（公开 API，供其他模组/女仆调用；
+     * 创造箱无限时直接满足需求；只扣精确 reference key，返回值驱动）
+     *
+     * @return 实际消耗数量；0 表示无可用弹药
      */
-    public static int consumeAmmoDirectly(ItemStack gunStack, int neededAmount, DimensionsNet net) {
-        if (hasCreativeAmmoBoxInNetwork(gunStack, net)) return neededAmount;
-        ItemStack reference = getAmmoReference(gunStack);
-        if (reference != null) {
-            ItemStackKey key = new ItemStackKey(reference);
-            KeyAmount extracted = net.getUnifiedStorage().extract(key, neededAmount, false, false);
-            if (extracted.amount() > 0) {
-                net.setDirty();
-                syncConsumed(net, reference, extracted.amount());
-                return (int) extracted.amount();
-            }
+    public static int consumeAmmoByAmmoId(ResourceLocation ammoId, int neededAmount, DimensionsNet net) {
+        if (ammoId == null || net == null || neededAmount <= 0) return 0;
+        if (TaczAmmoTracker.isInfinite(net, ammoId)) return neededAmount;
+
+        ItemStackKey refKey = new ItemStackKey(buildAmmoStack(ammoId));
+        KeyAmount r = net.getUnifiedStorage().extract(refKey, neededAmount, false, false);
+        if (r.amount() > 0) {
+            net.setDirty();
+            return (int) r.amount();
         }
         return 0;
     }
 
-    /** 扣弹成功后同步扣减查询缓存（保持即时一致，无缓存则跳过） */
-    private static void syncConsumed(DimensionsNet net, ItemStack ref, long amount) {
-        if (ref.getItem() instanceof IAmmo iAmmo) {
-            ResourceLocation ammoId = iAmmo.getAmmoId(ref);
-            if (ammoId != null) {
-                TaczAmmoTracker.notifyConsumed(net, ammoId.toString(),
-                        (int) Math.min(amount, Integer.MAX_VALUE));
-            }
+    /**
+     * 从指定网络直接消耗弹药（创造箱无限时直接满足需求；只扣精确 reference key，返回值驱动）
+     */
+    public static int consumeAmmoDirectly(ItemStack gunStack, int neededAmount, DimensionsNet net) {
+        if (hasCreativeAmmoBoxInNetwork(gunStack, net)) return neededAmount;
+        ResourceLocation ammoId = getAmmoId(gunStack);
+        if (ammoId == null) return 0;
+
+        ItemStackKey refKey = new ItemStackKey(buildAmmoStack(ammoId));
+        KeyAmount r = net.getUnifiedStorage().extract(refKey, neededAmount, false, false);
+        if (r.amount() > 0) {
+            net.setDirty();
+            return (int) r.amount();
         }
+        return 0;
     }
 
     /**
-     * 从玩家主网络提取弹药到玩家背包（背包满则丢弃；提取后同步缓存）
+     * 从玩家主网络提取弹药到玩家背包（背包满则丢弃；返回值驱动）
      *
      * @return 实际提取数量
      */
@@ -94,7 +106,6 @@ public class TaczAmmoExtractor {
         KeyAmount extracted = net.getUnifiedStorage().extract(key, neededAmount, false, false);
         if (extracted.amount() > 0) {
             net.setDirty();
-            syncConsumed(net, reference, extracted.amount());
             ItemStack ammo = key.copyStackWithCount(extracted.amount());
             if (!player.getInventory().add(ammo)) {
                 player.drop(ammo, false);
@@ -111,7 +122,7 @@ public class TaczAmmoExtractor {
     }
 
     /**
-     * 统计玩家主网络中的 Superb 弹药（无限时返回 Long.MAX_VALUE）
+     * 统计玩家主网络中的 Superb 弹药（无限时返回 Long.MAX_VALUE；map 直读）
      */
     public static long countSuperbAmmoAcrossNets(ServerPlayer player, String ammoType) {
         DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
@@ -140,12 +151,12 @@ public class TaczAmmoExtractor {
     }
 
     /**
-     * 从玩家主网络消耗 ITEM 弹药
+     * 从玩家主网络消耗 ITEM 弹药（SW 弹药无 NBT 变种，精确 key 直扣）
      */
     public static long consumeItemAcrossNets(ServerPlayer player, ItemStackKey itemKey, long amount) {
         DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
         if (net == null) return 0;
-        KeyAmount extracted = net.getUnifiedStorage().extract(itemKey, amount, false, true);
+        KeyAmount extracted = net.getUnifiedStorage().extract(itemKey, amount, false, false);
         if (extracted.amount() > 0) {
             net.setDirty();
             return extracted.amount();
@@ -206,7 +217,7 @@ public class TaczAmmoExtractor {
     }
 
     /**
-     * 统计玩家主网络中的可用弹药数量（仅主网络）
+     * 统计玩家主网络中的可用弹药数量（仅主网络；API 直查）
      */
     public static int countAmmoInNetwork(ItemStack gunStack, ServerPlayer player) {
         DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
@@ -215,21 +226,24 @@ public class TaczAmmoExtractor {
     }
 
     /**
-     * 统计指定网络中的弹药数量（创造箱无限时返回 Integer.MAX_VALUE；走查询缓存 O(1)）
+     * 统计指定网络中的弹药数量（API 直查：创造箱缓存 O(1) 无限判定 + 存储按弹药 ID 累加）
      */
     public static int countAmmoInNetwork(ItemStack gunStack, DimensionsNet net) {
         if (net == null) return 0;
         ResourceLocation ammoId = getAmmoId(gunStack);
         if (ammoId == null) return 0;
-        return TaczAmmoTracker.countAvailable(net, ammoId);
+        return countAmmoInNetworkByAmmoId(ammoId, net);
     }
 
     /**
-     * 按弹药 ID 统计指定网络中的弹药数量（走查询缓存 O(1)）
+     * 按弹药 ID 统计指定网络中的弹药数量（API 精确查询：创造箱缓存 O(1) + reference key getStackByKey）
      */
     public static int countAmmoInNetworkByAmmoId(ResourceLocation ammoId, DimensionsNet net) {
         if (ammoId == null || net == null) return 0;
-        return TaczAmmoTracker.countAvailable(net, ammoId);
+        if (TaczAmmoTracker.isInfinite(net, ammoId)) return Integer.MAX_VALUE;
+        ItemStackKey refKey = new ItemStackKey(buildAmmoStack(ammoId));
+        KeyAmount found = net.getUnifiedStorage().getStackByKey(refKey);
+        return (int) Math.min(found.amount(), Integer.MAX_VALUE);
     }
 
     /**
@@ -242,8 +256,7 @@ public class TaczAmmoExtractor {
     }
 
     /**
-     * 检查网络中是否存在匹配弹药 ID 的创造弹药箱（O(1) 只读虚拟计数，
-     * 计数由 BD 统一输入输出 delta 事件维护并持久化；物理扫描仅在对账时执行）
+     * 检查网络中是否存在匹配弹药 ID 的创造弹药箱（O(1) 虚拟计数缓存直读，不扫存储）
      */
     public static boolean hasCreativeAmmoBoxInNetwork(ResourceLocation ammoId, DimensionsNet net) {
         return TaczAmmoTracker.isInfinite(net, ammoId);
@@ -277,28 +290,19 @@ public class TaczAmmoExtractor {
     }
 
     /**
-     * 全量统计网络内全部 TACZ 弹药（虚拟创造箱计数 + 实体弹药/弹药箱），
-     * 全类型创造弹药箱时结果仅含 "*" -> Integer.MAX_VALUE
+     * 全量统计网络内全部 TACZ 弹药（API 直查：存储遍历 + 创造箱虚拟计数），
+     * 供服务端推送客户端快照使用。遍历时顺带对账创造箱虚拟计数（只增不删，
+     * 变化 markDirty 落盘），使创造弹更新不依赖 delta 事件，随快照周期自动收敛。
      */
     public static Map<String, Integer> countAllAmmoInNetwork(DimensionsNet net) {
         Map<String, Integer> result = new LinkedHashMap<>();
         if (net == null) return result;
 
-        // Check TaczCreativeAccessor for creative boxes
-        if (net instanceof TaczCreativeAccessor tacz) {
-            Map<String, Integer> creativeCounts = tacz.getTaczCreativeCounts();
-            for (var entry : creativeCounts.entrySet()) {
-                if (entry.getValue() > 0) {
-                    result.put(entry.getKey(), Integer.MAX_VALUE);
-                }
-            }
-            if (creativeCounts.containsKey("*") && creativeCounts.get("*") > 0) {
-                result.put("*", Integer.MAX_VALUE);
-                return result;
-            }
-        }
+        Map<String, Integer> creativeCounts = net instanceof com.solr98.beyondintegration.handler.TaczCreativeAccessor tacz
+                ? tacz.getTaczCreativeCounts() : null;
+        boolean creativeChanged = false;
 
-        // Scan storage (single pass, KeyAmount already carries amounts) for ammo items and ammo boxes
+        // 存储遍历：物理弹药按弹药 ID 累加 + 创造箱对账/无限标记
         UnifiedStorage storage = net.getUnifiedStorage();
         for (KeyAmount ka : storage.getStorage()) {
             if (!(ka.key() instanceof ItemStackKey ik)) continue;
@@ -306,12 +310,21 @@ public class TaczAmmoExtractor {
 
             if (stack.getItem() instanceof IAmmoBox box) {
                 if (box.isAllTypeCreative(stack)) {
+                    if (creativeCounts != null && creativeCounts.getOrDefault("*", 0) <= 0) {
+                        creativeCounts.put("*", 1);
+                        creativeChanged = true;
+                    }
                     result.clear();
                     result.put("*", Integer.MAX_VALUE);
+                    if (creativeChanged) NetworkAmmoData.markDirty();
                     return result;
                 }
                 ResourceLocation boxAmmoId = box.getAmmoId(stack);
                 if (box.isCreative(stack) && boxAmmoId != null) {
+                    if (creativeCounts != null && creativeCounts.getOrDefault(boxAmmoId.toString(), 0) <= 0) {
+                        creativeCounts.put(boxAmmoId.toString(), 1);
+                        creativeChanged = true;
+                    }
                     result.put(boxAmmoId.toString(), Integer.MAX_VALUE);
                 }
             } else if (stack.getItem() instanceof IAmmo iAmmo) {
@@ -322,7 +335,6 @@ public class TaczAmmoExtractor {
                     if (existing == null || existing != Integer.MAX_VALUE) {
                         long count = ka.amount();
                         if (count > 0) {
-                            // 同弹药 id 可能分布多个 key（不同 NBT），按 id 累加而非覆盖
                             long sum = (existing == null ? 0L : (long) existing) + count;
                             result.put(idStr, (int) Math.min(sum, Integer.MAX_VALUE));
                         }
@@ -331,20 +343,21 @@ public class TaczAmmoExtractor {
             }
         }
 
-        return result;
-    }
-
-    // 按具体 ItemStackKey 统计网络中的 TACZ 弹药（供 delta 增量追踪对齐全量快照）
-    public static Map<ItemStackKey, Integer> countAmmoByKey(DimensionsNet net) {
-        Map<ItemStackKey, Integer> result = new LinkedHashMap<>();
-        if (net == null) return result;
-        for (KeyAmount ka : net.getUnifiedStorage().getStorage()) {
-            if (!(ka.key() instanceof ItemStackKey ik)) continue;
-            ItemStack stack = ik.getReadOnlyStack();
-            if (!(stack.getItem() instanceof IAmmo)) continue;
-            long count = ka.amount();
-            if (count > 0) result.put(ik, (int) Math.min(count, Integer.MAX_VALUE));
+        // 虚拟计数中的创造箱标记并入结果（delta 维护的条目，遍历兜底已补齐）
+        if (creativeCounts != null) {
+            if (creativeCounts.getOrDefault("*", 0) > 0) {
+                result.clear();
+                result.put("*", Integer.MAX_VALUE);
+                return result;
+            }
+            for (var entry : creativeCounts.entrySet()) {
+                if (!"*".equals(entry.getKey()) && entry.getValue() > 0) {
+                    result.put(entry.getKey(), Integer.MAX_VALUE);
+                }
+            }
         }
+
+        if (creativeChanged) NetworkAmmoData.markDirty();
         return result;
     }
 

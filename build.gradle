@@ -21,7 +21,7 @@ group = mod_group_id
 version = mod_version
 
 base {
-    archivesName = mod_id
+    archivesName = "${mod_id}-${minecraft_version}-forge"
 }
 
 java {
@@ -133,15 +133,48 @@ repositories {
     maven {
         name = "SpongePowered"
         url = "https://repo.spongepowered.org/repository/maven-public/"
-    }
-
-    maven {
-        url = "https://www.cursemaven.com"  // CurseForge 通用仓库
-        content {
-            includeGroup "curse.maven"
         }
+        maven {
+            url = "https://maven.blamejared.com"
+        }
+        maven { url 'https://modmaven.dev/' }
+        maven {
+            name = "TerraformersMC"
+            url = "https://maven.terraformersmc.com/"
+        }
+        maven {
+            url "https://cursemaven.com"
+        }
+    maven {
+        name = "Curios"
+        url = uri("https://maven.theillusivec4.top/")
     }
-
+    maven { url = "https://maven.shadowsoffire.dev/releases" }
+        maven {
+            name = "Modrinth"
+            url = "https://api.modrinth.com/maven"
+        }
+        // kubejs
+        maven {
+            url "https://maven.latvian.dev/releases"
+            content {
+                includeGroup "dev.latvian.mods"
+                includeGroup "dev.latvian.apps"
+            }
+        }
+        maven {
+            url 'https://jitpack.io'
+            content {
+                includeGroup "com.github.rtyley"
+            }
+        }
+        maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
+        maven { url = "https://maven.createmod.net" }
+        maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
+        maven { url = "https://maven.createmod.net" }
+        maven {
+            url 'https://maven.aliyun.com/repository/public'
+        }
     maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
     maven { url = "https://maven.createmod.net" }
 }
@@ -150,7 +183,9 @@ dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
     // 必须依赖 - BeyondDimensions (CurseMaven)
-    implementation fg.deobf("curse.maven:beyond-dimensions-1222890:8103471")
+   implementation fg.deobf("curse.maven:beyond-dimensions-1222890:8588447")
+    // taczaddon - compileOnly（mixin 注解处理器校验 targets；仅 Forge 1.20.1 有此 addon）
+    implementation fg.deobf("curse.maven:tacz-addon-1238419:8675340")
     // Project ID: 361579
     implementation fg.deobf("curse.maven:spark-361579:4738952")
     // JEI (配方查看器) - Project ID: 238222
@@ -178,6 +213,9 @@ dependencies {
     implementation fg.deobf("curse.maven:refined-storage-243076:4844585")
     implementation fg.deobf("curse.maven:applied-energistics-2-223794:7148487")
     implementation fg.deobf("curse.maven:guideme-1173950:8204776")
+    implementation fg.deobf("curse.maven:apothic-attributes-898963:5634071")
+    implementation fg.deobf("curse.maven:apotheosis-313970:6461960")
+    implementation fg.deobf("curse.maven:placebo-283644:6274231")
 
 
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
@@ -203,10 +241,23 @@ tasks.named('processResources', ProcessResources).configure {
 
     filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
         expand replaceProperties + [project: project]
-    }}
+    }
+
+    // mixin 配置在 bootstrap 阶段从 classes 输出读取（开发环境 runClient），
+    // 同步进 classes 目录以保证 --mixin.config 能加载到
+    doLast {
+        copy {
+            from 'src/main/resources/beyond_integration.mixins.json'
+            into layout.buildDirectory.dir('classes/java/main')
+        }
+    }
+}
 
 // Example for how to get properties into the manifest for reading at runtime.
 tasks.named('jar', Jar).configure {
+    // mixins.json 同时存在于 resources 与 classes（开发环境同步），打包时去重
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
     manifest {
         attributes([
                 "Specification-Title": mod_id,

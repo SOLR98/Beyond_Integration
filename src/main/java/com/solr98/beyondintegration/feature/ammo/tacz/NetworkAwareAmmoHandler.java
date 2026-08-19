@@ -17,7 +17,7 @@ import net.minecraftforge.fml.ModList;
 public class NetworkAwareAmmoHandler {
 
     /**
-     * 从玩家主网络消耗弹药（仅主网络）
+     * 从玩家主网络消耗弹药（仅主网络；扣弹后立即推送快照给玩家，HUD 实时更新）
      *
      * @return 实际消耗数量；0 表示无可用弹药
      */
@@ -28,9 +28,9 @@ public class NetworkAwareAmmoHandler {
         int taken = TaczAmmoExtractor.consumeAmmoDirectly(gun, needed, primary);
         if (taken > 0) {
             PlayerNetUsageTracker.record(player.getUUID(), primary.getId());
-            return taken;
+            TaczAmmoPollingService.pushSnapshotToPlayer(player, primary.getId());
         }
-        return 0;
+        return taken;
     }
 
     /**
@@ -60,7 +60,7 @@ public class NetworkAwareAmmoHandler {
         }
 
         TaczAmmoCache.requestQuick(ammoId);
-        return true;
+        return false;
     }
 
     /**

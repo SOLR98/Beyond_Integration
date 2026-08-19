@@ -34,6 +34,13 @@ public class MixinPlugin implements IMixinConfigPlugin {
         if (targetClassName.startsWith("com.tacz.guns.")) {
             return modList.isLoaded("tacz");
         }
+        if (targetClassName.startsWith("com.mafuyu404.taczaddon.")) {
+            // taczaddon 兼容仅针对 1.1.8.1（字节码结构已验证）；其他版本回归不注入
+            return modList.isLoaded("taczaddon")
+                    && "1.1.8.1".equals(modList.getModContainerById("taczaddon")
+                    .map(c -> c.getModInfo().getVersion().toString())
+                    .orElse(""));
+        }
         if (targetClassName.startsWith("com.atsuishio.superbwarfare.")) {
             return modList.isLoaded("superbwarfare");
         }

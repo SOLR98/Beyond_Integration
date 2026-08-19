@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.network;
 
-import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoTracker;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -32,7 +32,7 @@ public class RequestAmmoCountPacket {
             DimensionsNet primary = DimensionsNet.getPrimaryNetFromPlayer(player);
             if (primary == null) return;
 
-            Map<String, Integer> ammoMap = TaczAmmoTracker.getOrCreate(primary).getAllCounts();
+            Map<String, Integer> ammoMap = TaczAmmoExtractor.countAllAmmoInNetwork(primary);
             String netName = primary instanceof com.solr98.beyondintegration.handler.NetworkNameProvider nnp ? nnp.getCustomName() : "";
             PacketHandler.sendToPlayer(player, new AmmoCountResponsePacket(primary.getId(), netName, ammoMap));
         });

@@ -202,19 +202,9 @@ public abstract class GunDataCountMixin {
         }
     }
 
-    /** 遍历统一存储桶，累加与目标物品匹配的数量 */
+    /** SW 物品弹药无 NBT 变种：reference key 精确查询（O(1)，与扣减同口径） */
     private static long countItemsInNetwork(DimensionsNet net, ItemStack target) {
-        var opt = net.getUnifiedStorage().getBucket(ItemStackKey.ID);
-        if (opt.isEmpty()) return 0;
-        var bucket = opt.get();
-        ItemStackKey targetKey = new ItemStackKey(target);
-        long total = 0;
-        for (int i = 0; i < bucket.size(); i++) {
-            var rawKey = bucket.get(i);
-            if (!(rawKey instanceof ItemStackKey ik)) continue;
-            if (!ik.isSame(targetKey)) continue;
-            total += net.getUnifiedStorage().getStackByKey(ik).amount();
-        }
-        return total;
+        if (net == null) return 0;
+        return net.getUnifiedStorage().getStackByKey(new ItemStackKey(target)).amount();
     }
 }

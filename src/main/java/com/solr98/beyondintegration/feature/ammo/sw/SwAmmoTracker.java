@@ -1,12 +1,10 @@
 package com.solr98.beyondintegration.feature.ammo.sw;
 
-import com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.solr98.beyondintegration.handler.NetworkNameProvider;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
-import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -14,9 +12,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 每网络一份的 SW 固定项（虚拟弹药 + FE + 网络名 + 附魔开关）快照追踪器。
- * 虚拟弹药存储于 NetworkAmmoData（无事件源），因此采用"对账差分"：
+ * 虚拟弹药存储于 NetworkAmmoData（map 直读，无事件源），因此采用"对账差分"：
  * 每次 drain 对比当前快照与上次快照，产出增量（delta）或全量。
- * storage delta 订阅仅用于能量/物理物品的即时脏标记。
+ * 不依赖任何 storage delta 订阅。
  */
 public class SwAmmoTracker {
 
@@ -33,10 +31,8 @@ public class SwAmmoTracker {
     private String lastName = null;
     /** 上次快照：附魔分离开关 */
     private boolean lastEnchant = true;
-    /** 脏标记：storage delta（能量/物理物品）变化时置位 */
+    /** 脏标记：扣弹等事件置位，强制下次 drain 输出 */
     private volatile boolean dirty = false;
-    /** storage delta 弱订阅句柄（惰性挂载） */
-    private AutoCloseable deltaSub;
 
     /** 私有构造：仅允许通过 getOrCreate 创建 */
     private SwAmmoTracker(int netId) {
@@ -52,19 +48,17 @@ public class SwAmmoTracker {
     }
 
     /**
-     * 移除指定网络的追踪器（同时清理其统一订阅）
+     * 移除指定网络的追踪器
      */
     public static void removeById(int netId) {
         TRACKERS.remove(netId);
-        BdSubscriptionHub.onNetDestroyed(netId);
     }
 
     /**
-     * 清空全部追踪器（同时清理全部统一订阅）
+     * 清空全部追踪器
      */
     public static void clear() {
         TRACKERS.clear();
-        BdSubscriptionHub.clearAll();
     }
 
     /**
@@ -81,15 +75,7 @@ public class SwAmmoTracker {
         dirty = true;
     }
 
-    /** 惰性订阅：首次 drain 时经统一订阅中心挂 storage delta（能量/物理物品即时感知） */
-    private synchronized void ensureSubscribed(DimensionsNet net) {
-        if (deltaSub != null || net == null) return;
-        deltaSub = BdSubscriptionHub.subscribe(net, this, (key, size, insert) -> {
-            if (key instanceof ItemStackKey || key instanceof EnergyStackKey) {
-                dirty = true;
-            }
-        });
-    }
+    /** 惰性订阅已移除：SW 虚拟弹药为 map 直读（NetworkAmmoData），无事件源，drain 快照比较即权威 */
 
     /**
      * 差分产出增量数据。
@@ -99,7 +85,6 @@ public class SwAmmoTracker {
     public DeltaResult drain(DimensionsNet net) {
         if (net == null) return null;
         if (!(net instanceof SuperbAmmoAccessor acc)) return null;
-        ensureSubscribed(net);
 
         Map<String, Long> current = new HashMap<>(acc.getSuperbAmmo());
         long energy = net.getUnifiedStorage().getStackByKey(EnergyStackKey.INSTANCE).amount();

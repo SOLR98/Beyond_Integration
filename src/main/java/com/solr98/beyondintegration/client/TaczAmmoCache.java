@@ -108,16 +108,23 @@ public class TaczAmmoCache {
         applyPending();
     }
 
-    /** 应用暂存数据：网络变化时先清空旧缓存，再合并并复位状态 */
+    /**
+     * 应用暂存数据（推送/响应均为全量快照）：
+     * - 网络切换时直接清空旧缓存（不保留旧网络数据）；
+     * - 同网络时先移除快照中已消失的键（弹药拿空后旧键不残留），再合并更新。
+     */
     private static void applyPending() {
         if (pendingNetId != netId) {
             cache.clear();
+        } else {
+            cache.keySet().retainAll(pending.keySet());
         }
         cache.putAll(pending);
         netId = pendingNetId;
         netName = pendingNetName;
         hasData = true;
         requestPending = false;
+        requestTime = 0L;
         lastAppliedTick = Minecraft.getInstance().player != null
                 ? Minecraft.getInstance().player.tickCount : 0;
         pending = null;

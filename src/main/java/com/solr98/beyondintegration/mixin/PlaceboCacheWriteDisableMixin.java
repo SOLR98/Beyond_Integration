@@ -22,11 +22,11 @@ import java.util.function.ToIntFunction;
 public class PlaceboCacheWriteDisableMixin {
 
     @Inject(method = "getOrCreate", at = @At("HEAD"), cancellable = true, remap = false)
-    private static <T> void beyond$skipCacheWrite(ItemStack self, ResourceLocation id,
-                                                  Function<ItemStack, T> factory,
-                                                  ToIntFunction<ItemStack> hasher,
-                                                  CallbackInfoReturnable<T> cir) {
+    private <T> void beyond$skipCacheWrite(ResourceLocation id,
+                                           Function<ItemStack, T> factory,
+                                           ToIntFunction<ItemStack> hasher,
+                                           CallbackInfoReturnable<T> cir) {
         // 直接计算返回，不读写缓存，避免污染物品 NBT/组件
-        cir.setReturnValue(factory.apply(self));
+        cir.setReturnValue(factory.apply((ItemStack) (Object) this));
     }
 }

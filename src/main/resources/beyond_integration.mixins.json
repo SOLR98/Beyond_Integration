@@ -23,12 +23,16 @@
     "LivingEntityReloadMixin",
     "BDMenuNetAccessor",
     "MaidCacheCleanupMixin",
-    "PlaceboCacheWriteDisableMixin"
+    "PlaceboCacheWriteDisableMixin",
+    "TaczaddonBdFilterMixin"
   ],
   "client": [
     "GunAnimationStateContextMixin",
     "GunHudOverlayMixin",
     "GunSmithTableScreenMixin",
+    "TaczaddonCraftBridgeMixin",
+    "TaczaddonIngredientCountMixin",
+    "TaczaddonCompatibilityServiceMixin",
     "AmmoBarOverlayMixin",
     "DimensionsNetGUIMixin",
     "DimensionsCraftGUIMixin",

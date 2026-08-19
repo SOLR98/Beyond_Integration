@@ -38,7 +38,6 @@ public class GunAnimationStateContextMixin {
             }
         } else {
             TaczAmmoCache.requestQuick(ammoId);
-            cir.setReturnValue(true);
         }
     }
 }

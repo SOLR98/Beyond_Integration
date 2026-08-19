@@ -71,6 +71,8 @@ public class BeyondIntegration {
 
         // Register common config (synced to client)
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, CommandConfig.SERVER_SPEC);
+        // Register client-only config (GUI preferences, e.g. TACZ smith table network mode)
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, ClientConfig.CLIENT_SPEC);
 
         // Register Cloth Config screen (client-only)
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> ClientRegistrar::register);
@@ -85,6 +87,10 @@ public class BeyondIntegration {
         registerSwAmmoPollingService();
         registerVehicleInteractHandler();
         MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.AutoTotemHandler());
+        if (ModList.get().isLoaded("touhou_little_maid")) {
+            MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.MaidAutoTotemHandler());
+            LOGGER.info("Registered MaidAutoTotemHandler");
+        }
         com.solr98.beyondintegration.network.PacketHandler.register();
         registerTaczTrackerDrain();
         registerSubscriptionHubCleanup();
@@ -150,6 +156,14 @@ public class BeyondIntegration {
                 }
             );
             MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) -> {
+                    if (event.getEntity() != null) {
+                        com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService
+                                .onPlayerLoggedOut(event.getEntity().getUUID());
+                    }
+                }
+            );
+            MinecraftForge.EVENT_BUS.addListener(
                 (com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed event) -> {
                     com.solr98.beyondintegration.feature.ammo.sw.SwAmmoTracker.removeById(event.getDestroyedId());
                 }
@@ -176,6 +190,7 @@ public class BeyondIntegration {
             MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.server.ServerStoppingEvent event) -> {
                     com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoTracker.clear();
+                    com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoPollingService.clear();
                     com.solr98.beyondintegration.feature.ammo.tacz.PlayerNetUsageTracker.clear();
                 }
             );

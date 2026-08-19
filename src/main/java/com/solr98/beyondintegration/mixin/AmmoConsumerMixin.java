@@ -180,9 +180,8 @@ public abstract class AmmoConsumerMixin {
 
         if (taken > 0) {
             cir.setReturnValue(Math.min(taken, loads));
-            int netId = boundNet.getId();
-            for (Entity p : vehicle.getPassengers())
-                if (p instanceof ServerPlayer sp) pushUpdate(sp, boundNet);
+            // 载具扣弹后标记脏：由 VehicleNetworkSyncMixin 每 tick 以载具侧包（isVehicle=true）推送给乘客
+            cache.markDirty();
         }
     }
 
@@ -248,7 +247,11 @@ public abstract class AmmoConsumerMixin {
             }
         }
 
-        if (taken > 0) cir.setReturnValue(taken);
+        if (taken > 0) {
+            cir.setReturnValue(taken);
+            // 载具 ITEM 扣弹后标记脏：由载具 tick 同步以载具侧包推送给乘客
+            cache.markDirty();
+        }
     }
 
     @Unique
@@ -280,7 +283,12 @@ public abstract class AmmoConsumerMixin {
             }
         }
 
-        if (taken > 0) cir.setReturnValue(taken);
+        if (taken > 0) {
+            // 利用 extract 返回值（实际提取量）：扣弹后立即推送弹药快照，HUD 实时更新
+            DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
+            if (net != null) pushUpdate(player, net);
+            cir.setReturnValue(taken);
+        }
     }
 
     @Unique
@@ -306,24 +314,14 @@ public abstract class AmmoConsumerMixin {
         if (taken > 0) cir.setReturnValue(taken);
     }
 
-    /** 将网络弹药变化推送给客户端（全量状态包或增量包），保持 HUD 同步 */
+    /** 将网络弹药变化推送给客户端（全量状态包或增量包），保持 HUD 同步（统一走轮询服务入口） */
     @Unique
     private static void pushUpdate(ServerPlayer player, DimensionsNet net) {
         if (net == null) return;
         SwAmmoTracker tracker = SwAmmoTracker.getOrCreate(net);
         if (tracker == null) return;
         tracker.markDirty();
-        SwAmmoTracker.DeltaResult result = tracker.drain(net);
-        if (result == null) return;
-        if (result.full()) {
-            PacketHandler.sendToPlayer(player, new SuperbAmmoStatusResponsePacket(
-                    net.getId(), result.netName(), result.energy(), result.enchantSeparation(),
-                    result.ammo(), null));
-        } else {
-            PacketHandler.sendToPlayer(player, new SuperbAmmoDeltaS2CPacket(
-                    net.getId(), false, false, result.ammo(), result.energy(),
-                    result.netName(), result.enchantSeparation()));
-        }
+        com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService.pushSnapshotToPlayer(player, net);
     }
 
     /** 判断是否超过通知间隔，避免“使用网络弹药”提示刷屏 */

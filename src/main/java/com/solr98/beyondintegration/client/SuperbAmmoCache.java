@@ -63,6 +63,8 @@ public class SuperbAmmoCache {
     private static boolean itemRequestPending = false;
     private static long itemLastRequest = 0;
     private static final long ITEM_REQUEST_TIMEOUT = 2000;
+    /** 请求中的 netId → 来源标记（玩家/载具），响应按 netId 匹配，避免交错请求标错来源 */
+    private static final Map<Integer, Boolean> itemVehicleByNet = new HashMap<>();
 
     private record ItemEntry(long count, long ts, boolean vehicle) {}
 
@@ -135,16 +137,16 @@ public class SuperbAmmoCache {
         }
     }
 
-    /** ITEM 现查响应写入（ItemAmmoResponsePacket）。 */
+    /** ITEM 现查响应写入（ItemAmmoResponsePacket）。来源标记按 netId 匹配请求时记录值。 */
     public static void updateItemCounts(int netId, Map<String, Long> counts) {
         synchronized (LOCK) {
             long now = System.currentTimeMillis();
-            boolean vehicle = itemRequestWasVehicle;
+            Boolean vehicle = itemVehicleByNet.remove(netId);
+            boolean isVehicle = vehicle != null && vehicle;
             for (var entry : counts.entrySet()) {
-                itemCache.put(entry.getKey(), new ItemEntry(entry.getValue(), now, vehicle));
+                itemCache.put(entry.getKey(), new ItemEntry(entry.getValue(), now, isVehicle));
             }
             itemRequestPending = false;
-            itemRequestWasVehicle = false;
         }
     }
 
@@ -285,8 +287,6 @@ public class SuperbAmmoCache {
 
     // ═══════════ ITEM 现查（玩家/载具通用）═══════════
 
-    private static boolean itemRequestWasVehicle = false;
-
     /** 读取 ITEM 计数（TTL 内有效，过期返回 -1 表示需重新现查） */
     public static long getItemCount(String itemKey, boolean vehicle) {
         synchronized (LOCK) {
@@ -311,7 +311,7 @@ public class SuperbAmmoCache {
         }
     }
 
-    /** 发起 ITEM 现查（2s 节流去重） */
+    /** 发起 ITEM 现查（2s 节流去重；按 netId 记录来源标记，响应时匹配） */
     public static void requestItems(int netId, List<String> itemKeys, boolean vehicle) {
         synchronized (LOCK) {
             long now = System.currentTimeMillis();
@@ -321,7 +321,7 @@ public class SuperbAmmoCache {
             }
             itemRequestPending = true;
             itemLastRequest = now;
-            itemRequestWasVehicle = vehicle;
+            itemVehicleByNet.put(netId, vehicle);
         }
         PacketHandler.sendToServer(new RequestItemAmmoPacket(netId, itemKeys));
     }
@@ -333,6 +333,7 @@ public class SuperbAmmoCache {
         synchronized (LOCK) {
             vehicleNetId = -1;
             clearItems(true);
+            itemVehicleByNet.values().removeIf(v -> v);
         }
     }
 
@@ -349,7 +350,7 @@ public class SuperbAmmoCache {
             requested = false;
             itemCache.clear();
             itemRequestPending = false;
-            itemRequestWasVehicle = false;
+            itemVehicleByNet.clear();
         }
     }
 }

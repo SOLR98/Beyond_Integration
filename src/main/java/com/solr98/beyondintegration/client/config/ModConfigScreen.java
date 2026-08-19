@@ -41,6 +41,28 @@ public class ModConfigScreen {
                 .setSaveConsumer(CommandConfig.SERVER.maxNetworksPerPage::set)
                 .build());
 
+        // ========== 客户端（TACZ 工作台模式） ==========
+        ConfigCategory clientCat = builder.getOrCreateCategory(
+                Component.translatable("beyond_integration.config.client"));
+
+        clientCat.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.client.smith_use_network"),
+                com.solr98.beyondintegration.ClientConfig.CLIENT.taczSmithUseNetwork.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(v -> {
+                    com.solr98.beyondintegration.ClientConfig.setTaczSmithUseNetwork(v);
+                })
+                .build());
+
+        clientCat.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.client.smith_output_network"),
+                com.solr98.beyondintegration.ClientConfig.CLIENT.taczSmithOutputToNetwork.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(v -> {
+                    com.solr98.beyondintegration.ClientConfig.setTaczSmithOutputToNetwork(v);
+                })
+                .build());
+
         // ========== 附魔分离 ==========
         ConfigCategory enchant = builder.getOrCreateCategory(
                 Component.translatable("beyond_integration.config.enchant"));
@@ -194,6 +216,108 @@ public class ModConfigScreen {
                 CommandConfig.SERVER.BLOCK_BD_CONTAINER_READER.get())
                 .setDefaultValue(true)
                 .setSaveConsumer(CommandConfig.SERVER.BLOCK_BD_CONTAINER_READER::set)
+                .build());
+
+        // ========== 弹药 ==========
+        ConfigCategory ammo = builder.getOrCreateCategory(
+                Component.translatable("beyond_integration.config.ammo"));
+
+        ammo.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.ammo.tacz_poll_enabled"),
+                CommandConfig.SERVER.TACZ_AMMO_POLL_ENABLED.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.TACZ_AMMO_POLL_ENABLED::set)
+                .build());
+
+        ammo.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.ammo.tacz_poll_interval"),
+                CommandConfig.SERVER.TACZ_AMMO_POLL_INTERVAL_TICKS.get())
+                .setDefaultValue(10)
+                .setMin(1).setMax(200)
+                .setSaveConsumer(CommandConfig.SERVER.TACZ_AMMO_POLL_INTERVAL_TICKS::set)
+                .build());
+
+        ammo.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.ammo.sw_poll_enabled"),
+                CommandConfig.SERVER.SW_AMMO_POLL_ENABLED.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.SW_AMMO_POLL_ENABLED::set)
+                .build());
+
+        ammo.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.ammo.sw_poll_interval"),
+                CommandConfig.SERVER.SW_AMMO_POLL_INTERVAL_TICKS.get())
+                .setDefaultValue(10)
+                .setMin(1).setMax(200)
+                .setSaveConsumer(CommandConfig.SERVER.SW_AMMO_POLL_INTERVAL_TICKS::set)
+                .build());
+
+        ammo.addEntry(eb.startStrList(
+                Component.translatable("beyond_integration.config.ammo.extract_mappings"),
+                new java.util.ArrayList<>(CommandConfig.SERVER.AMMO_EXTRACT_MAPPINGS.get()))
+                .setDefaultValue(java.util.Collections.emptyList())
+                .setSaveConsumer(list -> CommandConfig.SERVER.AMMO_EXTRACT_MAPPINGS.set(new java.util.ArrayList<>(list)))
+                .build());
+
+        // ========== 自动图腾 ==========
+        ConfigCategory totem = builder.getOrCreateCategory(
+                Component.translatable("beyond_integration.config.totem"));
+
+        totem.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.totem.enabled"),
+                CommandConfig.SERVER.AUTO_TOTEM_ENABLED.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.AUTO_TOTEM_ENABLED::set)
+                .build());
+
+        totem.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.totem.respect_bypasses"),
+                CommandConfig.SERVER.AUTO_TOTEM_RESPECT_BYPASSES.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.AUTO_TOTEM_RESPECT_BYPASSES::set)
+                .build());
+
+        totem.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.totem.cooldown"),
+                CommandConfig.SERVER.AUTO_TOTEM_COOLDOWN_SECONDS.get())
+                .setDefaultValue(60)
+                .setMin(0).setMax(3600)
+                .setSaveConsumer(CommandConfig.SERVER.AUTO_TOTEM_COOLDOWN_SECONDS::set)
+                .build());
+
+        totem.addEntry(eb.startStrList(
+                Component.translatable("beyond_integration.config.totem.damage_blacklist"),
+                new java.util.ArrayList<>(CommandConfig.SERVER.AUTO_TOTEM_DAMAGE_BLACKLIST.get()))
+                .setDefaultValue(java.util.Arrays.asList("minecraft:out_of_world"))
+                .setSaveConsumer(list -> CommandConfig.SERVER.AUTO_TOTEM_DAMAGE_BLACKLIST.set(new java.util.ArrayList<>(list)))
+                .build());
+
+        // ========== 铁砧 ==========
+        ConfigCategory anvil = builder.getOrCreateCategory(
+                Component.translatable("beyond_integration.config.anvil"));
+
+        anvil.addEntry(eb.startEnumSelector(
+                Component.translatable("beyond_integration.config.anvil.cost_mode"),
+                CommandConfig.AnvilChargeMode.class,
+                CommandConfig.SERVER.anvilCostMode.get())
+                .setDefaultValue(CommandConfig.AnvilChargeMode.LEVEL)
+                .setSaveConsumer(CommandConfig.SERVER.anvilCostMode::set)
+                .build());
+
+        anvil.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.anvil.level_cap"),
+                CommandConfig.SERVER.anvilLevelCap.get())
+                .setDefaultValue(30)
+                .setMin(0).setMax(1000)
+                .setSaveConsumer(CommandConfig.SERVER.anvilLevelCap::set)
+                .build());
+
+        anvil.addEntry(eb.startLongField(
+                Component.translatable("beyond_integration.config.anvil.points_cap"),
+                CommandConfig.SERVER.anvilPointsCap.get())
+                .setDefaultValue(5000L)
+                .setMin(0).setMax(Long.MAX_VALUE)
+                .setSaveConsumer(CommandConfig.SERVER.anvilPointsCap::set)
                 .build());
 
         return builder.build();

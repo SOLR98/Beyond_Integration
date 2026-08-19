@@ -55,6 +55,19 @@ public class ClientRegistrar {
                 handleClientTick();
             }
         });
+        // SW / 工作台缓存：进服与登出时清空，防止旧网络快照残留（netId 复用显示旧数据 / 内存增长）
+        MinecraftForge.EVENT_BUS.addListener((EntityJoinLevelEvent ev) -> {
+            if (ev.getLevel().isClientSide() && ev.getEntity() == net.minecraft.client.Minecraft.getInstance().player) {
+                SuperbAmmoCache.clear();
+                NetworkItemCache.clear();
+            }
+        });
+        MinecraftForge.EVENT_BUS.addListener(
+            (net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut ev) -> {
+                SuperbAmmoCache.clear();
+                NetworkItemCache.clear();
+            }
+        );
         if(ModList.get().isLoaded("tacz")){
             MinecraftForge.EVENT_BUS.addListener((EntityJoinLevelEvent ev)->{
                 if(ev.getLevel().isClientSide() && ev.getEntity()==net.minecraft.client.Minecraft.getInstance().player){
