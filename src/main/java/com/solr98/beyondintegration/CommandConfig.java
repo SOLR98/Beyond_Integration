@@ -49,6 +49,17 @@ public class CommandConfig
         LEVEL, POINTS
     }
 
+    /**
+     * 铁砧附魔等级上限模式：
+     * OFF      = 原版：钳制附魔最高等级（5 级书 + 5 级书 → 6，但封顶 5）；
+     * PLUS     = 叠级突破：保留原版合成规则（同附魔 5+5=6、异附魔取 max），仅解除封顶；
+     * ADDITIVE = 相加突破：仅同类附魔等级直接相加（5+5=10），不同附魔仍取 max。
+     */
+    public enum BreakLevelMode
+    {
+        OFF, PLUS, ADDITIVE
+    }
+
     /** 配置项定义类：在构造器中分区注册全部配置条目 */
     public static class ServerConfig
     {
@@ -56,8 +67,10 @@ public class CommandConfig
         public final ForgeConfigSpec.IntValue maxNetworksPerPage;
 
         public final ForgeConfigSpec.BooleanValue ENABLE_ENCHANTMENT_SEPARATION;
-        public final ForgeConfigSpec.BooleanValue ENABLE_ITEM_ENCHANTMENT_SEPARATION;
-        public final ForgeConfigSpec.DoubleValue ITEM_SEPARATION_MULTIPLIER;
+
+
+        // Enchantment separation debug
+        public final ForgeConfigSpec.BooleanValue ENCHANTMENT_SEPARATION_DEBUG;
         public final ForgeConfigSpec.IntValue ENCHANTMENT_SEPARATION_BASE_COST;
         public final ForgeConfigSpec.IntValue ENCHANTMENT_SEPARATION_LEVEL_MULTIPLIER;
         public final ForgeConfigSpec.DoubleValue DEFAULT_ENCHANTMENT_MULTIPLIER;
@@ -88,16 +101,33 @@ public class CommandConfig
         public final ForgeConfigSpec.BooleanValue SW_AMMO_POLL_ENABLED;
         public final ForgeConfigSpec.IntValue SW_AMMO_POLL_INTERVAL_TICKS;
 
+        // SW energy ammo network charging
+        public final ForgeConfigSpec.BooleanValue ENERGY_AMMO_CHARGE_ENABLED;
+        public final ForgeConfigSpec.IntValue ENERGY_AMMO_CHARGE_INTERVAL;
+        public final ForgeConfigSpec.IntValue ENERGY_AMMO_CHARGE_RATE;
+
         // Anvil workstation
         public final ForgeConfigSpec.EnumValue<AnvilChargeMode> anvilCostMode;
         public final ForgeConfigSpec.IntValue anvilLevelCap;
         public final ForgeConfigSpec.LongValue anvilPointsCap;
+        public final ForgeConfigSpec.EnumValue<BreakLevelMode> anvilBreakLevelMode;
+        public final ForgeConfigSpec.BooleanValue anvilIgnoreConflict;
+        public final ForgeConfigSpec.BooleanValue anvilIgnoreSupport;
+        public final ForgeConfigSpec.BooleanValue anvilUnrestricted;
+        public final ForgeConfigSpec.IntValue anvilConflictPenalty;
+        public final ForgeConfigSpec.IntValue anvilSupportPenalty;
+        public final ForgeConfigSpec.IntValue anvilConflictPercent;
+        public final ForgeConfigSpec.IntValue anvilSupportPercent;
+        public final ForgeConfigSpec.IntValue anvilBreakLevelPercent;
+        public final ForgeConfigSpec.IntValue anvilUnrestrictedPercent;
 
         // Auto totem (network only)
         public final ForgeConfigSpec.BooleanValue AUTO_TOTEM_ENABLED;
         public final ForgeConfigSpec.IntValue AUTO_TOTEM_COOLDOWN_SECONDS;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> AUTO_TOTEM_DAMAGE_BLACKLIST;
         public final ForgeConfigSpec.BooleanValue AUTO_TOTEM_RESPECT_BYPASSES;
+        public final ForgeConfigSpec.BooleanValue AUTO_TOTEM_RESTORE_MAX_HEALTH;
+        public final ForgeConfigSpec.BooleanValue AUTO_TOTEM_HEAL_TO_FULL;
 
         public ServerConfig(ForgeConfigSpec.Builder builder)
         {
@@ -115,16 +145,8 @@ public class CommandConfig
                     .comment("Enable enchantment separation when items pass through NetPump")
                     .define("enable", true);
 
-            ENABLE_ITEM_ENCHANTMENT_SEPARATION = builder
-                    .comment("Enable extracting enchantments from tools/weapons/armor")
-                    .define("enable_item_extraction", false);
-
-            ITEM_SEPARATION_MULTIPLIER = builder
-                    .comment("Extra XP cost multiplier for extracting enchantments from items")
-                    .defineInRange("item_multiplier", 2.0, 1.0, 100.0);
-
             ENCHANTMENT_SEPARATION_BASE_COST = builder
-                    .comment("Base experience cost for separating one enchantment")
+                    .comment("Base XP cost per enchantment")
                     .defineInRange("base_cost", 10, 0, 1000);
 
             ENCHANTMENT_SEPARATION_LEVEL_MULTIPLIER = builder
@@ -148,6 +170,11 @@ public class CommandConfig
                     .defineList("high_cost_list",
                             Arrays.asList("minecraft:mending:3.0", "minecraft:sharpness:1.2"),
                             obj -> obj instanceof String);
+
+            ENCHANTMENT_SEPARATION_DEBUG = builder
+                    .comment("附魔分离调试日志：开启后输出各分支判定详情（物品/开关/放行原因/分离结果），用于排查分离不生效",
+                            "  示例: enchantmentSeparationDebug=true → 控制台输出 [enchant-sep] 前缀的详细日志")
+                    .define("debug", false);
 
             builder.pop();
 
@@ -208,6 +235,19 @@ public class CommandConfig
                     .defineInRange("ammo_poll_interval_ticks", 10, 1, 1200);
             builder.pop();
 
+            builder.comment("SW energy ammo network charging settings").push("energy_ammo");
+            ENERGY_AMMO_CHARGE_ENABLED = builder
+                    .comment("Enable auto-charging handheld SW energy weapons (ENERGY ammo type) from the player's primary network FE storage",
+                            "  示例: energyAmmoChargeEnabled=true → 手持能量武器时每隔 interval 从网络充电")
+                    .define("charge_enabled", true);
+            ENERGY_AMMO_CHARGE_INTERVAL = builder
+                    .comment("Ticks between each network charge attempt for handheld energy weapons")
+                    .defineInRange("charge_interval", 20, 1, 1200);
+            ENERGY_AMMO_CHARGE_RATE = builder
+                    .comment("FE extracted from network per charge attempt (capped by weapon's missing energy)")
+                    .defineInRange("charge_rate", 10000, 1, Integer.MAX_VALUE);
+            builder.pop();
+
             builder.comment("Anvil workstation settings").push("anvil");
             anvilCostMode = builder
                     .comment("Anvil XP charge mode: LEVEL = vanilla levels (network XP tops up player levels first), POINTS = fixed XP points (network XP pays first)")
@@ -218,6 +258,46 @@ public class CommandConfig
             anvilPointsCap = builder
                     .comment("POINTS mode 'too expensive' XP point cap (9223372036854775807 = no cap)")
                     .defineInRange("pointsCap", Long.MAX_VALUE, 1L, Long.MAX_VALUE);
+            anvilBreakLevelMode = builder
+                    .comment("附魔等级上限模式 (OFF=原版钳制封顶，PLUS=叠级突破 5+5=6 仅解除封顶，ADDITIVE=同类直接相加 5+5=10)",
+                            "  示例: anvilBreakLevelMode=ADDITIVE  → 两本锋利V合成锋利X")
+                    .defineEnum("breakMaxLevelMode", BreakLevelMode.OFF);
+            anvilIgnoreConflict = builder
+                    .comment("无视附魔冲突：冲突附魔不再被剔除，可同时打上（每个冲突附魔计 conflictPenalty 罚金）",
+                            "  示例: ignoreConflict=true 时 锋利V + 亡灵杀手V 可共存于同一物品")
+                    .define("ignoreConflict", false);
+            anvilIgnoreSupport = builder
+                    .comment("无视附魔适用性：本不该能打上的附魔也能打，等同创造模式行为（每个违例附魔计 supportPenalty 罚金）",
+                            "  示例: ignoreSupport=true 时 锄头也能打锋利V")
+                    .define("ignoreSupport", false);
+            anvilUnrestricted = builder
+                    .comment("完全解禁：一键同时开启 breakMaxLevelMode=PLUS、ignoreConflict、ignoreSupport（百分位倍率叠加，见各 Percent 项）",
+                            "  示例: unrestricted=true 时所有限制解除，费用按倍率公式 (100 + Σ启用项百分位)/100 叠加")
+                    .define("unrestricted", false);
+            anvilConflictPenalty = builder
+                    .comment("每个冲突附魔的固定罚金（基础值，先计入费用，再应用百分位倍率）",
+                            "  示例: conflictPenalty=2 时打 2 个冲突附魔，费用额外 +4")
+                    .defineInRange("conflictPenalty", 2, 0, 1000000);
+            anvilSupportPenalty = builder
+                    .comment("每个违例（不适用）附魔的固定罚金（基础值）",
+                            "  示例: supportPenalty=5 时打 1 个违例附魔，费用额外 +5")
+                    .defineInRange("supportPenalty", 5, 0, 1000000);
+            anvilConflictPercent = builder
+                    .comment("无视冲突的百分位费用加成（倍率 = (100 + Σ启用项百分位)/100，各项百分位相加，100=额外×1）",
+                            "  示例: conflictPercent=50 且开启 ignoreConflict → 附魔费用 ×1.5")
+                    .defineInRange("conflictPercent", 0, 0, 1000000);
+            anvilSupportPercent = builder
+                    .comment("无视适用性的百分位费用加成（倍率同上，各项百分位相加）",
+                            "  示例: supportPercent=50 且开启 ignoreSupport → 附魔费用 ×1.5")
+                    .defineInRange("supportPercent", 0, 0, 1000000);
+            anvilBreakLevelPercent = builder
+                    .comment("等级上限突破（PLUS/ADDITIVE）的百分位费用加成（倍率同上，各项百分位相加）",
+                            "  示例: breakLevelPercent=30 → 附魔费用 ×1.3")
+                    .defineInRange("breakLevelPercent", 0, 0, 1000000);
+            anvilUnrestrictedPercent = builder
+                    .comment("完全解禁模式的百分位费用加成（倍率 = (100 + Σ启用项百分位)/100）",
+                            "  示例: unrestrictedPercent=100 且开启 unrestricted → 费用 ×2")
+                    .defineInRange("unrestrictedPercent", 100, 0, 1000000);
             builder.pop();
 
             builder.comment("Auto totem settings (uses totems from your network only)").push("auto_totem");
@@ -237,6 +317,15 @@ public class CommandConfig
                              "(damage like void/out_of_world and /kill never triggers totem). ",
                              "true = keep vanilla behavior; false = allow triggering on such damage (damage_blacklist still applies)")
                     .define("respect_bypasses_invulnerability", false);
+            AUTO_TOTEM_RESTORE_MAX_HEALTH = builder
+                    .comment("Restore the player's reduced maximum health when auto-totem triggers ",
+                             "(removes all negative max_health attribute modifiers, e.g. from mods/effects). ",
+                             "true = restore the reduced max-health cap")
+                    .define("restore_max_health", true);
+            AUTO_TOTEM_HEAL_TO_FULL = builder
+                    .comment("Heal the player to full health when auto-totem triggers. ",
+                             "false = keep vanilla totem behavior (1 HP + regeneration buff)")
+                    .define("heal_to_full", false);
             builder.pop();
         }
 
@@ -247,8 +336,7 @@ public class CommandConfig
     public static int maxNetworksPerPage() { return SERVER.maxNetworksPerPage.get(); }
 
     public static boolean enableEnchantmentSeparation() { return SERVER.ENABLE_ENCHANTMENT_SEPARATION.get(); }
-    public static boolean enableItemEnchantmentSeparation() { return SERVER.ENABLE_ITEM_ENCHANTMENT_SEPARATION.get(); }
-    public static double itemSeparationMultiplier() { return SERVER.ITEM_SEPARATION_MULTIPLIER.get(); }
+    public static boolean enchantmentSeparationDebug() { return SERVER.ENCHANTMENT_SEPARATION_DEBUG.get(); }
     public static int enchantmentSeparationBaseCost() { return SERVER.ENCHANTMENT_SEPARATION_BASE_COST.get(); }
     public static int enchantmentSeparationLevelMultiplier() { return SERVER.ENCHANTMENT_SEPARATION_LEVEL_MULTIPLIER.get(); }
     public static double defaultEnchantmentMultiplier() { return SERVER.DEFAULT_ENCHANTMENT_MULTIPLIER.get(); }
@@ -274,13 +362,28 @@ public class CommandConfig
 
     public static boolean swAmmoPollEnabled() { return SERVER.SW_AMMO_POLL_ENABLED.get(); }
     public static int swAmmoPollIntervalTicks() { return SERVER.SW_AMMO_POLL_INTERVAL_TICKS.get(); }
+    public static boolean energyAmmoChargeEnabled() { return SERVER.ENERGY_AMMO_CHARGE_ENABLED.get(); }
+    public static int energyAmmoChargeInterval() { return SERVER.ENERGY_AMMO_CHARGE_INTERVAL.get(); }
+    public static int energyAmmoChargeRate() { return SERVER.ENERGY_AMMO_CHARGE_RATE.get(); }
 
     public static AnvilChargeMode anvilCostMode() { return SERVER.anvilCostMode.get(); }
     public static int anvilLevelCap() { return SERVER.anvilLevelCap.get(); }
     public static long anvilPointsCap() { return SERVER.anvilPointsCap.get(); }
+    public static BreakLevelMode anvilBreakLevelMode() { return SERVER.anvilBreakLevelMode.get(); }
+    public static boolean anvilIgnoreConflict() { return SERVER.anvilIgnoreConflict.get(); }
+    public static boolean anvilIgnoreSupport() { return SERVER.anvilIgnoreSupport.get(); }
+    public static boolean anvilUnrestricted() { return SERVER.anvilUnrestricted.get(); }
+    public static int anvilConflictPenalty() { return SERVER.anvilConflictPenalty.get(); }
+    public static int anvilSupportPenalty() { return SERVER.anvilSupportPenalty.get(); }
+    public static int anvilConflictPercent() { return SERVER.anvilConflictPercent.get(); }
+    public static int anvilSupportPercent() { return SERVER.anvilSupportPercent.get(); }
+    public static int anvilBreakLevelPercent() { return SERVER.anvilBreakLevelPercent.get(); }
+    public static int anvilUnrestrictedPercent() { return SERVER.anvilUnrestrictedPercent.get(); }
 
     public static boolean autoTotemEnabled() { return SERVER.AUTO_TOTEM_ENABLED.get(); }
     public static int autoTotemCooldownSeconds() { return SERVER.AUTO_TOTEM_COOLDOWN_SECONDS.get(); }
     public static List<? extends String> autoTotemDamageBlacklist() { return SERVER.AUTO_TOTEM_DAMAGE_BLACKLIST.get(); }
     public static boolean autoTotemRespectBypassesInvulnerability() { return SERVER.AUTO_TOTEM_RESPECT_BYPASSES.get(); }
+    public static boolean autoTotemRestoreMaxHealth() { return SERVER.AUTO_TOTEM_RESTORE_MAX_HEALTH.get(); }
+    public static boolean autoTotemHealToFull() { return SERVER.AUTO_TOTEM_HEAL_TO_FULL.get(); }
 }

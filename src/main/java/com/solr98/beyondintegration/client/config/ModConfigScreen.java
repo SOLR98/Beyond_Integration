@@ -74,21 +74,6 @@ public class ModConfigScreen {
                 .setSaveConsumer(CommandConfig.SERVER.ENABLE_ENCHANTMENT_SEPARATION::set)
                 .build());
 
-        enchant.addEntry(eb.startBooleanToggle(
-                Component.translatable("beyond_integration.config.enchant.item_extraction"),
-                CommandConfig.SERVER.ENABLE_ITEM_ENCHANTMENT_SEPARATION.get())
-                .setDefaultValue(true)
-                .setSaveConsumer(CommandConfig.SERVER.ENABLE_ITEM_ENCHANTMENT_SEPARATION::set)
-                .build());
-
-        enchant.addEntry(eb.startDoubleField(
-                Component.translatable("beyond_integration.config.enchant.item_multiplier"),
-                CommandConfig.SERVER.ITEM_SEPARATION_MULTIPLIER.get())
-                .setDefaultValue(2.0)
-                .setMin(1.0).setMax(100.0)
-                .setSaveConsumer(CommandConfig.SERVER.ITEM_SEPARATION_MULTIPLIER::set)
-                .build());
-
         enchant.addEntry(eb.startIntField(
                 Component.translatable("beyond_integration.config.enchant.base_cost"),
                 CommandConfig.SERVER.ENCHANTMENT_SEPARATION_BASE_COST.get())
@@ -277,6 +262,20 @@ public class ModConfigScreen {
                 .setSaveConsumer(CommandConfig.SERVER.AUTO_TOTEM_RESPECT_BYPASSES::set)
                 .build());
 
+        totem.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.totem.restore_max_health"),
+                CommandConfig.SERVER.AUTO_TOTEM_RESTORE_MAX_HEALTH.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.AUTO_TOTEM_RESTORE_MAX_HEALTH::set)
+                .build());
+
+        totem.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.totem.heal_to_full"),
+                CommandConfig.SERVER.AUTO_TOTEM_HEAL_TO_FULL.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.AUTO_TOTEM_HEAL_TO_FULL::set)
+                .build());
+
         totem.addEntry(eb.startIntField(
                 Component.translatable("beyond_integration.config.totem.cooldown"),
                 CommandConfig.SERVER.AUTO_TOTEM_COOLDOWN_SECONDS.get())
@@ -318,6 +317,69 @@ public class ModConfigScreen {
                 .setDefaultValue(5000L)
                 .setMin(0).setMax(Long.MAX_VALUE)
                 .setSaveConsumer(CommandConfig.SERVER.anvilPointsCap::set)
+                .build());
+
+        // ========== 铁砧附魔增强 ==========
+        anvil.addEntry(eb.startEnumSelector(
+                Component.translatable("beyond_integration.config.anvil.break_level_mode"),
+                CommandConfig.BreakLevelMode.class,
+                CommandConfig.SERVER.anvilBreakLevelMode.get())
+                .setDefaultValue(CommandConfig.BreakLevelMode.OFF)
+                .setSaveConsumer(CommandConfig.SERVER.anvilBreakLevelMode::set)
+                .build());
+        anvil.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.anvil.ignore_conflict"),
+                CommandConfig.SERVER.anvilIgnoreConflict.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.anvilIgnoreConflict::set)
+                .build());
+        anvil.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.anvil.ignore_support"),
+                CommandConfig.SERVER.anvilIgnoreSupport.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.anvilIgnoreSupport::set)
+                .build());
+        anvil.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.anvil.unrestricted"),
+                CommandConfig.SERVER.anvilUnrestricted.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.anvilUnrestricted::set)
+                .build());
+        anvil.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.anvil.conflict_penalty"),
+                CommandConfig.SERVER.anvilConflictPenalty.get())
+                .setDefaultValue(2).setMin(0).setMax(1000000)
+                .setSaveConsumer(CommandConfig.SERVER.anvilConflictPenalty::set)
+                .build());
+        anvil.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.anvil.support_penalty"),
+                CommandConfig.SERVER.anvilSupportPenalty.get())
+                .setDefaultValue(5).setMin(0).setMax(1000000)
+                .setSaveConsumer(CommandConfig.SERVER.anvilSupportPenalty::set)
+                .build());
+        anvil.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.anvil.conflict_percent"),
+                CommandConfig.SERVER.anvilConflictPercent.get())
+                .setDefaultValue(0).setMin(0).setMax(1000000)
+                .setSaveConsumer(CommandConfig.SERVER.anvilConflictPercent::set)
+                .build());
+        anvil.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.anvil.support_percent"),
+                CommandConfig.SERVER.anvilSupportPercent.get())
+                .setDefaultValue(0).setMin(0).setMax(1000000)
+                .setSaveConsumer(CommandConfig.SERVER.anvilSupportPercent::set)
+                .build());
+        anvil.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.anvil.break_level_percent"),
+                CommandConfig.SERVER.anvilBreakLevelPercent.get())
+                .setDefaultValue(0).setMin(0).setMax(1000000)
+                .setSaveConsumer(CommandConfig.SERVER.anvilBreakLevelPercent::set)
+                .build());
+        anvil.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.anvil.unrestricted_percent"),
+                CommandConfig.SERVER.anvilUnrestrictedPercent.get())
+                .setDefaultValue(100).setMin(0).setMax(1000000)
+                .setSaveConsumer(CommandConfig.SERVER.anvilUnrestrictedPercent::set)
                 .build());
 
         return builder.build();

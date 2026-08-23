@@ -7,6 +7,7 @@ import com.solr98.beyondintegration.client.widget.EnchantToggleBtn;
 import com.solr98.beyondintegration.network.OpenStorageMenuPacket;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.RequestSuperbAmmoExtractPacket;
+import com.solr98.beyondintegration.network.RequestEnchantSeparationPacket;
 import com.solr98.beyondintegration.network.RequestSuperbAmmoStatusPacket;
 import com.solr98.beyondintegration.network.ToggleEnchantSeparationPacket;
 import com.wintercogs.beyonddimensions.client.gui.DimensionsNetGUI;
@@ -60,8 +61,10 @@ public class DimensionsNetGUIMixin {
     @Unique private int beyond$hoveredSlot = -1;
     /** 附魔分离开关按钮 */
     @Unique private EnchantToggleBtn beyond$enchantBtn;
+    /** 附魔物品(装备)分离开关按钮（全局配置关闭物品分离时不创建/不显示） */
     /** 上次记录的附魔分离状态，用于检测变化并刷新 tooltip */
     @Unique private boolean beyond$lastEnchantState = true;
+    /** 上次记录的附魔物品分离状态，用于检测变化并刷新 tooltip */
 
     /** 初始化完成后：创建附魔分离按钮、请求服务端弹药状态数据 */
     @Inject(method = "init", at = @At("RETURN"), remap = true)
@@ -79,6 +82,8 @@ public class DimensionsNetGUIMixin {
 
         if (ModList.get().isLoaded("superbwarfare"))
             PacketHandler.sendToServer(new RequestSuperbAmmoStatusPacket());
+        // 附魔分离状态请求：独立于 SW，仅 BD+BI 时按钮也能正确回显
+        PacketHandler.sendToServer(new RequestEnchantSeparationPacket());
     }
 
     /** 渲染末尾：绘制附魔按钮、工作站模式按钮和网络弹药面板（含悬停 tooltip） */
@@ -104,6 +109,7 @@ public class DimensionsNetGUIMixin {
             }
         }
 
+        // 附魔物品分离按钮
         // 工作站模式按钮（统一由 mixin 绘制：BI 工作站界面/BD 合成终端/纯存储）
         var menu = (DimensionsNetMenu) self.getMenu();
         int lx = self.getGuiLeft();
@@ -177,13 +183,21 @@ public class DimensionsNetGUIMixin {
     private void onMouseClicked(double mx, double my, int button, CallbackInfoReturnable<Boolean> cir) {
         var self = (DimensionsNetGUI<?>) (Object) this;
 
+        // 扩展驱动：优先处理扩展点击（如 Ctrl+右键 附魔分离保护切换）
+        for (var ext : com.solr98.beyondintegration.client.gui.extension.BDGUIExtensionRegistry.getExtensions()) {
+            if (ext.onMouseClicked(self, mx, my, button)) {
+                cir.setReturnValue(true);
+                return;
+            }
+        }
+
         // 附魔按钮点击
         if (beyond$enchantBtn != null && beyond$enchantBtn.mouseClicked(mx, my, button)) {
             cir.setReturnValue(true);
             return;
         }
 
-        // 工作站模式按钮点击（统一由 mixin 处理）
+        // 附魔物品分离按钮点击
         var menu = (DimensionsNetMenu) self.getMenu();
         int lx = self.getGuiLeft();
         int gy = self.getGuiTop() + 24 + 18 + (menu.getLines() - 2) * 18 + 26;

@@ -70,9 +70,47 @@ public abstract class AmmoConsumerMixin {
                            CallbackInfoReturnable<Integer> cir) {
         if (type == AmmoConsumer.AmmoConsumeType.PLAYER_AMMO) {
             handleConsumePlayerAmmo(entity, loads, cir);
+        } else if (type == AmmoConsumer.AmmoConsumeType.ITEM && beyond$isExpAmmo()) {
+            // 经验弹药（ammo 配置 "exp"/"exp N"）：玩家经验不足时从网络 XP 流体自动转化补给，
+            // 补给后原逻辑（ExpAmmoStrategy）继续扣玩家经验
+            handleConsumeExp(entity, loads);
         } else if (type == AmmoConsumer.AmmoConsumeType.ITEM) {
             handleConsumeItem(entity, loads, cir);
+        } else if (type == AmmoConsumer.AmmoConsumeType.ENERGY) {
+            // 能量武器射击触发点：原逻辑会从武器 FE 槽扣能量；
+            // 此处先尝试从玩家主网络预充武器能量（网络有 FE 时武器常满，射击不中断）
+            if (entity instanceof ServerPlayer player) {
+                com.solr98.beyondintegration.feature.ammo.sw.EnergyAmmoChargeHandler.chargeMainHand(player);
+            }
         }
+    }
+
+    /** 判断当前消耗器是否为经验弹药（ammo 字符串以 "exp" 开头，SW ExpAmmoStrategy） */
+    @Unique
+    private boolean beyond$isExpAmmo() {
+        try {
+            String ammo = ((AmmoConsumer) (Object) this).getAmmo();
+            return ammo != null && ammo.toLowerCase(java.util.Locale.ROOT).startsWith("exp");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** 经验弹药网络补给：玩家经验不足时从玩家主网络 XP 流体提取并转化为玩家经验（自动转化） */
+    @Unique
+    private void handleConsumeExp(Entity entity, int loads) {
+        if (!(entity instanceof ServerPlayer player)) return;
+        if (player.getAbilities().instabuild) return;
+        int missing = Math.max(0, loads - player.totalExperience);
+        if (missing <= 0) return;
+        DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
+        if (net == null) return;
+        long got = net.getUnifiedStorage()
+                .extract(com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler.xpFluidKey(),
+                        missing * 20L, false, false).amount();
+        if (got <= 0) return;
+        player.giveExperiencePoints((int) Math.min(got / 20, Integer.MAX_VALUE));
+        net.setDirty();
     }
 
     @Unique

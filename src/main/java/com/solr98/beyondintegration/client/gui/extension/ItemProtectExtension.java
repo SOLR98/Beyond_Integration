@@ -46,6 +46,9 @@ public class ItemProtectExtension implements IDimensionsNetGUIExtension {
             }
 
             PacketHandler.sendToServer(new ProtectItemPacket(slotIndex));
+            // 保护切换点击音效（对齐工作站按钮的 UI_BUTTON_CLICK 反馈）
+            mc.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
+                    net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
             player.displayClientMessage(
                     Component.translatable(isProtected
                             ? "message.beyond_integration.protect.removed"

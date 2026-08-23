@@ -71,6 +71,8 @@ public class PacketHandler {
                 RequestEnchantSeparationPacket::decode,
                 RequestEnchantSeparationPacket::handle);
 
+
+
         if (ModList.get().isLoaded("superbwarfare")) {
             INSTANCE.registerMessage(id++, SuperbAmmoStatusResponsePacket.class,
                     SuperbAmmoStatusResponsePacket::encode,

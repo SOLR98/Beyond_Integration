@@ -53,10 +53,12 @@ public class DimensionsStorageMenu extends DimensionsNetMenu {
             container.setItem(idx, ItemStack.EMPTY);
             if (toStorage) {
                 if (storage != null) { long left = storage.insert(new com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey(s), s.getCount(), false).amount(); s.setCount((int) left); }
-                if (!s.isEmpty()) player.getInventory().add(s);
+                // 对齐 BD cleanCraftSlots 状态同步：玩家存活且未断线才转移背包，否则跳过（走掉落兜底，不吞货）
+                if (!s.isEmpty() && player.isAlive() && !((net.minecraft.server.level.ServerPlayer) player).hasDisconnected()) player.getInventory().add(s);
                 if (!s.isEmpty()) player.drop(s, false);
             } else {
-                player.getInventory().add(s);
+                // 对齐 BD cleanCraftSlots 状态同步：玩家存活且未断线才转移背包，否则跳过（走网络/掉落兜底）
+                if (player.isAlive() && !((net.minecraft.server.level.ServerPlayer) player).hasDisconnected()) player.getInventory().add(s);
                 if (!s.isEmpty() && storage != null) { long left = storage.insert(new com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey(s), s.getCount(), false).amount(); s.setCount((int) left); }
                 if (!s.isEmpty()) player.drop(s, false);
             }
@@ -75,10 +77,12 @@ public class DimensionsStorageMenu extends DimensionsNetMenu {
             container.getSlot(idx).set(ItemStack.EMPTY);
             if (toStorage) {
                 if (storage != null) { long left = storage.insert(new com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey(s), s.getCount(), false).amount(); s.setCount((int) left); }
-                if (!s.isEmpty()) player.getInventory().add(s);
+                // 对齐 BD cleanCraftSlots 状态同步：玩家存活且未断线才转移背包，否则跳过（走掉落兜底，不吞货）
+                if (!s.isEmpty() && player.isAlive() && !((net.minecraft.server.level.ServerPlayer) player).hasDisconnected()) player.getInventory().add(s);
                 if (!s.isEmpty()) player.drop(s, false);
             } else {
-                player.getInventory().add(s);
+                // 对齐 BD cleanCraftSlots 状态同步：玩家存活且未断线才转移背包，否则跳过（走网络/掉落兜底）
+                if (player.isAlive() && !((net.minecraft.server.level.ServerPlayer) player).hasDisconnected()) player.getInventory().add(s);
                 if (!s.isEmpty() && storage != null) { long left = storage.insert(new com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey(s), s.getCount(), false).amount(); s.setCount((int) left); }
                 if (!s.isEmpty()) player.drop(s, false);
             }

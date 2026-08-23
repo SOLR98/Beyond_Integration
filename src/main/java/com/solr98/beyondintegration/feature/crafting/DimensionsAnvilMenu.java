@@ -155,6 +155,9 @@ public class DimensionsAnvilMenu extends DimensionsStorageMenu implements IClean
                         beyond$inputSlots.setItem(1, ItemStack.EMPTY);
                     }
                 }
+                // 铁砧使用音效（对齐原版 AnvilBlock.use 的 ANVIL_USE 反馈）
+                p.level().playSound(null, p.blockPosition(),
+                        net.minecraft.sounds.SoundEvents.ANVIL_USE, net.minecraft.sounds.SoundSource.BLOCKS, 1.0F, 1.0F);
                 slotsChanged(beyond$inputSlots);
             }
         });
@@ -232,7 +235,20 @@ public class DimensionsAnvilMenu extends DimensionsStorageMenu implements IClean
             j += itemstack.getBaseRepairCost() + (itemstack2.isEmpty() ? 0 : itemstack2.getBaseRepairCost());
             this.beyond$repairItemCountCost = 0;
             boolean flag = false;
-
+            // ── 对齐原版 ForgeHooks.onAnvilChange：铁砧配方事件（右槽空也触发）──
+            // 事件取消 → 直接 return（结果槽保持原状）；事件有输出 → 直接写结果槽/费用/材料消耗并 return，
+            // 完全跳过后续原版逻辑（附魔合并/改名/清空/费用钳制），与 ForgeHooks 行为一致
+            net.minecraftforge.event.AnvilUpdateEvent beyond$anvilEvent = new net.minecraftforge.event.AnvilUpdateEvent(
+                    itemstack, itemstack2, this.beyond$itemName, j, this.player);
+            if (net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(beyond$anvilEvent)) {
+                return;
+            }
+            if (!beyond$anvilEvent.getOutput().isEmpty()) {
+                this.beyond$resultSlots.setItem(0, beyond$anvilEvent.getOutput());
+                this.beyond$cost.set(beyond$anvilEvent.getCost());
+                this.beyond$repairItemCountCost = beyond$anvilEvent.getMaterialCost();
+                return;
+            }
             if (!itemstack2.isEmpty()) {
                 flag = itemstack2.getItem() == Items.ENCHANTED_BOOK && !EnchantedBookItem.getEnchantments(itemstack2).isEmpty();
                 if (itemstack1.isDamageableItem() && itemstack1.getItem().isValidRepairItem(itemstack, itemstack2)) {
@@ -271,26 +287,71 @@ public class DimensionsAnvilMenu extends DimensionsStorageMenu implements IClean
                     Map<Enchantment, Integer> map1 = EnchantmentHelper.getEnchantments(itemstack2);
                     boolean flag2 = false;
                     boolean flag3 = false;
+                    // ---- BI 铁砧附魔增强（配置见 CommandConfig anvil 段）----
+                    // 完全解禁：一键开启叠级突破 + 无视冲突 + 无视适用性
+                    boolean beyond$unrestricted = CommandConfig.anvilUnrestricted();
+                    boolean beyond$ignoreConflict = CommandConfig.anvilIgnoreConflict() || beyond$unrestricted;
+                    boolean beyond$ignoreSupport = CommandConfig.anvilIgnoreSupport() || beyond$unrestricted;
+                    CommandConfig.BreakLevelMode beyond$levelMode = beyond$unrestricted
+                            ? CommandConfig.BreakLevelMode.PLUS : CommandConfig.anvilBreakLevelMode();
+                    boolean beyond$breakLevel = beyond$levelMode != CommandConfig.BreakLevelMode.OFF;
+                    int beyond$enchantCostBase = i;   // 附魔段费用基准（倍率仅作用于附魔段）
+                    // 代价参数预读取：倍率基础值（100 = ×1）+ 各惩罚基础值（循环内不再重复取配置）
+                    int beyond$costPercent = 100;
+                    int beyond$conflictPenalty = 0;
+                    int beyond$supportPenalty = 0;
+                    if (beyond$ignoreConflict) {
+                        beyond$costPercent += CommandConfig.anvilConflictPercent();
+                        beyond$conflictPenalty = CommandConfig.anvilConflictPenalty();
+                    }
+                    if (beyond$ignoreSupport) {
+                        beyond$costPercent += CommandConfig.anvilSupportPercent();
+                        beyond$supportPenalty = CommandConfig.anvilSupportPenalty();
+                    }
+                    if (beyond$breakLevel) beyond$costPercent += CommandConfig.anvilBreakLevelPercent();
+                    if (beyond$unrestricted) beyond$costPercent += CommandConfig.anvilUnrestrictedPercent();
+                    int beyond$conflictCount = 0;     // 被"无视"的冲突附魔数（计罚金）
+                    int beyond$supportViolationCount = 0; // 违例（不适用）附魔数（计罚金）
                     for (Enchantment enchantment1 : map1.keySet()) {
                         if (enchantment1 != null) {
                             int i2 = map.getOrDefault(enchantment1, 0);
                             int j2 = map1.get(enchantment1);
-                            j2 = i2 == j2 ? j2 + 1 : Math.max(j2, i2);
+                            if (beyond$levelMode == CommandConfig.BreakLevelMode.ADDITIVE) {
+                                // 相加突破：仅同类附魔直接相加（5+5=10）；不同附魔 i2=0 时自然等于书等级
+                                j2 = i2 + j2;
+                            } else {
+                                // 原版合成规则（PLUS 仅解除封顶，规则不变：同附魔 +1 即 5+5=6，异附魔取 max）
+                                j2 = i2 == j2 ? j2 + 1 : Math.max(j2, i2);
+                            }
                             boolean flag1 = enchantment1.canEnchant(itemstack);
+                            boolean beyond$supportViolation = !flag1;
                             if (this.player.getAbilities().instabuild || itemstack.is(Items.ENCHANTED_BOOK)) {
                                 flag1 = true;
                             }
                             for (Enchantment enchantment : map.keySet()) {
                                 if (enchantment != enchantment1 && !enchantment1.isCompatibleWith(enchantment)) {
-                                    flag1 = false;
-                                    ++i;
+                                    if (beyond$ignoreConflict) {
+                                        // 无视冲突：附魔保留，冲突附魔改计罚金（conflictPenalty × 冲突数）
+                                        beyond$conflictCount++;
+                                    } else {
+                                        flag1 = false;
+                                        ++i;
+                                    }
                                 }
+                            }
+                            if (!flag1 && beyond$ignoreSupport) {
+                                // 无视适用性：视同可打（等同创造模式），违例附魔改计罚金
+                                flag1 = true;
                             }
                             if (!flag1) {
                                 flag3 = true;
                             } else {
                                 flag2 = true;
-                                if (j2 > enchantment1.getMaxLevel()) j2 = enchantment1.getMaxLevel();
+                                if (beyond$supportViolation) beyond$supportViolationCount++;
+                                if (!beyond$breakLevel) {
+                                    // 原版钳制附魔最高等级；PLUS/ADDITIVE 模式下解除
+                                    if (j2 > enchantment1.getMaxLevel()) j2 = enchantment1.getMaxLevel();
+                                }
                                 map.put(enchantment1, j2);
                                 int k3 = 0;
                                 switch (enchantment1.getRarity()) {
@@ -311,6 +372,15 @@ public class DimensionsAnvilMenu extends DimensionsStorageMenu implements IClean
                                 if (itemstack.getCount() > 1) i = 40;
                             }
                         }
+                    }
+                    // 代价结算：基础罚金先计入附魔段费用，再应用百分位倍率
+                    // 倍率 = (100 + Σ启用项百分位) / 100，各项百分位相加（不连乘）；100 = ×1 基准
+                    if (beyond$ignoreConflict || beyond$ignoreSupport || beyond$breakLevel || beyond$unrestricted) {
+                        int beyond$enchantPart = i - beyond$enchantCostBase;
+                        int beyond$penalty = beyond$conflictPenalty * beyond$conflictCount
+                                + beyond$supportPenalty * beyond$supportViolationCount;
+                        i = beyond$enchantCostBase
+                                + (int) Math.round((beyond$enchantPart + beyond$penalty) * beyond$costPercent / 100.0);
                     }
                     if (flag3 && !flag2) {
                         this.beyond$resultSlots.setItem(0, ItemStack.EMPTY);

@@ -23,7 +23,6 @@
     "LivingEntityReloadMixin",
     "BDMenuNetAccessor",
     "MaidCacheCleanupMixin",
-    "PlaceboCacheWriteDisableMixin",
     "TaczaddonBdFilterMixin"
   ],
   "client": [

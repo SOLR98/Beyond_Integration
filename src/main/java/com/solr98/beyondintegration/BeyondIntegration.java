@@ -103,6 +103,12 @@ public class BeyondIntegration {
                 com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub.clearAll();
             }
         );
+        // 服务器停止时显式落盘 beyond_integration_attachments.dat（NetworkAmmoData 持久化）
+        MinecraftForge.EVENT_BUS.addListener(
+            (net.minecraftforge.event.server.ServerStoppingEvent event) -> {
+                com.solr98.beyondintegration.handler.NetworkDataStore.saveNow();
+            }
+        );
         MinecraftForge.EVENT_BUS.addListener(
             (com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed event) -> {
                 com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub.onNetDestroyed(event.getDestroyedId());
@@ -261,10 +267,11 @@ public class BeyondIntegration {
         } catch (Exception ignored) {}
     }
 
-    /** 主世界加载时初始化网络弹药持久化数据 */
+    /** 主世界加载时初始化网络弹药持久化数据（先兼容迁移旧存档，再按统一键名加载） */
     @SubscribeEvent
     public void onWorldLoad(LevelEvent.Load event) {
         if (event.getLevel() instanceof ServerLevel serverLevel && serverLevel.dimension() == ServerLevel.OVERWORLD) {
+            com.solr98.beyondintegration.handler.NetworkDataStore.migrateLegacy(serverLevel.getServer());
             NetworkAmmoData.initialize(serverLevel);
         }
     }

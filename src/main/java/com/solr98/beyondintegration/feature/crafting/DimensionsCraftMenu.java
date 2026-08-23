@@ -334,7 +334,8 @@ public class DimensionsCraftMenu extends DimensionsStorageMenu implements IClean
                     remaining = storage.insert(new ItemStackKey(s), s.getCount(), false).amount();
                 }
             }
-            if (remaining > 0) {
+            // 对齐 BD cleanCraftSlots 状态同步：玩家存活且未断线才转移背包，否则跳过（走网络/掉落兜底）
+            if (remaining > 0 && player.isAlive() && !((ServerPlayer) player).hasDisconnected()) {
                 s.setCount((int) remaining);
                 remaining = com.wintercogs.beyonddimensions.util.InventoryHelper.transferToPlayerInventory(player, s.copy()).getCount();
             }

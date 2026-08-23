@@ -33,10 +33,20 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
     /** 子类渲染工作站面板内容（默认空实现） */
     protected void renderWorkstationPanel(GuiGraphics g) {}
 
-    /** 初始化时注册工作站操作按钮 */
+    /** 初始化时注册工作站操作按钮，并播放打开音效（对齐原版方块打开行为；存储界面无） */
     @Override protected void init() {
         super.init();
         addWorkstationActionButtons();
+        var soundManager = net.minecraft.client.Minecraft.getInstance().getSoundManager();
+        if (this instanceof com.solr98.beyondintegration.client.gui.DimensionsAnvilGUI) {
+            soundManager.play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.ANVIL_USE, 1.0F));
+        } else if (this instanceof com.solr98.beyondintegration.client.gui.DimensionsCutGUI
+                || this instanceof com.solr98.beyondintegration.client.gui.DimensionsGrindGUI) {
+            soundManager.play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_STONECUTTER_SELECT_RECIPE, 1.0F));
+        } else if (this instanceof com.solr98.beyondintegration.client.gui.DimensionsCraftGUI
+                || this instanceof com.solr98.beyondintegration.client.gui.DimensionsSmithGUI) {
+            soundManager.play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+        }
     }
 
     // ═══ 工作站面板右上角操作按钮（仅工作站界面）：清空到背包 / 清空到网络 / 关闭归还方向 ═══
@@ -67,8 +77,11 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
         returnDirButton = new com.wintercogs.beyonddimensions.client.gui.widget.shared.StatusButton(
                 bxInv + 16, by, 8, 8, b -> {
             returnDirButton.toggleState();
-            this.menu.setReturnDir(returnDirButton.currentState == ReturnMode.STORAGE);
+            boolean toStorage = returnDirButton.currentState == ReturnMode.STORAGE;
+            this.menu.setReturnDir(toStorage);
             this.menu.writeAndSendQuickData();
+            // 对齐 BD uiCraftReturnButton：方向写回客户端配置持久化（会话间保留）
+            com.solr98.beyondintegration.ClientConfig.setWorkstationReturnToStorage(toStorage);
         }) {
             @Override protected void initButton() {
                 iconMap.put(ReturnMode.INV, ResourceLocation.tryParse("beyonddimensions:textures/gui/sprites/widget/sort_desc.png"));
@@ -77,7 +90,8 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
                 tooltipMap.put(ReturnMode.STORAGE, net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.beyond_integration.return_dir_net")));
                 states.add(ReturnMode.INV);
                 states.add(ReturnMode.STORAGE);
-                setState(menu.firstCraftReturnDir ? ReturnMode.STORAGE : ReturnMode.INV);
+                // 初始方向从客户端配置读取（对齐 BD：setState(CommonConfigRuntime.uiCraftReturnButton)）
+                setState(com.solr98.beyondintegration.ClientConfig.workstationReturnToStorage() ? ReturnMode.STORAGE : ReturnMode.INV);
             }
         };
         addRenderableWidget(clearToInv);

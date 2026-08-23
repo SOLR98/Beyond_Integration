@@ -13,22 +13,25 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-// 死亡时自动从网络（仅网络）使用图腾救援：黑名单伤害不触发，可配置启用/CD；
-// BYPASSES_INVULNERABILITY 检查可配置（respect_bypasses_invulnerability，默认 false = 虚空/命令等也可触发）；
-// 效果对齐原版 LivingEntity.checkTotemDeathProtection（1.20.1）：回血、清效果、buff、
-// broadcastEntityEvent(35) 由客户端播图腾粒子/音效/弹出动画。
 /**
  * 自动图腾处理器（Forge 事件订阅）：玩家死亡时自动从网络存储（仅网络）抽取图腾救援。
  * 支持启用开关、冷却时间与伤害黑名单（空列表 = 所有伤害类型均可触发）。
+ * 触发后可选恢复被降低的最大生命值上限（restore_max_health）、回满血（heal_to_full），
+ * 并施加原版图腾效果。
  */
 public class AutoTotemHandler {
 
@@ -63,11 +66,20 @@ public class AutoTotemHandler {
         // 对齐原版 checkTotemDeathProtection
         player.awardStat(Stats.ITEM_USED.get(Items.TOTEM_OF_UNDYING));
         CriteriaTriggers.USED_TOTEM.trigger(player, new ItemStack(Items.TOTEM_OF_UNDYING));
-        player.setHealth(1.0F);
+        // 可选：恢复被降低的最大生命值上限（移除 max_health 上的负面属性修饰符）
+        if (CommandConfig.autoTotemRestoreMaxHealth()) restoreMaxHealth(player);
+        // 可选：回满血（需在恢复上限之后执行，否则按旧上限计算）
+        if (CommandConfig.autoTotemHealToFull()) {
+            player.setHealth(player.getMaxHealth());
+        } else {
+            player.setHealth(1.0F);
+        }
         player.removeAllEffects();
         player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 900, 1));
         player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 100, 1));
         player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 800, 0));
+        // 对齐原版图腾：触发后给予 20 tick（1 秒）无敌帧，防止同 tick 多段伤害连续致死
+        player.invulnerableTime = 20;
         // 客户端实体事件 35：图腾粒子 + TOTEM_USE 音效 + 图腾弹出动画
         player.level().broadcastEntityEvent(player, (byte) 35);
     }
@@ -76,6 +88,19 @@ public class AutoTotemHandler {
     @SubscribeEvent
     public void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() != null) lastUse.remove(event.getEntity().getUUID());
+    }
+
+    // 恢复被降低的最大生命值：移除 max_health 属性上所有负面（amount < 0）修饰符
+    private static void restoreMaxHealth(LivingEntity entity) {
+        AttributeInstance attr = entity.getAttribute(Attributes.MAX_HEALTH);
+        if (attr == null) return;
+        // 1.20.1 中 getModifiers() 已包含永久修饰符（permanent），逐一移除负值修饰符
+        for (AttributeModifier mod : new ArrayList<>(attr.getModifiers())) {
+            if (mod.getAmount() < 0) {
+                attr.removeModifier(mod.getId());
+                attr.removePermanentModifier(mod.getId());
+            }
+        }
     }
 
     // 伤害源消息 ID（带或不带 minecraft: 前缀）是否命中配置黑名单（空列表 = 全部放行）

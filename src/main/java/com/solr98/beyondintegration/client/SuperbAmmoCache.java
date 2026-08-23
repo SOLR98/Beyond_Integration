@@ -83,6 +83,8 @@ public class SuperbAmmoCache {
                     netName != null ? netName : "", enchantSeparation,
                     System.currentTimeMillis(), ammoList != null ? new ArrayList<>(ammoList) : null);
             snapshots.put(netId, snap);
+            // 服务端推送的附魔分离状态同步到独立缓存（与 SW 快照解耦）
+            EnchantSeparationState.set(netId, enchantSeparation);
             if (isVehicle) {
                 vehicleNetId = netId;
             } else {
@@ -128,6 +130,8 @@ public class SuperbAmmoCache {
                     netName != null && !netName.isEmpty() ? netName : snap.netName,
                     enchantSeparation, System.currentTimeMillis(), snap.ammoList);
             snapshots.put(netId, ns);
+            // 服务端推送的附魔分离状态同步到独立缓存（与 SW 快照解耦）
+            EnchantSeparationState.set(netId, enchantSeparation);
             if (isVehicle) {
                 vehicleNetId = netId;
             } else {
@@ -218,22 +222,17 @@ public class SuperbAmmoCache {
         }
     }
 
-    /** 当前网络是否启用附魔分离（无数据时默认 true） */
+    /** 当前网络是否启用附魔分离（默认启用；读取独立状态，不依赖 SW 快照） */
     public static boolean getEnchantSeparation() {
         synchronized (LOCK) {
-            NetSnapshot snap = snapshots.get(currentNetId);
-            return snap == null || snap.enchantSeparation;
+            return EnchantSeparationState.get(currentNetId);
         }
     }
 
-    /** 更新当前网络的附魔分离标记（不改变其他数据） */
+    /** 更新当前网络的附魔分离标记（独立状态，不依赖 SW 快照） */
     public static void setEnchantSeparation(boolean v) {
         synchronized (LOCK) {
-            NetSnapshot snap = snapshots.get(currentNetId);
-            if (snap == null) return;
-            NetSnapshot ns = new NetSnapshot(new HashMap<>(snap.ammo), snap.energy, snap.netName,
-                    v, snap.lastUpdate, snap.ammoList);
-            snapshots.put(currentNetId, ns);
+            EnchantSeparationState.set(currentNetId, v);
         }
     }
 
