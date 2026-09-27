@@ -1,5 +1,6 @@
 package com.solr98.beyondintegration.network;
 
+import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.feature.workstation.WorkstationActivation;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.network.FriendlyByteBuf;
@@ -51,7 +52,8 @@ public class ActivateWorkstationPacket {
                     DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
                     if (net != null) {
                         List<String> ids = WorkstationActivation.activatedIds(net);
-                        PacketHandler.sendToPlayer(player, new WorkstationActivationSyncPacket(true, ids));
+                        PacketHandler.sendToPlayer(player,
+                                new WorkstationActivationSyncPacket(true, ids, CommandConfig.workstationsEnabledList()));
                     }
                 }
                 case NO_ITEM -> player.displayClientMessage(Component.translatable(

@@ -90,9 +90,13 @@ public class RequestNetworkItemsPacket {
                 if (item == null) continue;
                 long amount = net.getUnifiedStorage()
                         .getStackByKey(new ItemStackKey(new ItemStack(item))).amount();
-                if (amount <= 0) continue;
+                // 桶装流体替代折算：网络流体可替代该容器（宽松语义，空容器可选）
+                long substitutable = com.solr98.beyondintegration.handler.BucketFluidHelper
+                        .countSubstitutable(net.getUnifiedStorage(), new ItemStack(item));
+                long total = amount + substitutable;
+                if (total <= 0) continue;
                 for (TaczIngredient ti : TACZ_INDEX.get(itemId)) {
-                    counts.merge(ti.recipeId() + "|" + ti.idx(), amount, Long::sum);
+                    counts.merge(ti.recipeId() + "|" + ti.idx(), total, Long::sum);
                 }
             }
             return counts;
@@ -117,6 +121,20 @@ public class RequestNetworkItemsPacket {
                 }
             }
         });
+
+        // 桶装流体替代折算（补充：候选桶不在网但有流体时计入，宽松语义，空容器可选）
+        for (String itemId : TACZ_INDEX.keySet()) {
+            ResourceLocation id = ResourceLocation.tryParse(itemId);
+            if (id == null) continue;
+            Item item = ForgeRegistries.ITEMS.getValue(id);
+            if (item == null) continue;
+            long substitutable = com.solr98.beyondintegration.handler.BucketFluidHelper
+                    .countSubstitutable(net.getUnifiedStorage(), new ItemStack(item));
+            if (substitutable <= 0) continue;
+            for (TaczIngredient ti : TACZ_INDEX.get(itemId)) {
+                counts.merge(ti.recipeId() + "|" + ti.idx(), substitutable, Long::sum);
+            }
+        }
         return counts;
     }
 

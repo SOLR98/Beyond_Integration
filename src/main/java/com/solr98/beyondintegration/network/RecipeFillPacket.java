@@ -32,13 +32,15 @@ public record RecipeFillPacket(List<IStackKey<?>> keys, List<Long> amounts) {
         return new RecipeFillPacket(keys, amounts);
     }
 
-    /** 服务端执行：若玩家打开的是维度合成菜单，则将配方材料填入 */
+    /** 服务端执行：若玩家打开的是合成菜单（我们的工作站 / BD 终端合成菜单），则将配方材料填入 */
     public static void handle(RecipeFillPacket msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer p = ctx.get().getSender();
             if (p == null) return;
             if (p.containerMenu instanceof DimensionsCraftMenu menu) {
                 menu.transferRecipe(msg.keys, msg.amounts);
+            } else if (p.containerMenu instanceof com.wintercogs.beyonddimensions.common.menu.DimensionsCraftMenu bdMenu) {
+                bdMenu.transferRecipe(msg.keys, msg.amounts);
             }
         });
         ctx.get().setPacketHandled(true);

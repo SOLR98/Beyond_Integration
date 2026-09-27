@@ -30,7 +30,7 @@ public abstract class LivingEntityTotemReviveMixin {
         if (!((Object) this instanceof ServerPlayer player)) return;
         // 原版/其他模组的图腾保护已生效：不重复消耗
         if (Boolean.TRUE.equals(cir.getReturnValue())) return;
-        if (CommandConfig.reviveRespectBypassesInvulnerability()
+        if (CommandConfig.autoTotemRespectBypassesInvulnerability()
                 && source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return;
         if (ReviveSupport.isBlacklisted(source)) return;
         if (ReviveSupport.onCooldown(player)) return;

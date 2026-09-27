@@ -53,6 +53,8 @@ public class DimensionsAnvilMenu extends DimensionsStorageMenu implements IClean
 
     // ---- copy 原版 AnvilMenu 私有状态（beyond$ 前缀）----
     public int beyond$repairItemCountCost;
+    /** 费用构成（DataSlot 同步到客户端）：[总倍率%, 冲突%, 适用性%, 破限%, 解禁%] */
+    public final int[] anvCostDetail = new int[]{100, 0, 0, 0, 0};
     private String beyond$itemName;
     private final DataSlot beyond$cost = DataSlot.standalone();
     private final Container beyond$inputSlots;
@@ -166,6 +168,14 @@ public class DimensionsAnvilMenu extends DimensionsStorageMenu implements IClean
             @Override public int get() { return beyond$cost.get(); }
             @Override public void set(int v) { beyond$cost.set(v); anvLevel = v; }
         });
+        // 费用构成同步（总倍率 + 各惩罚百分比）
+        for (int i = 0; i < 5; i++) {
+            final int idx = i;
+            addDataSlot(new DataSlot() {
+                @Override public int get() { return anvCostDetail[idx]; }
+                @Override public void set(int v) { anvCostDetail[idx] = v; }
+            });
+        }
     }
 
     // ---- 原版等级→点数公式（对齐 Player.getXpNeededForNextLevel；1.20.1 与 1.21.1 相同）----
@@ -222,6 +232,8 @@ public class DimensionsAnvilMenu extends DimensionsStorageMenu implements IClean
     public void beyond$createResult() {
         ItemStack itemstack = this.beyond$inputSlots.getItem(0);
         this.beyond$cost.set(1);
+        this.anvCostDetail[0] = 100; this.anvCostDetail[1] = 0; this.anvCostDetail[2] = 0;
+        this.anvCostDetail[3] = 0; this.anvCostDetail[4] = 0;
         int i = 0;
         int j = 0;
         int k = 0;
@@ -386,6 +398,11 @@ public class DimensionsAnvilMenu extends DimensionsStorageMenu implements IClean
                                 + beyond$supportPenalty * beyond$supportViolationCount;
                         i = beyond$enchantCostBase
                                 + (int) Math.round((beyond$enchantPart + beyond$penalty) * beyond$costPercent / 100.0);
+                        this.anvCostDetail[0] = beyond$costPercent;
+                        this.anvCostDetail[1] = beyond$ignoreConflict ? CommandConfig.anvilConflictPercent() : 0;
+                        this.anvCostDetail[2] = beyond$ignoreSupport ? CommandConfig.anvilSupportPercent() : 0;
+                        this.anvCostDetail[3] = beyond$breakLevel ? CommandConfig.anvilBreakLevelPercent() : 0;
+                        this.anvCostDetail[4] = beyond$unrestricted ? CommandConfig.anvilUnrestrictedPercent() : 0;
                     }
                     if (flag3 && !flag2) {
                         this.beyond$resultSlots.setItem(0, ItemStack.EMPTY);

@@ -26,8 +26,13 @@ import java.util.UUID;
  * 注入 TACZ 的 {@link AbstractGunItem}，扩展换弹与弹药判定：
  * 允许从 BeyondDimensions 维度网络中补充弹药（canReload / hasInventoryAmmo / findAndExtractInventoryAmmo），
  * 并在联网但无弹药时向玩家发送冷却限流的提示消息。
+ *
+ * <p>priority = 100（低于 TUD 默认 1000）：Tacz-Unidict 以 TAIL 注入
+ * findAndExtractInventoryAmmo 并改写返回值（$ 物品弹药场景），本模组以 RETURN 注入
+ * 读取返回值作网络补弹基线——低 priority 保证 TUD 先执行、本模组后读取，
+ * 避免已扣的网络弹药返回值被覆盖。
  */
-@Mixin(value = AbstractGunItem.class, remap = false)
+@Mixin(value = AbstractGunItem.class, priority = 100, remap = false)
 public class AbstractGunItemMixin {
 
     /** 玩家 UUID -> 上次无弹药提示时间，用于提示冷却 */

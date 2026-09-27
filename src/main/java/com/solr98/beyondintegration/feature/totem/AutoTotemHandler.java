@@ -5,6 +5,7 @@ import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.advancements.CriteriaTriggers;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
 import net.minecraft.tags.DamageTypeTags;
@@ -62,6 +63,12 @@ public class AutoTotemHandler {
         net.setDirty();
         lastUse.put(player.getUUID(), now);
         event.setCanceled(true);
+
+        // 消耗提示：本次消耗数量 + 网络剩余
+        long remain = net.getUnifiedStorage().getStackByKey(
+                new ItemStackKey(new ItemStack(Items.TOTEM_OF_UNDYING))).amount();
+        player.displayClientMessage(Component.translatable(
+                "message.beyond_integration.totem.consumed", got.amount(), remain), false);
 
         // 对齐原版 checkTotemDeathProtection
         player.awardStat(Stats.ITEM_USED.get(Items.TOTEM_OF_UNDYING));

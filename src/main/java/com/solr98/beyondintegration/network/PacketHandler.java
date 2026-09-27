@@ -116,6 +116,56 @@ public class PacketHandler {
                 ExtractNetworkItemPacket::decode,
                 ExtractNetworkItemPacket::handle);
 
+        INSTANCE.registerMessage(id++, ClaimAllToNetworkPacket.class,
+                ClaimAllToNetworkPacket::encode,
+                ClaimAllToNetworkPacket::decode,
+                ClaimAllToNetworkPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestFtbTaskNetworkCountPacket.class,
+                RequestFtbTaskNetworkCountPacket::encode,
+                RequestFtbTaskNetworkCountPacket::decode,
+                RequestFtbTaskNetworkCountPacket::handle);
+
+        INSTANCE.registerMessage(id++, FtbTaskNetworkCountResponsePacket.class,
+                FtbTaskNetworkCountResponsePacket::encode,
+                FtbTaskNetworkCountResponsePacket::decode,
+                FtbTaskNetworkCountResponsePacket::handle);
+
+        INSTANCE.registerMessage(id++, OpenFtbItemSubmitSelectPacket.class,
+                OpenFtbItemSubmitSelectPacket::encode,
+                OpenFtbItemSubmitSelectPacket::decode,
+                OpenFtbItemSubmitSelectPacket::handle);
+
+        INSTANCE.registerMessage(id++, SubmitFtbItemSelectionPacket.class,
+                SubmitFtbItemSelectionPacket::encode,
+                SubmitFtbItemSelectionPacket::decode,
+                SubmitFtbItemSelectionPacket::handle);
+
+        INSTANCE.registerMessage(id++, ClaimRewardToNetworkPacket.class,
+                ClaimRewardToNetworkPacket::encode,
+                ClaimRewardToNetworkPacket::decode,
+                ClaimRewardToNetworkPacket::handle);
+
+        INSTANCE.registerMessage(id++, SubmitFtbRewardSelectionPacket.class,
+                SubmitFtbRewardSelectionPacket::encode,
+                SubmitFtbRewardSelectionPacket::decode,
+                SubmitFtbRewardSelectionPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestFtbTaskScanPacket.class,
+                RequestFtbTaskScanPacket::encode,
+                RequestFtbTaskScanPacket::decode,
+                RequestFtbTaskScanPacket::handle);
+
+        INSTANCE.registerMessage(id++, EnchantMergeListPacket.class,
+                EnchantMergeListPacket::encode,
+                EnchantMergeListPacket::decode,
+                EnchantMergeListPacket::handle);
+
+        INSTANCE.registerMessage(id++, SubmitEnchantMergePacket.class,
+                SubmitEnchantMergePacket::encode,
+                SubmitEnchantMergePacket::decode,
+                SubmitEnchantMergePacket::handle);
+
 
 
         if (ModList.get().isLoaded("superbwarfare")) {

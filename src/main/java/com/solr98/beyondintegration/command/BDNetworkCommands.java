@@ -40,6 +40,9 @@ public final class BDNetworkCommands {
                 .then(NetworkOpenCommand.registerOpenAny())
                 .then(EnchantSeparateCommand.register())
         );
+
+        // FTB 集成命令 /bdftb scan（所有玩家可用，手动触发任务检测）
+        com.solr98.beyondintegration.command.ftb.FtbCommand.register(dispatcher);
     }
 
     /**

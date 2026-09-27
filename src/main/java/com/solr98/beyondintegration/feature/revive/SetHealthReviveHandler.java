@@ -24,7 +24,7 @@ public class SetHealthReviveHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (!CommandConfig.reviveEventEnabled()) return;
         DamageSource source = event.getSource();
-        if (CommandConfig.reviveRespectBypassesInvulnerability()
+        if (CommandConfig.autoTotemRespectBypassesInvulnerability()
                 && source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return;
         if (ReviveSupport.isBlacklisted(source)) return;
         if (ReviveSupport.onCooldown(player)) return;

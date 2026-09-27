@@ -33,6 +33,8 @@ public class ClientRegistrar {
     /** 注册菜单界面工厂、快捷键、配置界面及 tick/实体加入等客户端事件 */
     @OnlyIn(Dist.CLIENT) @SuppressWarnings("removal")
     public static void register() {
+        // JEI 点击取物（公开 API + 高优先级事件拦截，替代 FocusInputHandler Mixin）
+        JeiExtractInputHandler.register();
         ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,()->new ConfigScreenHandler.ConfigScreenFactory((mc,parent)->{if(ModList.get().isLoaded("cloth_config")){try{return ModConfigScreen.createScreen(parent);}catch(NoClassDefFoundError e){}}return parent;}));
         FMLJavaModLoadingContext.get().getModEventBus().addListener((FMLClientSetupEvent e)->{e.enqueueWork(()->{
             MenuScreens.<DimensionsStorageMenu,DimensionsStorageGUI<DimensionsStorageMenu>>register(ModMenus.STORAGE.get(),(a,b,c)->new DimensionsStorageGUI<>(a,b,c));
@@ -42,6 +44,7 @@ public class ClientRegistrar {
             MenuScreens.register(ModMenus.SMITH.get(),DimensionsSmithGUI::new);
             MenuScreens.register(ModMenus.CRAFT.get(),DimensionsCraftGUI::new);
         MenuScreens.register(ModMenus.ENCHANT.get(),DimensionsEnchantGUI::new);
+        MenuScreens.register(ModMenus.ENCHANT_MERGE.get(),DimensionsEnchantMergeGUI::new);
         });});
         FMLJavaModLoadingContext.get().getModEventBus().addListener((RegisterKeyMappingsEvent e)->{
             e.register(BDKeyBindings.OPEN_CRAFT);
@@ -50,6 +53,7 @@ public class ClientRegistrar {
             e.register(BDKeyBindings.OPEN_GRIND);
             e.register(BDKeyBindings.OPEN_ANVIL);
             e.register(BDKeyBindings.OPEN_ENCHANT);
+            e.register(BDKeyBindings.OPEN_ENCHANT_MERGE);
         });
         MinecraftForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent e)->{
             if (e.phase == TickEvent.Phase.END) {
@@ -62,12 +66,16 @@ public class ClientRegistrar {
             if (ev.getLevel().isClientSide() && ev.getEntity() == net.minecraft.client.Minecraft.getInstance().player) {
                 SuperbAmmoCache.clear();
                 NetworkItemCache.clear();
+                FtbTaskNetworkCountCache.clear();
+                WorkstationActivationCache.reset();
             }
         });
         MinecraftForge.EVENT_BUS.addListener(
             (net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut ev) -> {
                 SuperbAmmoCache.clear();
                 NetworkItemCache.clear();
+                FtbTaskNetworkCountCache.clear();
+                WorkstationActivationCache.reset();
             }
         );
         if(ModList.get().isLoaded("tacz")){

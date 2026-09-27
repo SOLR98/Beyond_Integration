@@ -48,7 +48,15 @@ public class MixinPlugin implements IMixinConfigPlugin {
         if (targetClassName.startsWith("mezz.jei.")) {
             // JEI 集成（物品数量角标/点击取物品）：仅 JEI 加载时应用；
             // 检测到 rs_integration（RI）时让路禁用，避免与其同类功能冲突
-            return modList.isLoaded("jei") && !modList.isLoaded("rs_integration");
+            if (!modList.isLoaded("jei") || modList.isLoaded("rs_integration")) return false;
+            // 版本敏感 Mixin 按 JEI 布局选择：新版（15.56+）IngredientGridTooltipHelper 移入
+            // .ingredients 包 → 应用 NewMixin；旧版应用原名 Mixin；其余 JEI Mixin 始终应用
+            if (mixinClassName.endsWith("NewMixin")) return isNewJeiLayout();
+            if (mixinClassName.endsWith("JeiIngredientElementMixin")
+                    || mixinClassName.endsWith("JeiIngredientBookmarkElementMixin")) {
+                return !isNewJeiLayout();
+            }
+            return true;
         }
         if (targetClassName.startsWith("dev.ftb.mods.ftbquests.")) {
             // FTB Quests 集成（网络物品计入任务/消耗型补足/奖励进网络）：仅 FTB Quests 加载时应用；
@@ -56,6 +64,28 @@ public class MixinPlugin implements IMixinConfigPlugin {
             return modList.isLoaded("ftbquests") && !modList.isLoaded("rs_integration");
         }
         return true;
+    }
+
+    /** 缓存 JEI 新版布局判定（IngredientGridTooltipHelper 是否位于 .ingredients 包） */
+    private static Boolean newJeiLayout;
+
+    /**
+     * 运行时 JEI 是否为新版布局（15.56+，helper 移入 {@code mezz.jei.gui.overlay.ingredients}）。
+     * 按目标类是否存在判定，避免硬编码版本号；类加载失败视为旧版布局。
+     */
+    private static boolean isNewJeiLayout() {
+        if (newJeiLayout == null) {
+            boolean found;
+            try {
+                Class.forName("mezz.jei.gui.overlay.ingredients.IngredientGridTooltipHelper", false,
+                        MixinPlugin.class.getClassLoader());
+                found = true;
+            } catch (Throwable ignored) {
+                found = false;
+            }
+            newJeiLayout = found;
+        }
+        return newJeiLayout;
     }
 
     /**

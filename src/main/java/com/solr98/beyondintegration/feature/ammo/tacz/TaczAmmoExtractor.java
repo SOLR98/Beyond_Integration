@@ -9,6 +9,7 @@ import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.dimensionnet.UnifiedStorage;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
+import com.solr98.beyondintegration.compat.tud.TudAmmoCompat;
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
@@ -263,9 +264,12 @@ public class TaczAmmoExtractor {
     }
 
     /**
-     * 获取枪械所需的弹药 ID（服务端，从通用数据索引读取）
+     * 获取枪械所需的弹药 ID（服务端，从通用数据索引读取）。
+     * TUD 通用弹药枪优先走 TUD 当前弹药解析（动态跟随枪 NBT/配置，含 $ 物品弹药）。
      */
     public static ResourceLocation getAmmoId(ItemStack gunStack) {
+        ResourceLocation tudAmmo = TudAmmoCompat.resolve(gunStack);
+        if (tudAmmo != null) return tudAmmo;
         IGun iGun = IGun.getIGunOrNull(gunStack);
         if (iGun == null) return null;
         ResourceLocation gunId = iGun.getGunId(gunStack);
@@ -276,10 +280,14 @@ public class TaczAmmoExtractor {
     }
 
     /**
-     * 获取枪械所需的弹药 ID（仅客户端，从客户端数据索引读取）
+     * 获取枪械所需的弹药 ID（仅客户端，从客户端数据索引读取）。
+     * TUD 通用弹药枪优先走 TUD 当前弹药解析（TOML 双端可用；JSON 依赖客户端本地配置，
+     * 配置缺失时回退原版路径），含 $ 物品弹药。
      */
     @OnlyIn(Dist.CLIENT)
     public static ResourceLocation getAmmoIdClient(ItemStack gunStack) {
+        ResourceLocation tudAmmo = TudAmmoCompat.resolve(gunStack);
+        if (tudAmmo != null) return tudAmmo;
         IGun iGun = IGun.getIGunOrNull(gunStack);
         if (iGun == null) return null;
         ResourceLocation gunId = iGun.getGunId(gunStack);
@@ -340,6 +348,20 @@ public class TaczAmmoExtractor {
                         }
                     }
                 }
+            } else if (TudAmmoCompat.isLoaded()) {
+                // TUD $ 物品弹药：普通物品按物品注册名作为弹药 ID 累加（键与 TaczAmmoCache 查询一致）
+                ResourceLocation itemAmmoId = TudAmmoCompat.getItemAmmoId(stack);
+                if (itemAmmoId != null) {
+                    String idStr = itemAmmoId.toString();
+                    Integer existing = result.get(idStr);
+                    if (existing == null || existing != Integer.MAX_VALUE) {
+                        long count = ka.amount();
+                        if (count > 0) {
+                            long sum = (existing == null ? 0L : (long) existing) + count;
+                            result.put(idStr, (int) Math.min(sum, Integer.MAX_VALUE));
+                        }
+                    }
+                }
             }
         }
 
@@ -389,9 +411,15 @@ public class TaczAmmoExtractor {
     }
 
     /**
-     * 构建指定弹药 ID 的 tacz 弹药物品堆（写入弹药 ID NBT）
+     * 构建指定弹药 ID 的参考物品堆：
+     * TUD 物品弹药（$ 前缀）→ 对应普通物品堆（无 NBT，1 个物品 = 1 发）；
+     * 其余（TACZ 弹药）→ tacz:ammo 物品 + 弹药 ID NBT。
      */
     private static ItemStack buildAmmoStack(ResourceLocation ammoId) {
+        ItemStack itemAmmo = TudAmmoCompat.getItemAmmoStack(ammoId);
+        if (itemAmmo != null && !itemAmmo.isEmpty()) {
+            return itemAmmo;
+        }
         ItemStack ref = new ItemStack(ModItems.AMMO.get());
         if (ref.getItem() instanceof IAmmo iAmmo) {
             iAmmo.setAmmoId(ref, ammoId);

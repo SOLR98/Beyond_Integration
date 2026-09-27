@@ -203,6 +203,15 @@ public final class TaczCraftManager implements ICraftingIntegration {
                 simUsed.merge(ik, take, Long::sum);
                 need -= (int) take;
             }
+            // 桶装流体替代：缺口按网络流体可替代量计入（宽松语义，空容器可选）
+            if (need > 0) {
+                for (ItemStack candidate : ing.getItems()) {
+                    if (need <= 0) break;
+                    long sub = com.solr98.beyondintegration.handler.BucketFluidHelper
+                            .countSubstitutable(storage, candidate);
+                    if (sub > 0) need -= (int) Math.min(need, sub);
+                }
+            }
             if (need > 0) {
                 ItemStack ex1 = ing.getItems().length > 0 ? ing.getItems()[0] : ItemStack.EMPTY;
                 player.sendSystemMessage(Component.translatable("message.beyond_integration.material_insufficient",
@@ -240,6 +249,18 @@ public final class TaczCraftManager implements ICraftingIntegration {
                         need -= extracted;
                         // 扣减槽位网络总量（回传客户端用）
                         slotTotals.merge(i, -extracted, Long::sum);
+                    }
+                }
+            }
+            // 桶装流体替代：桶物品不足的缺口改为消耗网络流体（宽松语义，空桶有则一并扣）
+            if (need > 0) {
+                for (ItemStack candidate : ing.getItems()) {
+                    if (need <= 0) break;
+                    long sub = com.solr98.beyondintegration.handler.BucketFluidHelper
+                            .substituteWithFluid(storage, candidate, need);
+                    if (sub > 0) {
+                        need -= (int) sub;
+                        slotTotals.merge(i, -sub, Long::sum);
                     }
                 }
             }

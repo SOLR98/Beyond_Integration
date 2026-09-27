@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.client.config;
 
-import com.solr98.beyondintegration.CommandConfig;
+import com.solr98.beyondintegration.client.WorkstationActivationCache;
 import com.solr98.beyondintegration.client.gui.WorkstationModeConstants;
 import com.solr98.beyondintegration.network.OpenStorageMenuPacket;
 import me.shedaniel.clothconfig2.gui.entries.AbstractListListEntry;
@@ -55,13 +55,13 @@ public class DraggableModeListEntry extends AbstractListListEntry<String, Dragga
         return new ModeCell(value, this);
     }
 
-    /** 模式名是否当前可用（服务端启用列表内） */
+    /** 模式名是否当前可用（服务端启用列表内；未同步回退本地配置） */
     private static boolean isAvailable(String name) {
         if (name == null || name.isEmpty()) return false;
         try {
             OpenStorageMenuPacket.Type t = OpenStorageMenuPacket.Type.valueOf(name.trim().toUpperCase(Locale.ROOT));
             if (t == OpenStorageMenuPacket.Type.STORAGE) return false;
-            return CommandConfig.isWorkstationEnabled(t.id());
+            return WorkstationActivationCache.isWorkstationEnabled(t.id());
         } catch (IllegalArgumentException e) {
             return false;
         }
@@ -84,7 +84,7 @@ public class DraggableModeListEntry extends AbstractListListEntry<String, Dragga
         List<String> used = usedModes();
         List<String> missing = new ArrayList<>();
         for (OpenStorageMenuPacket.Type t : WorkstationModeConstants.MODES) {
-            if (!used.contains(t.name()) && CommandConfig.isWorkstationEnabled(t.id())) missing.add(t.name());
+            if (!used.contains(t.name()) && WorkstationActivationCache.isWorkstationEnabled(t.id())) missing.add(t.name());
         }
         return missing;
     }

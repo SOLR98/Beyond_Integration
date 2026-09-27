@@ -20,12 +20,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * JEI 物品条目扩展（{@code mezz.jei.gui.overlay.elements.IngredientElement}）：
+ * JEI 物品条目扩展（旧版布局：{@code IngredientGridTooltipHelper} 位于 {@code mezz.jei.gui.overlay}）。
  * <ol>
  *   <li>createRenderOverlay：打开 BD 终端时，在条目右下角叠加网络库存数量角标；</li>
  *   <li>getTooltip：悬停时追加库存数量与取物品操作提示（Shift+左键取一组 / Shift+右键取 1 个）。</li>
  * </ol>
- * JEI 未安装时（@Pseudo）自动跳过；JEI 内部类结构变化时 require=0 静默失效，不影响其他功能。
+ * 新版 JEI（15.56+，helper 移入 .ingredients 包）由 {@link JeiIngredientElementNewMixin} 适配，
+ * 二者由 {@code MixinPlugin} 按运行时布局选择应用。JEI 未安装时（@Pseudo）自动跳过。
  */
 @Pseudo
 @Mixin(targets = "mezz.jei.gui.overlay.elements.IngredientElement", remap = false)
@@ -34,7 +35,7 @@ public class JeiIngredientElementMixin {
     /** 目标类的被包装原料（ItemStack 等） */
     @Shadow(remap = false) private ITypedIngredient<?> ingredient;
 
-    /** 数量角标：打开 BD 终端即创建（数量在绘制时实时查询，数据同步后自动显示，无需等待界面刷新） */
+    /** 数量角标：打开 BD 终端即创建（数量在绘制时实时查询，数据同步后自动显示） */
     @Inject(method = "createRenderOverlay", at = @At("RETURN"), cancellable = true, remap = false, require = 0)
     private void beyond$networkCountOverlay(CallbackInfoReturnable<IDrawable> cir) {
         if (cir.getReturnValue() != null) return;

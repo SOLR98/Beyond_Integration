@@ -5,6 +5,7 @@ import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.advancements.CriteriaTriggers;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.damagesource.DamageSource;
@@ -34,6 +35,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>网络图腾提取：从玩家网络提取 1 + 额外数量的图腾（不足则回滚并失败）；</li>
  *   <li>复活动作：回血、恢复生命上限、重置死亡时间/姿态、原版图腾 buff 与动画。</li>
  * </ul>
+ * 通用项（冷却 / 伤害黑名单 / 无敌绕过 / 恢复上限 / 回满）复用 {@code auto_totem} 分区配置
+ * （复活救援为自动图腾的强化版，两者共享同一套基础规则）。
+ * <p>
  * 保守判定：死亡无法由致死级 LivingDamageEvent 解释时，一律按 setHealth 直杀处理（多扣图腾）。
  */
 public final class ReviveSupport {
@@ -67,10 +71,10 @@ public final class ReviveSupport {
         expectedLethalTick.remove(player.getUUID());
     }
 
-    /** 是否处于共享冷却中 */
+    /** 是否处于共享冷却中（复用 auto_totem 冷却配置） */
     public static boolean onCooldown(ServerPlayer player) {
         Long last = lastUse.get(player.getUUID());
-        return last != null && System.currentTimeMillis() - last < CommandConfig.reviveCooldownSeconds() * 1000L;
+        return last != null && System.currentTimeMillis() - last < CommandConfig.autoTotemCooldownSeconds() * 1000L;
     }
 
     /** 标记一次复活已触发（写入共享冷却） */
@@ -109,6 +113,10 @@ public final class ReviveSupport {
             return false;
         }
         net.setDirty();
+        // 消耗提示：本次消耗数量 + 网络剩余
+        long remain = net.getUnifiedStorage().getStackByKey(totemKey).amount();
+        player.displayClientMessage(Component.translatable(
+                "message.beyond_integration.revive.consumed", (long) cost, remain), false);
         applyRevive(player);
         return true;
     }
@@ -118,10 +126,10 @@ public final class ReviveSupport {
         // 对齐原版 checkTotemDeathProtection 的统计与进度
         player.awardStat(Stats.ITEM_USED.get(Items.TOTEM_OF_UNDYING));
         CriteriaTriggers.USED_TOTEM.trigger(player, new ItemStack(Items.TOTEM_OF_UNDYING));
-        if (CommandConfig.reviveRestoreMaxHealth()) {
+        if (CommandConfig.autoTotemRestoreMaxHealth()) {
             restoreMaxHealth(player);
         }
-        if (CommandConfig.reviveHealToFull()) {
+        if (CommandConfig.autoTotemHealToFull()) {
             player.setHealth(player.getMaxHealth());
         } else {
             player.setHealth(1.0F);
@@ -153,9 +161,9 @@ public final class ReviveSupport {
         }
     }
 
-    /** 伤害源消息 ID（带或不带 minecraft: 前缀）是否命中配置黑名单（空列表 = 全部放行） */
+    /** 伤害源消息 ID（带或不带 minecraft: 前缀）是否命中配置黑名单（复用 auto_totem 配置；空列表 = 全部放行） */
     public static boolean isBlacklisted(DamageSource source) {
-        List<? extends String> list = CommandConfig.reviveDamageBlacklist();
+        List<? extends String> list = CommandConfig.autoTotemDamageBlacklist();
         if (list == null || list.isEmpty()) return false;
         String msgId = source.getMsgId();
         String full = "minecraft:" + msgId;

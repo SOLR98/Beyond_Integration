@@ -30,6 +30,8 @@ public class ModMenus {
     public static final RegistryObject<MenuType<DimensionsCraftMenu>> CRAFT = MENU_TYPES.register("craft",()->IForgeMenuType.create(DimensionsCraftMenu::new));
     // 附魔台菜单（原版增强：功率配置/升级覆盖/预览刷新）
     public static final RegistryObject<MenuType<DimensionsEnchantMenu>> ENCHANT = MENU_TYPES.register("enchant",()->IForgeMenuType.create(DimensionsEnchantMenu::new));
+    // 批量附魔工作站菜单（单附魔书合并到装备）
+    public static final RegistryObject<MenuType<DimensionsEnchantMergeMenu>> ENCHANT_MERGE = MENU_TYPES.register("enchant_merge",()->IForgeMenuType.create(DimensionsEnchantMergeMenu::new));
     // 注册到事件总线
     public static void register(IEventBus b){MENU_TYPES.register(b);}
 }

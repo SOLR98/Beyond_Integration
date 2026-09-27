@@ -26,7 +26,7 @@ public class NetworkWorkstationCommand {
 
     /** 工作台 ID 补全（anvil/cut/grind/smith/enchant） */
     private static final SuggestionProvider<CommandSourceStack> ID_SUGGESTIONS = (ctx, builder) -> {
-        for (String id : new String[]{"anvil", "cut", "grind", "smith", "enchant"}) builder.suggest(id);
+        for (String id : new String[]{"anvil", "cut", "grind", "smith", "enchant", "enchant_merge"}) builder.suggest(id);
         return builder.buildFuture();
     };
 

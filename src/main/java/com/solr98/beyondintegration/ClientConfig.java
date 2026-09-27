@@ -51,7 +51,7 @@ public class ClientConfig {
             workstationOrder = builder
                     .comment(ConfigCommentLang.comment("workstation_order"))
                     .defineList("workstation_order",
-                            java.util.Arrays.asList("ANVIL", "CUT", "GRIND", "SMITH", "CRAFT", "ENCHANT"),
+                            java.util.Arrays.asList("ANVIL", "CUT", "GRIND", "SMITH", "CRAFT", "ENCHANT", "ENCHANT_MERGE"),
                             obj -> obj instanceof String);
         }
     }

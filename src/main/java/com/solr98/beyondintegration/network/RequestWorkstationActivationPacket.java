@@ -24,7 +24,7 @@ public class RequestWorkstationActivationPacket {
         return new RequestWorkstationActivationPacket();
     }
 
-    /** 服务端执行：读取开关与当前网络已激活工作台列表并回发同步包 */
+    /** 服务端执行：读取开关、当前网络已激活工作台列表与服务端启用列表并回发同步包 */
     public static void handle(RequestWorkstationActivationPacket msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
@@ -32,7 +32,8 @@ public class RequestWorkstationActivationPacket {
             boolean enabled = CommandConfig.isWorkstationActivationEnabled();
             DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
             List<String> ids = net == null ? List.of() : WorkstationActivation.activatedIds(net);
-            PacketHandler.sendToPlayer(player, new WorkstationActivationSyncPacket(enabled, ids));
+            PacketHandler.sendToPlayer(player,
+                    new WorkstationActivationSyncPacket(enabled, ids, CommandConfig.workstationsEnabledList()));
         });
         ctx.get().setPacketHandled(true);
     }

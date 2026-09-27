@@ -1,5 +1,9 @@
 package com.solr98.beyondintegration.mixin;
 
+// 注意：Beyond Dimensions 本体将在下个版本更换 UI 框架，本类依赖其现有 GUI 布局/坐标/纹理，
+// 待 BD 正式发布后需校对代码与新版 GUI。
+
+
 import com.solr98.beyondintegration.client.SuperbAmmoCache;
 import com.solr98.beyondintegration.client.WorkstationActivationCache;
 import com.solr98.beyondintegration.client.gui.LeftSidebarLayout;
@@ -444,6 +448,7 @@ public class DimensionsNetGUIMixin {
             case SMITH -> menuClass == com.solr98.beyondintegration.feature.crafting.DimensionsSmithMenu.class;
             case CRAFT -> menuClass == com.solr98.beyondintegration.feature.crafting.DimensionsCraftMenu.class;
             case ENCHANT -> menuClass == com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMenu.class;
+            case ENCHANT_MERGE -> menuClass == com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMergeMenu.class;
             default -> false;
         };
     }

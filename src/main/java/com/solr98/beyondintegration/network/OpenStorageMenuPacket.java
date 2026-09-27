@@ -22,7 +22,7 @@ public record OpenStorageMenuPacket(Type type) {
      */
     public enum Type {
         STORAGE("storage"), ANVIL("anvil"), CUT("cut"), GRIND("grind"),
-        SMITH("smith"), CRAFT("craft"), ENCHANT("enchant");
+        SMITH("smith"), CRAFT("craft"), ENCHANT("enchant"), ENCHANT_MERGE("enchant_merge");
 
         private final String id;
         Type(String id) { this.id = id; }
@@ -72,6 +72,7 @@ public record OpenStorageMenuPacket(Type type) {
                         case SMITH -> new DimensionsSmithMenu(ModMenus.SMITH.get(),id,inv,s);
                         case CRAFT -> new DimensionsCraftMenu(ModMenus.CRAFT.get(),id,inv,s);
                         case ENCHANT -> new DimensionsEnchantMenu(ModMenus.ENCHANT.get(),id,inv,s);
+                        case ENCHANT_MERGE -> new DimensionsEnchantMergeMenu(ModMenus.ENCHANT_MERGE.get(),id,inv,s);
                     };
                 }
             });

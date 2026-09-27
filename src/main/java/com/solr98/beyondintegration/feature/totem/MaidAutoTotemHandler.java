@@ -7,6 +7,7 @@ import com.solr98.beyondintegration.maid.MaidNetworkHelper;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
+import net.minecraft.network.chat.Component;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -61,6 +62,14 @@ public class MaidAutoTotemHandler {
         lastUse.put(maid.getUUID(), now);
         // 取消死亡：跳过 super.die，女仆保持存活
         event.setCanceled(true);
+
+        // 消耗提示：女仆消息泡（显示消耗与剩余）
+        long remain = net.getUnifiedStorage().getStackByKey(
+                new ItemStackKey(new ItemStack(Items.TOTEM_OF_UNDYING))).amount();
+        maid.getChatBubbleManager().addChatBubble(
+                com.github.tartaricacid.touhoulittlemaid.entity.chatbubble.implement.TextChatBubbleData.type2(
+                        Component.translatable(
+                                "message.beyond_integration.totem.consumed_maid", got.amount(), remain)));
 
         // 对齐原版 checkTotemDeathProtection（1.20.1）
         // 可选：恢复被降低的最大生命值上限（移除 max_health 上的负面属性修饰符）

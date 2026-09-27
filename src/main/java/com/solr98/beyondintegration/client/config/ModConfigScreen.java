@@ -2,6 +2,7 @@ package com.solr98.beyondintegration.client.config;
 
 import com.solr98.beyondintegration.ClientConfig;
 import com.solr98.beyondintegration.CommandConfig;
+import com.solr98.beyondintegration.client.WorkstationActivationCache;
 import com.solr98.beyondintegration.client.gui.WorkstationModeConstants;
 import com.solr98.beyondintegration.network.OpenStorageMenuPacket;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
@@ -32,11 +33,11 @@ public class ModConfigScreen {
         cat.addEntry(eb.startTextDescription(text.copy().withStyle(ChatFormatting.YELLOW)).build());
     }
 
-    /** 服务端当前禁用（不在可用列表）的工作台名列表（用于标记说明） */
+    /** 服务端当前禁用（不在可用列表）的工作台名列表（服务端下发值为准，未同步回退本地配置） */
     private static List<String> disabledWorkstations() {
         List<String> disabled = new ArrayList<>();
         for (OpenStorageMenuPacket.Type t : WorkstationModeConstants.MODES) {
-            if (!CommandConfig.isWorkstationEnabled(t.id())) disabled.add(t.name());
+            if (!WorkstationActivationCache.isWorkstationEnabled(t.id())) disabled.add(t.name());
         }
         return disabled;
     }
@@ -98,7 +99,7 @@ public class ModConfigScreen {
                 () -> java.util.Optional.of(new Component[]{
                         Component.translatable("beyond_integration.config.client.workstation_order.tooltip")}),
                 list -> ClientConfig.setWorkstationOrder(new ArrayList<>(list)),
-                () -> new ArrayList<>(Arrays.asList("ANVIL", "CUT", "GRIND", "SMITH", "CRAFT", "ENCHANT")),
+                () -> new ArrayList<>(Arrays.asList("ANVIL", "CUT", "GRIND", "SMITH", "CRAFT", "ENCHANT", "ENCHANT_MERGE")),
                 Component.translatable("text.cloth-config.reset_value")));
 
         // 标记：服务端已禁用而从列表隐藏的工作台
@@ -127,7 +128,7 @@ public class ModConfigScreen {
                 Component.translatable("beyond_integration.config.workstation.enabled"),
                 new ArrayList<>(CommandConfig.SERVER.WORKSTATIONS_ENABLED.get()))
                 // storage 实为 BD 终端界面（非工作台），不在可用列表内
-                .setDefaultValue(Arrays.asList("craft", "anvil", "cut", "grind", "smith", "enchant"))
+                .setDefaultValue(Arrays.asList("craft", "anvil", "cut", "grind", "smith", "enchant", "enchant_merge"))
                 .setSaveConsumer(list -> CommandConfig.SERVER.WORKSTATIONS_ENABLED.set(new ArrayList<>(list)))
                 .build());
         // 献祭激活（可选平衡项）：开启后未激活的工作台点击=献祭而非打开
@@ -145,7 +146,8 @@ public class ModConfigScreen {
                         "cut:minecraft:stonecutter:1",
                         "grind:minecraft:grindstone:1",
                         "smith:minecraft:smithing_table:1",
-                        "enchant:minecraft:enchanting_table:1"))
+                        "enchant:minecraft:enchanting_table:1",
+                        "enchant_merge:minecraft:enchanting_table:1"))
                 .setSaveConsumer(list -> CommandConfig.SERVER.WORKSTATION_ACTIVATION_COSTS.set(new ArrayList<>(list)))
                 .build());
         if (!disabledWs.isEmpty()) {
@@ -243,6 +245,28 @@ public class ModConfigScreen {
                 .build());
         // 标记：神化附魔功能暂未完成，相关配置项无条件隐藏
         addMark(enchantTable, eb, Component.translatable("beyond_integration.config.hidden.apoth"));
+
+        // ========== 附魔合并（批量附魔工作站） ==========
+        ConfigCategory enchantMerge = builder.getOrCreateCategory(
+                Component.translatable("beyond_integration.config.enchant_merge"));
+        enchantMerge.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.enchant_merge.enable"),
+                CommandConfig.SERVER.enchantMergeEnable.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.enchantMergeEnable::set)
+                .build());
+        enchantMerge.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.enchant_merge.consume_original_book"),
+                CommandConfig.SERVER.enchantMergeConsumeBook.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.enchantMergeConsumeBook::set)
+                .build());
+        enchantMerge.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.enchant_merge.split_xp_cost"),
+                CommandConfig.SERVER.enchantMergeSplitXpCost.get())
+                .setDefaultValue(0).setMin(0).setMax(Integer.MAX_VALUE)
+                .setSaveConsumer(CommandConfig.SERVER.enchantMergeSplitXpCost::set)
+                .build());
 
         // ========== 5. 铁砧 ==========
         ConfigCategory anvil = builder.getOrCreateCategory(
@@ -401,6 +425,62 @@ public class ModConfigScreen {
         if (!hasTacz) addMark(ammo, eb, Component.translatable("beyond_integration.config.hidden.tacz"));
         if (!hasSw) addMark(ammo, eb, Component.translatable("beyond_integration.config.hidden.sw"));
 
+        // ========== FTB Quests 集成（依赖 FTB Quests） ==========
+        ConfigCategory ftb = builder.getOrCreateCategory(
+                Component.translatable("beyond_integration.config.ftb"));
+        if (modLoaded("ftbquests")) {
+            ftb.addEntry(eb.startBooleanToggle(
+                    Component.translatable("beyond_integration.config.ftb.enabled"),
+                    CommandConfig.SERVER.FTB_INTEGRATION_ENABLED.get())
+                    .setDefaultValue(true)
+                    .setSaveConsumer(CommandConfig.SERVER.FTB_INTEGRATION_ENABLED::set)
+                    .build());
+            ftb.addEntry(eb.startIntField(
+                    Component.translatable("beyond_integration.config.ftb.detect_cache_ticks"),
+                    CommandConfig.SERVER.FTB_DETECT_CACHE_TICKS.get())
+                    .setDefaultValue(20).setMin(0).setMax(200)
+                    .setSaveConsumer(CommandConfig.SERVER.FTB_DETECT_CACHE_TICKS::set)
+                    .build());
+            ftb.addEntry(eb.startIntField(
+                    Component.translatable("beyond_integration.config.ftb.detect_max_item_types"),
+                    CommandConfig.SERVER.FTB_DETECT_MAX_ITEM_TYPES.get())
+                    .setDefaultValue(8192).setMin(64).setMax(65536)
+                    .setSaveConsumer(CommandConfig.SERVER.FTB_DETECT_MAX_ITEM_TYPES::set)
+                    .build());
+            ftb.addEntry(eb.startBooleanToggle(
+                    Component.translatable("beyond_integration.config.ftb.auto_detect_enabled"),
+                    CommandConfig.SERVER.FTB_AUTO_DETECT_ENABLED.get())
+                    .setDefaultValue(false)
+                    .setSaveConsumer(CommandConfig.SERVER.FTB_AUTO_DETECT_ENABLED::set)
+                    .build());
+            ftb.addEntry(eb.startIntField(
+                    Component.translatable("beyond_integration.config.ftb.auto_detect_throttle_ticks"),
+                    CommandConfig.SERVER.FTB_AUTO_DETECT_THROTTLE_TICKS.get())
+                    .setDefaultValue(20).setMin(5).setMax(200)
+                    .setSaveConsumer(CommandConfig.SERVER.FTB_AUTO_DETECT_THROTTLE_TICKS::set)
+                    .build());
+            ftb.addEntry(eb.startIntField(
+                    Component.translatable("beyond_integration.config.ftb.auto_detect_max_per_tick"),
+                    CommandConfig.SERVER.FTB_AUTO_DETECT_MAX_PER_TICK.get())
+                    .setDefaultValue(4).setMin(1).setMax(64)
+                    .setSaveConsumer(CommandConfig.SERVER.FTB_AUTO_DETECT_MAX_PER_TICK::set)
+                    .build());
+            ftb.addEntry(eb.startIntField(
+                    Component.translatable("beyond_integration.config.ftb.tooltip_push_throttle_ticks"),
+                    CommandConfig.SERVER.FTB_TOOLTIP_PUSH_THROTTLE_TICKS.get())
+                    .setDefaultValue(10).setMin(1).setMax(200)
+                    .setSaveConsumer(CommandConfig.SERVER.FTB_TOOLTIP_PUSH_THROTTLE_TICKS::set)
+                    .build());
+            ftb.addEntry(eb.startBooleanToggle(
+                    Component.translatable("beyond_integration.config.ftb.simplify_reward_notify"),
+                    CommandConfig.SERVER.FTB_SIMPLIFY_REWARD_NOTIFY.get())
+                    .setDefaultValue(true)
+                    .setSaveConsumer(CommandConfig.SERVER.FTB_SIMPLIFY_REWARD_NOTIFY::set)
+                    .build());
+        } else {
+            addMark(ftb, eb, Component.translatable("beyond_integration.config.hidden.ftb"));
+        }
+
         // ========== 物品自动充电（装备位 / 饰品） ==========
         ConfigCategory energyCharge = builder.getOrCreateCategory(
                 Component.translatable("beyond_integration.config.energy_charge"));
@@ -494,6 +574,33 @@ public class ModConfigScreen {
                 .setSaveConsumer(list -> CommandConfig.SERVER.AUTO_TOTEM_DAMAGE_BLACKLIST.set(new ArrayList<>(list)))
                 .build());
 
+        // 复活救援（自动图腾强化版）：通用项复用上方 auto_totem 配置，以下为其独有项
+        addMark(totem, eb, Component.translatable("beyond_integration.config.revive"));
+        totem.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.revive.event_enabled"),
+                CommandConfig.SERVER.REVIVE_EVENT_ENABLED.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.REVIVE_EVENT_ENABLED::set)
+                .build());
+        totem.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.revive.extra_totem_on_set_health_death"),
+                CommandConfig.SERVER.REVIVE_EXTRA_TOTEM_ON_SET_HEALTH_DEATH.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.REVIVE_EXTRA_TOTEM_ON_SET_HEALTH_DEATH::set)
+                .build());
+        totem.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.revive.extra_totem_count"),
+                CommandConfig.SERVER.REVIVE_EXTRA_TOTEM_COUNT.get())
+                .setDefaultValue(1).setMin(0).setMax(64)
+                .setSaveConsumer(CommandConfig.SERVER.REVIVE_EXTRA_TOTEM_COUNT::set)
+                .build());
+        totem.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.revive.reset_death_time"),
+                CommandConfig.SERVER.REVIVE_RESET_DEATH_TIME.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.REVIVE_RESET_DEATH_TIME::set)
+                .build());
+
         // ========== 9. 物品黑名单 ==========
         ConfigCategory blacklist = builder.getOrCreateCategory(
                 Component.translatable("beyond_integration.config.blacklist"));
@@ -542,6 +649,12 @@ public class ModConfigScreen {
                 .setSaveConsumer(CommandConfig.SERVER.xpRodTweaksEnabled::set)
                 .build());
         xpRod.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.bd_tweaks.bucket_separator_enabled"),
+                CommandConfig.SERVER.bucketSeparatorEnabled.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.bucketSeparatorEnabled::set)
+                .build());
+        xpRod.addEntry(eb.startBooleanToggle(
                 Component.translatable("beyond_integration.config.bd_tweaks.furnace_terminal_smelt_all"),
                 CommandConfig.SERVER.furnaceTerminalSmeltAllEnabled.get())
                 .setDefaultValue(false)
@@ -575,6 +688,18 @@ public class ModConfigScreen {
                 CommandConfig.SERVER.ENABLE_ENCHANTMENT_SEPARATION.get())
                 .setDefaultValue(false)
                 .setSaveConsumer(CommandConfig.SERVER.ENABLE_ENCHANTMENT_SEPARATION::set)
+                .build());
+        enchant.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.enchant.separation_debug"),
+                CommandConfig.SERVER.ENCHANTMENT_SEPARATION_DEBUG.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.ENCHANTMENT_SEPARATION_DEBUG::set)
+                .build());
+        enchant.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.enchant.merge_same_level"),
+                CommandConfig.SERVER.ENCHANTMENT_SEPARATION_MERGE_SAME_LEVEL.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.ENCHANTMENT_SEPARATION_MERGE_SAME_LEVEL::set)
                 .build());
         enchant.addEntry(eb.startIntField(
                 Component.translatable("beyond_integration.config.enchant.base_cost"),

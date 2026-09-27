@@ -1,7 +1,6 @@
 package com.solr98.beyondintegration.feature.ammo.tacz;
 
 import com.solr98.beyondintegration.maid.MaidNetworkHelper;
-import com.tacz.guns.api.TimelessAPI;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.resources.ResourceLocation;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
@@ -120,13 +119,11 @@ public class NetworkAmmoHandler {
     }
 
     /**
-     * 获取枪械所需的弹药 ID（服务端）
+     * 获取枪械所需的弹药 ID（服务端；统一委托 TaczAmmoExtractor，含 TUD 动态弹药解析）
      */
     @Nullable
     public static ResourceLocation getAmmoId(ItemStack gun) {
         if (gun.isEmpty()) return null;
-        Optional<com.tacz.guns.resource.index.CommonGunIndex> opt = TimelessAPI.getCommonGunIndex(
-                com.tacz.guns.api.item.IGun.getIGunOrNull(gun).getGunId(gun));
-        return opt.map(index -> index.getGunData().getAmmoId()).orElse(null);
+        return TaczAmmoExtractor.getAmmoId(gun);
     }
 }

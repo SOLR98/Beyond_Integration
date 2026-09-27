@@ -1,5 +1,9 @@
 package com.solr98.beyondintegration.client.gui.extension;
 
+// 注意：Beyond Dimensions 本体将在下个版本更换 UI 框架，本类依赖其现有 GUI 布局/坐标/纹理，
+// 待 BD 正式发布后需校对代码与新版 GUI。
+
+
 import com.wintercogs.beyonddimensions.client.gui.DimensionsNetGUI;
 import com.wintercogs.beyonddimensions.common.menu.DimensionsNetMenu;
 
@@ -18,11 +22,8 @@ public final class BDGUIHelper {
         return false;
     }
 
-    /** 大数缩写格式化：≥1000 用 K/M/B 单位（保留一位小数），小于 1000 原样输出 */
+    /** 大数缩写格式化（统一委托 {@link com.solr98.beyondintegration.util.NumberFormatUtil#compact}） */
     public static String compactFormat(long value) {
-        if (value >= 1_000_000_000L) return String.format("%.1fB", value / 1_000_000_000.0);
-        if (value >= 1_000_000L)     return String.format("%.1fM", value / 1_000_000.0);
-        if (value >= 1_000L)         return String.format("%.1fK", value / 1_000.0);
-        return String.valueOf(value);
+        return com.solr98.beyondintegration.util.NumberFormatUtil.compact(value);
     }
 }

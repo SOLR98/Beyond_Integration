@@ -191,6 +191,9 @@ dependencies {
     // JEI (配方查看器) - Project ID: 238222
     compileOnly fg.deobf("curse.maven:jei-238222:7920915")
     runtimeOnly fg.deobf("curse.maven:jei-238222:7920915")
+    // 新版 JEI（15.56+，IngredientGridTooltipHelper 移入 .ingredients 包）：仅编译期，
+    // 用于 New 后缀 Mixin 的双版本适配（运行时按实际布局由 MixinPlugin 选择）
+    compileOnly files("libs/jei-1.20.1-forge-15.56.0.205.jar")
     implementation fg.deobf("curse.maven:irons-spells-n-spellbooks-855414:7402504")
     implementation fg.deobf("curse.maven:packet-fixe-689467:7872374")
     implementation fg.deobf("curse.maven:embeddium-908741:5681725")
@@ -221,8 +224,15 @@ dependencies {
     implementation fg.deobf("curse.maven:quark-243121:6427817")
     implementation fg.deobf("curse.maven:zeta-968868:7335229")
     implementation fg.deobf("curse.maven:mouse-tweaks-60089:5338457")
+
+    // FTB Quests 前置依赖（architectury / FTB Teams）：开发环境运行必需，缺失会导致 ModSorter 强制依赖失败
+    implementation fg.deobf("curse.maven:architectury-api-419699:5137938")
     implementation fg.deobf("curse.maven:ftb-library-forge-404465:8226927")
+    implementation fg.deobf("curse.maven:ftb-teams-forge-404468:7499810")
     implementation fg.deobf("curse.maven:ftb-quests-forge-289412:8078538")
+    implementation fg.deobf("curse.maven:ftb-xmod-compat-889915:6402486")
+    implementation fg.deobf("curse.maven:item-filters-309674:4838266")
+    implementation fg.deobf("curse.maven:tacz-unidict-1305429:8147682")
 
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 

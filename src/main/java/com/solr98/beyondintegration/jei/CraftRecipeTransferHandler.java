@@ -93,17 +93,28 @@ public class CraftRecipeTransferHandler implements IRecipeTransferHandler<Dimens
             boolean filled = false;
             for (ItemStack alt : candidates) {
                 List<Avail> list = pool.get(alt.getItem());
-                if (list == null || list.isEmpty()) continue;
-                for (Avail a : list) {
-                    if (a.remain <= 0) continue;
-                    long take = Math.min(need, a.remain);
-                    a.remain -= take;
-                    outKeys.add(a.key);
-                    outAmts.add(take);
+                if (list != null) {
+                    for (Avail a : list) {
+                        if (a.remain <= 0) continue;
+                        long take = Math.min(need, a.remain);
+                        a.remain -= take;
+                        outKeys.add(a.key);
+                        outAmts.add(take);
+                        filled = true;
+                        break;
+                    }
+                }
+                if (filled) break;
+                // 桶装流体：网络有对应流体 + 空容器 → 用转换键填充（服务端会组装）
+                boolean fluidCraftable = menu.clientNetStorage != null
+                        && com.solr98.beyondintegration.handler.BucketFluidHelper
+                        .canCraftFromNetwork(menu.clientNetStorage, alt);
+                if (fluidCraftable) {
+                    outKeys.add(new ItemStackKey(alt));
+                    outAmts.add(1L);
                     filled = true;
                     break;
                 }
-                if (filled) break;
             }
             if (!filled) {
                 missing = true;

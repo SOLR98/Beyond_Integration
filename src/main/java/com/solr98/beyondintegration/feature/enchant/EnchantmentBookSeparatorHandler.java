@@ -99,6 +99,12 @@ public class EnchantmentBookSeparatorHandler implements UnifiedStorageBeforeInse
         }
         List<EnchantmentInstance> ench = extractStoredEnchantments(itemStack);
         if (ench.size() <= 1) {
+            // 单附魔书：可选的同类同级自动合并（网络有同附魔同级书时合并升级，铁砧费用转点数）
+            if (ench.size() == 1 && tryInsert.amount() == 1
+                    && CommandConfig.enchantmentSeparationMergeSameLevel()) {
+                var merged = tryMergeSameLevel(net, ench.get(0));
+                if (merged != null) return merged;
+            }
             if (CommandConfig.enchantmentSeparationDebug()) LOGGER.info("[enchant-sep] pass: book has {} effective enchants", ench.size());
             return new UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo(tryInsert, false);
         }
@@ -121,6 +127,80 @@ public class EnchantmentBookSeparatorHandler implements UnifiedStorageBeforeInse
         consumeBooks(net, booksNeeded);
         doOutput(net, ench, count);
         return acceptEmpty();
+    }
+
+    // ═══════════════════════════════════════════
+    //  同类同级单附魔书自动合并（可选，默认关闭）
+    // ═══════════════════════════════════════════
+
+    /**
+     * 尝试把输入的单附魔书与网络内同附魔同等级的书记合并为 L+1 级：
+     * 消耗网络经验（铁砧合并费用等级 → 0→费用等级的总经验点，20 mB/点）与网络那本书，
+     * 产出 L+1 级书插回网络（插入会再次经过拦截链，从而自然级联）。
+     *
+     * @return 拦截结果；null 表示不处理（原书放行入库）
+     */
+    private static UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo tryMergeSameLevel(
+            DimensionsNet net, EnchantmentInstance e) {
+        Enchantment ench = e.enchantment;
+        int level = e.level;
+        if (level <= 0) return null;
+        if (level >= com.solr98.beyondintegration.feature.crafting.DimensionsAnvilMenu.beyond$effectiveMaxLevel(ench)) return null;
+
+        ItemStackKey target = singleBookKey(ench, level);
+        if (net.getUnifiedStorage().getStackByKey(target).amount() < 1) return null;
+
+        // 铁砧合并两本同级附魔书的费用（等级）→ 经验点 → mB
+        int costLevel = anvilMergeCostLevel(ench, level + 1);
+        long mb = xpTotalCost(costLevel) * 20L;
+        if (mb > 0 && net.getUnifiedStorage().getStackByKey(xpFluidKey()).amount() < mb) return null; // 经验不足：放行
+
+        if (mb > 0) net.getUnifiedStorage().extract(xpFluidKey(), mb, false, false);
+        KeyAmount removed = net.getUnifiedStorage().extract(target, 1, false, false);
+        if (removed.amount() < 1) {
+            if (mb > 0) net.getUnifiedStorage().insert(xpFluidKey(), mb, false); // 并发兜底：回滚经验
+            return null;
+        }
+
+        ItemStack out = new ItemStack(Items.ENCHANTED_BOOK);
+        EnchantedBookItem.addEnchantment(out, new EnchantmentInstance(ench, level + 1));
+        net.getUnifiedStorage().insert(new ItemStackKey(out), 1, false);
+        if (CommandConfig.enchantmentSeparationDebug())
+            LOGGER.info("[enchant-sep] merge same-level {} {} -> {}", ench.getDescriptionId(), level, level + 1);
+        return acceptEmpty();
+    }
+
+    /** 构造单附魔书的精确存储键 */
+    private static ItemStackKey singleBookKey(Enchantment ench, int level) {
+        ItemStack b = new ItemStack(Items.ENCHANTED_BOOK);
+        EnchantedBookItem.addEnchantment(b, new EnchantmentInstance(ench, level));
+        return new ItemStackKey(b);
+    }
+
+    /** 原版铁砧合并两本附魔书的费用等级（同附魔同级取 +1；第二本为书时稀有度系数减半，至少 1） */
+    private static int anvilMergeCostLevel(Enchantment ench, int resultLevel) {
+        int k3 = switch (ench.getRarity()) {
+            case COMMON -> 1;
+            case UNCOMMON -> 2;
+            case RARE -> 4;
+            case VERY_RARE -> 8;
+        };
+        k3 = Math.max(1, k3 / 2);
+        return k3 * resultLevel;
+    }
+
+    /** 原版等级→升级所需经验点（对齐 Player.getXpNeededForNextLevel） */
+    private static int xpNeededForLevel(int level) {
+        if (level >= 30) return 112 + (level - 30) * 9;
+        if (level >= 15) return 37 + (level - 15) * 5;
+        return 7 + level * 2;
+    }
+
+    /** 从 0 升到指定等级所需的总经验点 */
+    private static long xpTotalCost(int level) {
+        long sum = 0;
+        for (int l = 0; l < level; l++) sum += xpNeededForLevel(l);
+        return sum;
     }
 
     /** 返回"已消费"空结果，即拦截原插入（数量为 0 的空气键） */

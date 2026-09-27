@@ -1,7 +1,11 @@
 package com.solr98.beyondintegration.client.gui;
 
+// 注意：Beyond Dimensions 本体将在下个版本更换 UI 框架，本类依赖其现有 GUI 布局/坐标/纹理，
+// 待 BD 正式发布后需校对代码与新版 GUI。
+
+
 import com.solr98.beyondintegration.ClientConfig;
-import com.solr98.beyondintegration.CommandConfig;
+import com.solr98.beyondintegration.client.WorkstationActivationCache;
 import com.solr98.beyondintegration.network.OpenStorageMenuPacket;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -15,25 +19,27 @@ import java.util.Map;
 
 /**
  * 工作站模式常量：定义各工作站模式对应的网络包类型、图标与按钮坐标；
- * 提供客户端可配置顺序（ClientConfig.workstationOrder）与服务端可用列表
- * （CommandConfig workstations.enabled）的解析与求交。
+ * 提供客户端可配置顺序（ClientConfig.workstationOrder）与服务端启用列表
+ * （随 WorkstationActivationSyncPacket 下发的权威值）的解析与求交。
  */
 public class WorkstationModeConstants {
     /** 各工作站模式的网络包类型（铁砧/切割/磨石/锻造/合成/附魔台，默认顺序） */
     public static final OpenStorageMenuPacket.Type[] MODES = {
         OpenStorageMenuPacket.Type.ANVIL, OpenStorageMenuPacket.Type.CUT,
         OpenStorageMenuPacket.Type.GRIND, OpenStorageMenuPacket.Type.SMITH,
-        OpenStorageMenuPacket.Type.CRAFT, OpenStorageMenuPacket.Type.ENCHANT
+        OpenStorageMenuPacket.Type.CRAFT, OpenStorageMenuPacket.Type.ENCHANT,
+        OpenStorageMenuPacket.Type.ENCHANT_MERGE
     };
     /** 图标按钮 X 坐标（统一为 177） */
-    public static final int[] MX = {177, 177, 177, 177, 177, 177};
-    /** 图标按钮 Y 坐标（自上而下：0,16,31,46,61,76；重排/隐藏后仍按索引取值保持紧凑） */
-    public static final int[] MY = {0, 16, 31, 46, 61, 76};
-    /** 对应工作站的物品图标（铁砧/切石机/磨石/锻造台/工作台/附魔台） */
+    public static final int[] MX = {177, 177, 177, 177, 177, 177, 177};
+    /** 图标按钮 Y 坐标（自上而下：0,16,31,46,61,76,91；重排/隐藏后仍按索引取值保持紧凑） */
+    public static final int[] MY = {0, 16, 31, 46, 61, 76, 91};
+    /** 对应工作站的物品图标（铁砧/切石机/磨石/锻造台/工作台/附魔台/附魔合并） */
     public static final ItemStack[] ICONS = {
         new ItemStack(Items.ANVIL), new ItemStack(Items.STONECUTTER),
         new ItemStack(Items.GRINDSTONE), new ItemStack(Items.SMITHING_TABLE),
-        new ItemStack(Items.CRAFTING_TABLE), new ItemStack(Items.ENCHANTING_TABLE)
+        new ItemStack(Items.CRAFTING_TABLE), new ItemStack(Items.ENCHANTING_TABLE),
+        new ItemStack(Items.ENCHANTED_BOOK)
     };
 
     // Type → 图标映射（供配置重排后按模式取图标）
@@ -69,14 +75,15 @@ public class WorkstationModeConstants {
     }
 
     /**
-     * 客户端配置顺序 ∩ 服务端可用列表（workstations.enabled）：
-     * 服务端禁用的模式直接从按钮序列中移除（紧凑排列，不留空位）。
+     * 客户端配置顺序 ∩ 服务端启用列表（随同步包下发）：
+     * 服务端禁用的模式直接从按钮序列中移除（紧凑排列，不留空位）；
+     * 服务端列表尚未同步时回退本地 common 配置。
      */
     public static List<OpenStorageMenuPacket.Type> availableModes() {
         List<OpenStorageMenuPacket.Type> base = configuredModes();
         List<OpenStorageMenuPacket.Type> out = new ArrayList<>(base.size());
         for (OpenStorageMenuPacket.Type t : base) {
-            if (CommandConfig.isWorkstationEnabled(t.id())) out.add(t);
+            if (WorkstationActivationCache.isWorkstationEnabled(t.id())) out.add(t);
         }
         return out;
     }

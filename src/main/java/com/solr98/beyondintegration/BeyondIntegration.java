@@ -93,6 +93,7 @@ public class BeyondIntegration {
                 new com.solr98.beyondintegration.core.energy.ForgeChargePlatform());
         registerItemBlacklistHandler();
         registerEnchantmentBookSeparator();
+        registerBucketSeparator();
         registerAmmoBoxExtractHandler();
         registerSuperbAmmoInsertHandler();
         registerSwAmmoPollingService();
@@ -121,6 +122,7 @@ public class BeyondIntegration {
         com.solr98.beyondintegration.network.PacketHandler.register();
         registerTaczTrackerDrain();
         registerSubscriptionHubCleanup();
+        registerFtbIntegrationCleanup();
     }
 
     /** 缓存的 COMMON 配置对象（供加载完成后统一注释使用）。 */
@@ -176,11 +178,64 @@ public class BeyondIntegration {
         LOGGER.info("Registered BdSubscriptionHub cleanup");
     }
 
+    /** FTB 集成：登出清理领取标记；网络销毁/停服清理检测缓存；自动检测服务注册（仅 ftbquests 加载时） */
+    private void registerFtbIntegrationCleanup() {
+        if (ModList.get().isLoaded("ftbquests")) {
+            MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) ->
+                        com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.requestSync()
+            );
+            MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) -> {
+                    if (event.getEntity() != null) {
+                        com.solr98.beyondintegration.feature.ftb.FtbIntegrationHelper
+                                .clearCache(event.getEntity().getUUID());
+                        com.solr98.beyondintegration.feature.ftb.FtbTooltipPushService
+                                .onPlayerLoggedOut(event.getEntity().getUUID());
+                    }
+                    com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.requestSync();
+                }
+            );
+            MinecraftForge.EVENT_BUS.addListener(
+                (com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed event) -> {
+                    com.solr98.beyondintegration.feature.ftb.FtbIntegrationHelper
+                            .clearNetCache(event.getDestroyedId());
+                    com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService
+                            .onNetDestroyed(event.getDestroyedId());
+                }
+            );
+            MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.TickEvent.ServerTickEvent event) -> {
+                    if (event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
+                        var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+                        com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.tick(server);
+                        com.solr98.beyondintegration.feature.ftb.FtbTooltipPushService.tick(server);
+                    }
+                }
+            );
+            MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.server.ServerStoppingEvent event) -> {
+                    com.solr98.beyondintegration.feature.ftb.FtbIntegrationHelper.clearAllCaches();
+                    com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.clear();
+                    com.solr98.beyondintegration.feature.ftb.FtbTooltipPushService.clear();
+                }
+            );
+            LOGGER.info("Registered FtbIntegration cache cleanup");
+        }
+    }
+
     /** 注册附魔分离插入拦截器（多附魔书/附魔物品进网络时自动分离） */
     private void registerEnchantmentBookSeparator() {
         com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
                 .addHandler(new com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler());
         LOGGER.info("Registered EnchantmentBookSeparatorHandler");
+    }
+
+    /** 注册桶入网自动分离拦截器（含流体的桶拆为"流体 + 空容器"分别入网） */
+    private void registerBucketSeparator() {
+        com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
+                .addHandler(new com.solr98.beyondintegration.handler.BucketSeparatorHandler());
+        LOGGER.info("Registered BucketSeparatorHandler");
     }
 
     /** 注册物品黑名单插入拦截器 */

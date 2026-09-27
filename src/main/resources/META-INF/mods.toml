@@ -70,4 +70,8 @@ versionRange = "[0.7.27,)"
 ordering = "AFTER"
 side = "BOTH"
 
+# Mixin 配置声明（Forge 生产环境加载入口；开发环境由 --mixin.config 提供）
+[[mixins]]
+config="${mod_id}.mixins.json"
+
 

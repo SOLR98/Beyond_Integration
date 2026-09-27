@@ -1011,6 +1011,22 @@ public class CommandLang
                 CommandConfig.Language.EN_US, "Cannot remove network owner",
                 CommandConfig.Language.ZH_CN, "不能移除网络所有者");
 
+        register("ftb.disabled",
+                CommandConfig.Language.EN_US, "FTB Quests integration is disabled",
+                CommandConfig.Language.ZH_CN, "FTB Quests 集成未启用");
+
+        register("ftb.no_ftb",
+                CommandConfig.Language.EN_US, "FTB Quests is not installed",
+                CommandConfig.Language.ZH_CN, "未安装 FTB Quests");
+
+        register("ftb.scan_done",
+                CommandConfig.Language.EN_US, "Network resources have been checked for quest tasks",
+                CommandConfig.Language.ZH_CN, "已将网络资源计入任务检测");
+
+        register("ftb.scan_failed",
+                CommandConfig.Language.EN_US, "Quest task check failed",
+                CommandConfig.Language.ZH_CN, "任务检测失败");
+
     }
 
     /**
