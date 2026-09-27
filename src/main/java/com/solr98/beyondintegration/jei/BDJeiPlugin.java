@@ -6,6 +6,7 @@ import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
+import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -29,5 +30,17 @@ public class BDJeiPlugin implements IModPlugin {
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
         registration.addGenericGuiContainerHandler(DimensionsNetGUI.class, new BDSidebarGuiHandler());
+    }
+
+    // JEI 运行时就绪：保存实例供客户端公开 API 查询（物品列表/书签鼠标下物品）
+    @Override
+    public void onRuntimeAvailable(IJeiRuntime jeiRuntime) {
+        JeiRuntimeHolder.set(jeiRuntime);
+    }
+
+    // JEI 运行时卸载：清空引用
+    @Override
+    public void onRuntimeUnavailable() {
+        JeiRuntimeHolder.set(null);
     }
 }

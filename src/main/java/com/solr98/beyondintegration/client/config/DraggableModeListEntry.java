@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.client.config;
 
-import com.solr98.beyondintegration.CommandConfig;
+import com.solr98.beyondintegration.client.WorkstationActivationCache;
 import com.solr98.beyondintegration.client.gui.WorkstationModeConstants;
 import me.shedaniel.clothconfig2.gui.entries.AbstractListListEntry;
 import net.minecraft.ChatFormatting;
@@ -50,13 +50,13 @@ public class DraggableModeListEntry extends AbstractListListEntry<String, Dragga
         return new ModeCell(value, this);
     }
 
-    /** 模式名是否当前可用（服务端启用列表内） */
+    /** 模式名是否当前可用（服务端启用列表内；未同步回退本地配置） */
     private static boolean isAvailable(String name) {
         if (name == null || name.isEmpty()) return false;
         try {
             WorkstationModeConstants.Mode m = WorkstationModeConstants.Mode.valueOf(name.trim().toUpperCase(Locale.ROOT));
             if (m == WorkstationModeConstants.Mode.STORAGE) return false;
-            return CommandConfig.isWorkstationEnabled(m.name().toLowerCase(Locale.ROOT));
+            return WorkstationActivationCache.isWorkstationEnabled(m.name().toLowerCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return false;
         }
@@ -79,7 +79,7 @@ public class DraggableModeListEntry extends AbstractListListEntry<String, Dragga
         List<String> used = usedModes();
         List<String> missing = new ArrayList<>();
         for (WorkstationModeConstants.Mode m : WorkstationModeConstants.MODES) {
-            if (!used.contains(m.name()) && CommandConfig.isWorkstationEnabled(m.name().toLowerCase(Locale.ROOT))) {
+            if (!used.contains(m.name()) && WorkstationActivationCache.isWorkstationEnabled(m.name().toLowerCase(Locale.ROOT))) {
                 missing.add(m.name());
             }
         }

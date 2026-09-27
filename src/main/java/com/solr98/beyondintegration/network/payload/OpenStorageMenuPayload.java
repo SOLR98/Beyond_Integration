@@ -74,6 +74,7 @@ public record OpenStorageMenuPayload(WorkstationModeConstants.Mode mode, boolean
                             case SMITH -> new DimensionsSmithMenu(ModMenus.SMITH.get(), id, inv, s);
                             case CRAFT -> new DimensionsCraftMenu(ModMenus.CRAFT.get(), id, inv, s);
                             case ENCHANT -> openEnchantMenu(id, inv, s, p.apoth());
+                            case ENCHANT_MERGE -> new DimensionsEnchantMergeMenu(ModMenus.ENCHANT_MERGE.get(), id, inv, s);
                         };
                     }
                 });

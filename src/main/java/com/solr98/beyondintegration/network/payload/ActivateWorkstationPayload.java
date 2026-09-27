@@ -1,6 +1,7 @@
 package com.solr98.beyondintegration.network.payload;
 
 import com.solr98.beyondintegration.BeyondIntegration;
+import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.feature.workstation.WorkstationActivation;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
@@ -41,7 +42,8 @@ public record ActivateWorkstationPayload(String id) implements CustomPacketPaylo
                     DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
                     if (net != null) {
                         List<String> ids = WorkstationActivation.activatedIds(net);
-                        PacketHandler.sendToPlayer(player, new WorkstationActivationSyncPayload(true, ids));
+                        PacketHandler.sendToPlayer(player,
+                                new WorkstationActivationSyncPayload(true, ids, CommandConfig.workstationsEnabledList()));
                     }
                 }
                 case NO_ITEM -> player.displayClientMessage(Component.translatable(

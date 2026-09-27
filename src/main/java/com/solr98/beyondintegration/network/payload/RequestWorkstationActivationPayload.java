@@ -27,7 +27,8 @@ public record RequestWorkstationActivationPayload() implements CustomPacketPaylo
             boolean enabled = CommandConfig.isWorkstationActivationEnabled();
             DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
             List<String> ids = net == null ? List.of() : WorkstationActivation.activatedIds(net);
-            PacketHandler.sendToPlayer(player, new WorkstationActivationSyncPayload(enabled, ids));
+            PacketHandler.sendToPlayer(player,
+                    new WorkstationActivationSyncPayload(enabled, ids, CommandConfig.workstationsEnabledList()));
         });
     }
 

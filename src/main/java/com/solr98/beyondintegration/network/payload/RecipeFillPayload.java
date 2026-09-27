@@ -34,10 +34,13 @@ public record RecipeFillPayload(List<IStackKey<?>> keys, List<Long> amounts) imp
     @Override public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
 
     public static void handle(RecipeFillPayload p, IPayloadContext ctx) {
-        // 服务端处理：将原料键值列表填入打开的维度合成菜单
+        // 服务端处理：将原料键值列表填入打开的合成菜单（我们的工作站 / BD 终端合成菜单）
         ctx.enqueueWork(() -> {
-            if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp && sp.containerMenu instanceof DimensionsCraftMenu menu) {
+            if (!(ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp)) return;
+            if (sp.containerMenu instanceof DimensionsCraftMenu menu) {
                 menu.transferRecipe(p.keys(), p.amounts());
+            } else if (sp.containerMenu instanceof com.wintercogs.beyonddimensions.common.menu.DimensionsCraftMenu bdMenu) {
+                bdMenu.transferRecipe(p.keys(), p.amounts());
             }
         });
     }

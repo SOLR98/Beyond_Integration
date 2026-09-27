@@ -44,6 +44,9 @@ public class DimensionsCraftMenu extends DimensionsStorageMenu implements IClean
     // 工作台自定义槽位（合成格 9 + 结果 1 + 盔甲 4 + 副手 1）的起始索引
     private int wsS = -1;
 
+    /** 本次自动填充中由网络流体转换生成的桶（合成返回空容器时重新装填为流体桶） */
+    private final java.util.List<ItemStack> autoFilledBuckets = new java.util.ArrayList<>();
+
     // 面板高度（像素）
     @Override public int getPanelHeight() { return 72; }
     // 工作台区域顶部偏移 Y（随存储行数变化）
@@ -115,6 +118,12 @@ public class DimensionsCraftMenu extends DimensionsStorageMenu implements IClean
                                         itemsToRemove -= shrinkAmount;
                                     }
                                 }
+                                // 桶装流体：网络/背包无该桶物品时，用网络流体（+空桶，有则扣）替代补料
+                                if (itemsToRemove > 0) {
+                                    long sub = com.solr98.beyondintegration.handler.BucketFluidHelper
+                                            .substituteWithFluid(storage, toRemoveKey.getReadOnlyStack(), itemsToRemove);
+                                    if (sub > 0) itemsToRemove -= (int) sub;
+                                }
                             }
                             // 未补足的部分从槽位扣除
                             if (itemsToRemove > 0) {
@@ -126,7 +135,9 @@ public class DimensionsCraftMenu extends DimensionsStorageMenu implements IClean
                         // 返回物（如空桶/熔炉等）：槽位回填 → 网络 → 背包 → 掉落
                         if (!recipeRemainder.isEmpty()) {
                             int remainderCount = craftTimes;
-                            ItemStackKey remainderKey = new ItemStackKey(recipeRemainder);
+                            // 自动填充转换出的流体桶：合成返回的空容器重新装填为流体桶（消耗网络流体，保持桶循环）
+                            ItemStack remainder = beyond$refillRemainder(recipeRemainder, craftTimes);
+                            ItemStackKey remainderKey = new ItemStackKey(remainder);
                             if (slotStack.isEmpty() && remainderCount > 0) {
                                 craftSlots.setItem(slotIndex, remainderKey.copyStackWithCount(1));
                                 remainderCount--;
@@ -303,6 +314,7 @@ public class DimensionsCraftMenu extends DimensionsStorageMenu implements IClean
     // copy 自 BD DimensionsCraftMenu.transferRecipe：IStackKey 精确匹配（保留 NBT）
     public void transferRecipe(List<IStackKey<?>> inputKeys, List<Long> amounts) {
         cleanCraftSlots(firstCraftReturnDir);
+        autoFilledBuckets.clear();
         final int limit = Math.min(craftSlots.getContainerSize(), inputKeys.size());
         for (int i = 0; i < limit; i++) {
             long needL = (i < amounts.size() ? amounts.get(i) : 0L);
@@ -312,9 +324,59 @@ public class DimensionsCraftMenu extends DimensionsStorageMenu implements IClean
             int remaining = extractFromInventory(player.getInventory(), itemStackKey.copyStack(), need);
             if (remaining > 0) remaining = extractFromStorage(storage, itemStackKey, remaining);
             int got = need - remaining;
+            // 缺口（两种转换互斥，但均以剩余缺口为上限，避免超出需求）
+            int shortfall = remaining;
+            // 桶装流体：背包与网络桶物品不足时，用网络"流体 + 空容器"转换补足
+            if (shortfall > 0 && storage != null) {
+                ItemStack converted = com.solr98.beyondintegration.handler.BucketFluidHelper
+                        .craftContainer(storage, itemStackKey.copyStack(), shortfall);
+                if (!converted.isEmpty()) {
+                    got += converted.getCount();
+                    shortfall -= converted.getCount();
+                    beyond$recordAutoFilledBucket(converted);
+                }
+            }
+            // 空容器材料：网络只有含流体的容器时拆解（流体回插网络 + 空容器用于合成）
+            if (shortfall > 0 && storage != null) {
+                ItemStack emptied = com.solr98.beyondintegration.handler.BucketFluidHelper
+                        .emptyContainerFromNetwork(storage, itemStackKey.copyStack(), shortfall);
+                if (!emptied.isEmpty()) {
+                    got += emptied.getCount();
+                }
+            }
             if (got > 0) craftSlots.setItem(i, itemStackKey.copyStackWithCount(got));
         }
         slotsChanged(craftSlots);
+    }
+
+    /** 记录自动填充中由网络流体转换生成的桶（去重，供合成返回空容器时重新装填） */
+    private void beyond$recordAutoFilledBucket(ItemStack converted) {
+        try {
+            for (ItemStack existing : autoFilledBuckets) {
+                if (ItemStack.isSameItemSameComponents(existing, converted)) return;
+            }
+            autoFilledBuckets.add(converted.copyWithCount(1));
+        } catch (Throwable ignored) {}
+    }
+
+    /** 合成返回物为空容器且对应自动填充的流体桶时，用网络流体重新装填（流体不足时保持原返回物） */
+    private ItemStack beyond$refillRemainder(ItemStack recipeRemainder, int craftTimes) {
+        if (autoFilledBuckets.isEmpty() || storage == null || recipeRemainder.isEmpty()) return recipeRemainder;
+        try {
+            for (ItemStack filled : autoFilledBuckets) {
+                ItemStack emptyOfFilled = com.solr98.beyondintegration.handler.BucketFluidHelper
+                        .emptyContainerOf(filled);
+                if (emptyOfFilled.isEmpty()
+                        || !ItemStack.isSameItemSameComponents(emptyOfFilled, recipeRemainder)) continue;
+                ItemStack refilled = com.solr98.beyondintegration.handler.BucketFluidHelper
+                        .refillContainer(storage, filled, craftTimes);
+                if (!refilled.isEmpty() && refilled.getCount() == craftTimes) {
+                    return refilled;
+                }
+                break;
+            }
+        } catch (Throwable ignored) {}
+        return recipeRemainder;
     }
 
     // 从背包提取物品（copy 自 BD）

@@ -68,6 +68,9 @@ public class BeyondIntegration {
         // 附魔分离：多附魔书/附魔物品进网络时自动分离（网络级开关 + 配置双重控制）
         com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
                 .addHandler(new com.solr98.beyondintegration.handler.EnchantmentBookSeparatorHandler());
+        // 桶入网自动分离：含流体的桶拆为"流体 + 空容器"分别入网
+        com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
+                .addHandler(new com.solr98.beyondintegration.handler.BucketSeparatorHandler());
         LOGGER.info("Registered ItemBlacklistHandler");
 
         // VehicleInteractHandler uses reflection to detect SW/ywzj vehicles,
@@ -153,6 +156,39 @@ public class BeyondIntegration {
             // 加载 TaCZ 事件类型（未装 TaCZ 时 NoClassDefFoundError，见 TaczEventHandler 类注释）
             com.solr98.beyondintegration.handler.TaczEventHandler.registerEvents();
             LOGGER.info("Registered TACZ handlers");
+        }
+
+        // 若已加载 ftbquests 模组：登出清理领取标记；网络销毁/停服清理检测缓存；注册自动检测服务
+        if (ModList.get().isLoaded("ftbquests")) {
+            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent.class,
+                    e -> com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.requestSync());
+            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,
+                    e -> {
+                        if (e.getEntity() != null) {
+                            com.solr98.beyondintegration.feature.ftb.FtbIntegrationHelper
+                                    .clearCache(e.getEntity().getUUID());
+                            com.solr98.beyondintegration.feature.ftb.FtbTooltipPushService
+                                    .onPlayerLoggedOut(e.getEntity().getUUID());
+                        }
+                        com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.requestSync();
+                    });
+            NeoForge.EVENT_BUS.addListener(com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed.class,
+                    e -> {
+                        com.solr98.beyondintegration.feature.ftb.FtbIntegrationHelper.clearNetCache(e.getDestroyedId());
+                        com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.onNetDestroyed(e.getDestroyedId());
+                    });
+            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
+                    e -> {
+                        com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.tick(e.getServer());
+                        com.solr98.beyondintegration.feature.ftb.FtbTooltipPushService.tick(e.getServer());
+                    });
+            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppingEvent.class,
+                    e -> {
+                        com.solr98.beyondintegration.feature.ftb.FtbIntegrationHelper.clearAllCaches();
+                        com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.clear();
+                        com.solr98.beyondintegration.feature.ftb.FtbTooltipPushService.clear();
+                    });
+            LOGGER.info("Registered FtbIntegration cache cleanup");
         }
 
         // 统一订阅中心全局清理：网络销毁 / 服务器停止时批量退订全部 BD 订阅

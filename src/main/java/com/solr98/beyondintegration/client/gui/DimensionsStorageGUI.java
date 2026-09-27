@@ -1,5 +1,9 @@
 package com.solr98.beyondintegration.client.gui;
 
+// 注意：Beyond Dimensions 本体将在下个版本更换 UI 框架，本类依赖其现有 GUI 布局/坐标/纹理，
+// 待 BD 正式发布后需校对代码与新版 GUI。
+
+
 import com.solr98.beyondintegration.api.IDimensionsNetGUIExtension;
 import com.solr98.beyondintegration.client.gui.extension.BDGUIExtensionRegistry;
 import com.solr98.beyondintegration.init.*;
@@ -56,7 +60,8 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
     private void addWorkstationActionButtons() {
         if (!(this instanceof DimensionsCraftGUI || this instanceof DimensionsCutGUI
                 || this instanceof DimensionsSmithGUI || this instanceof DimensionsGrindGUI
-                || this instanceof DimensionsAnvilGUI || this instanceof AbstractEnchantTableGUI)) return;
+                || this instanceof DimensionsAnvilGUI || this instanceof AbstractEnchantTableGUI
+                || this instanceof DimensionsEnchantMergeGUI)) return;
         // 顺序（左→右）：清空到网络 → 清空到背包 → 归还方向；8x8 按钮、间隔 1px；
         // 右边界对齐 168（面板右缘 176 留 8px）：142 / 151 / 160
         int bxNet = this.leftPos + 142;

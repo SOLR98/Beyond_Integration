@@ -63,11 +63,15 @@ public class CraftRecipeTransferHandler implements IRecipeTransferHandler<Dimens
         return missing ? new IRecipeTransferError() { @Override public Type getType() { return Type.COSMETIC; } } : null;
     }
 
-    // 物品是否可用：客户端网络存储有存量或背包中存在相同物品
+    // 物品是否可用：客户端网络存储有存量、可由网络流体+空桶转换、或背包中存在相同物品
     private boolean isAvailable(DimensionsCraftMenu menu, Player player, ItemStack stack) {
         if (menu.clientNetStorage != null) {
             long amt = menu.clientNetStorage.getStackByKey(new ItemStackKey(stack)).amount();
             if (amt > 0) return true;
+            // 桶装流体：网络有对应流体 + 空容器 → 可转换填充
+            boolean craftable = com.solr98.beyondintegration.handler.BucketFluidHelper
+                    .canCraftFromNetwork(menu.clientNetStorage, stack);
+            if (craftable) return true;
         }
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             if (ItemStack.isSameItemSameComponents(player.getInventory().getItem(i), stack)) return true;

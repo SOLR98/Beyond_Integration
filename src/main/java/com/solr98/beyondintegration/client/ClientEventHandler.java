@@ -7,6 +7,7 @@ import com.solr98.beyondintegration.client.gui.DimensionsCraftGUI;
 import com.solr98.beyondintegration.client.gui.DimensionsCutGUI;
 import com.solr98.beyondintegration.client.gui.DimensionsEnchantApothGUI;
 import com.solr98.beyondintegration.client.gui.DimensionsEnchantGUI;
+import com.solr98.beyondintegration.client.gui.DimensionsEnchantMergeGUI;
 import com.solr98.beyondintegration.client.gui.DimensionsGrindGUI;
 import com.solr98.beyondintegration.client.gui.DimensionsSmithGUI;
 import com.solr98.beyondintegration.handler.ItemTooltipHandler;
@@ -44,6 +45,13 @@ public class ClientEventHandler {
             }
         });
         NeoForge.EVENT_BUS.register(new ItemTooltipHandler());
+        // JEI 点击取物（公开 API + 高优先级事件拦截，替代 FocusInputHandler Mixin）
+        JeiExtractInputHandler.register();
+        // 工作台状态缓存：进服/登出时重置（服务端启用列表与激活状态由同步包重新下发）
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn.class,
+                e -> WorkstationActivationCache.reset());
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class,
+                e -> WorkstationActivationCache.reset());
         // 悬停可存入网络的槽位左上角 "+" 角标（客户端渲染）
         NeoForge.EVENT_BUS.addListener(HoverStoreOverlay::onScreenRender);
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Pre.class, e -> {
@@ -71,6 +79,7 @@ public class ClientEventHandler {
         event.register(ModMenus.CRAFT.get(), DimensionsCraftGUI::new);
         event.register(ModMenus.ENCHANT.get(), DimensionsEnchantGUI::new);
         event.register(ModMenus.ENCHANT_APOTH.get(), DimensionsEnchantApothGUI::new);
+        event.register(ModMenus.ENCHANT_MERGE.get(), DimensionsEnchantMergeGUI::new);
     }
 
     @SubscribeEvent
@@ -82,6 +91,7 @@ public class ClientEventHandler {
         event.register(BDKeyBindings.OPEN_GRIND);
         event.register(BDKeyBindings.OPEN_ANVIL);
         event.register(BDKeyBindings.OPEN_ENCHANT);
+        event.register(BDKeyBindings.OPEN_ENCHANT_MERGE);
     }
 
     // ── SW：换枪现查 ITEM 弹药 / 下车清除载具缓存 ──

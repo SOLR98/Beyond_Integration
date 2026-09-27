@@ -1,6 +1,7 @@
 package com.solr98.beyondintegration.mixin;
 
 import com.solr98.beyondintegration.feature.ftb.FtbIntegrationHelper;
+import com.solr98.beyondintegration.feature.ftb.FtbTaskNetworkScanner;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.server.level.ServerPlayer;
@@ -33,12 +34,14 @@ public class FtbPlayerInventorySummaryMixin {
     @Shadow(remap = false) private static List<ItemStack> nonEmptyStacks;
     @Shadow(remap = false) private static Map<Item, List<ItemStack>> stacksByItem;
 
-    /** 背包汇总完成后追加网络物品（含存量），使非消耗型物品任务自动计入网络库存 */
+    /** 背包汇总完成后追加网络物品（含存量），使非消耗型物品任务自动计入网络库存（每次最外层检测仅注入一次） */
     @Inject(method = "build", at = @At("RETURN"), remap = false, require = 0)
     private static void beyond$includeNetworkItems(ServerPlayer player, CallbackInfo ci) {
         if (!FtbIntegrationHelper.isEnabled()) return;
+        if (!FtbIntegrationHelper.markNetworkItemsInjected()) return;
         try {
-            for (KeyAmount ka : FtbIntegrationHelper.networkItems(player)) {
+            // 按任务需求精准收集网络物品（仅保留任务目标匹配的键）
+            for (KeyAmount ka : FtbTaskNetworkScanner.collect(player)) {
                 if (!(ka.key() instanceof ItemStackKey ik)) continue;
                 ItemStack stack = ik.getReadOnlyStack();
                 if (stack.isEmpty()) continue;

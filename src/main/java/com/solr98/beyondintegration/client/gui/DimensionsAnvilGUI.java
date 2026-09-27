@@ -1,8 +1,14 @@
 package com.solr98.beyondintegration.client.gui;
 
+// 注意：Beyond Dimensions 本体将在下个版本更换 UI 框架，本类依赖其现有 GUI 布局/坐标/纹理，
+// 待 BD 正式发布后需校对代码与新版 GUI。
+
+
+import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.init.DimensionsAnvilMenu;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.payload.SetAnvilNamePayload;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -11,6 +17,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 维度网络铁砧工作站界面。
@@ -23,6 +32,7 @@ public class DimensionsAnvilGUI extends DimensionsStorageGUI<DimensionsAnvilMenu
     private static final ResourceLocation ERROR_ICON = ResourceLocation.parse("beyond_integration:textures/gui/notfor.png"); // 不可合成红叉图标
     private EditBox nameField; // 改名输入框
     private ItemStack lastInput = ItemStack.EMPTY; // 上次输入槽物品（用于检测变化）
+    private int costX, costY, costW; // 费用文本屏幕坐标（悬浮 tooltip 命中）
 
     public DimensionsAnvilGUI(DimensionsAnvilMenu c, Inventory p, Component t) { super(c, p, t); }
 
@@ -121,6 +131,30 @@ public class DimensionsAnvilGUI extends DimensionsStorageGUI<DimensionsAnvilMenu
         int k = 176 - 8 - font.width(comp) - 2;
         g.fill(k - 2, gy + 62, 176 - 8, gy + 74, 1325400064);
         g.drawString(font, comp, k, gy + 64, color);
+        // 记录费用文本屏幕坐标（悬浮显示公式）
+        this.costW = font.width(comp);
+        this.costX = this.leftPos + k;
+        this.costY = this.topPos + gy + 64;
+    }
+
+    @Override public void render(GuiGraphics g, int mx, int my, float pt) {
+        super.render(g, mx, my, pt);
+        CostTooltipHelper.render(g, this.font, mx, my, costX, costY, costW, 9, anvilTooltip());
+    }
+
+    /** 铁砧费用悬浮框：费用 + 倍率 + 各惩罚百分比 + 支付说明 */
+    private List<Component> anvilTooltip() {
+        List<Component> list = new ArrayList<>();
+        list.add(Component.translatable("gui.beyond_integration.anvil.cost.tooltip").withStyle(ChatFormatting.GOLD));
+        int[] d = this.menu.anvCostDetail;
+        boolean points = CommandConfig.anvilCostMode() == CommandConfig.AnvilChargeMode.POINTS;
+        long cost = points ? this.menu.getCostPoints() : this.menu.anvLevel;
+        list.add(Component.translatable("gui.beyond_integration.anvil.cost.total", cost, d[0] - 100));
+        if (d[1] > 0) list.add(Component.translatable("gui.beyond_integration.anvil.cost.penalty_conflict", d[1]));
+        if (d[2] > 0) list.add(Component.translatable("gui.beyond_integration.anvil.cost.penalty_support", d[2]));
+        if (d[3] > 0) list.add(Component.translatable("gui.beyond_integration.anvil.cost.penalty_break", d[3]));
+        if (d[4] > 0) list.add(Component.translatable("gui.beyond_integration.anvil.cost.penalty_unrestricted", d[4]));
+        return list;
     }
 
     // 原版 AnvilScreen.keyPressed：Esc 直接关闭容器

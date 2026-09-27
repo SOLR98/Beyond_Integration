@@ -25,6 +25,7 @@ public final class BDKeyBindings {
     public static final KeyMapping OPEN_GRIND = new KeyMapping("key.beyond_integration.open_grind", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
     public static final KeyMapping OPEN_ANVIL = new KeyMapping("key.beyond_integration.open_anvil", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
     public static final KeyMapping OPEN_ENCHANT = new KeyMapping("key.beyond_integration.open_enchant", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
+    public static final KeyMapping OPEN_ENCHANT_MERGE = new KeyMapping("key.beyond_integration.open_enchant_merge", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
 
     private BDKeyBindings() {}
 
@@ -36,6 +37,7 @@ public final class BDKeyBindings {
         check(OPEN_GRIND, WorkstationModeConstants.Mode.GRIND);
         check(OPEN_ANVIL, WorkstationModeConstants.Mode.ANVIL);
         check(OPEN_ENCHANT, WorkstationModeConstants.Mode.ENCHANT);
+        check(OPEN_ENCHANT_MERGE, WorkstationModeConstants.Mode.ENCHANT_MERGE);
     }
 
     /** 检查单个按键：按下则保存当前 BD 菜单状态并发送打开请求 */

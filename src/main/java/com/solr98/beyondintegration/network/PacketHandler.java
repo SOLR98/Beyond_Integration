@@ -69,6 +69,16 @@ public class PacketHandler {
         registrar.playToServer(RequestWorkstationActivationPayload.TYPE, RequestWorkstationActivationPayload.STREAM_CODEC, RequestWorkstationActivationPayload::handle);
         registrar.playToClient(WorkstationActivationSyncPayload.TYPE, WorkstationActivationSyncPayload.STREAM_CODEC, WorkstationActivationSyncPayload::handle);
         registrar.playToServer(ExtractNetworkItemPacket.TYPE, ExtractNetworkItemPacket.STREAM_CODEC, ExtractNetworkItemPacket::handle);
+        registrar.playToServer(ClaimAllToNetworkPacket.TYPE, ClaimAllToNetworkPacket.STREAM_CODEC, ClaimAllToNetworkPacket::handle);
+        registrar.playToServer(RequestFtbTaskNetworkCountPacket.TYPE, RequestFtbTaskNetworkCountPacket.STREAM_CODEC, RequestFtbTaskNetworkCountPacket::handle);
+        registrar.playToClient(FtbTaskNetworkCountResponsePacket.TYPE, FtbTaskNetworkCountResponsePacket.STREAM_CODEC, FtbTaskNetworkCountResponsePacket::handle);
+        registrar.playToClient(OpenFtbItemSubmitSelectPacket.TYPE, OpenFtbItemSubmitSelectPacket.STREAM_CODEC, OpenFtbItemSubmitSelectPacket::handle);
+        registrar.playToServer(SubmitFtbItemSelectionPacket.TYPE, SubmitFtbItemSelectionPacket.STREAM_CODEC, SubmitFtbItemSelectionPacket::handle);
+        registrar.playToServer(ClaimRewardToNetworkPacket.TYPE, ClaimRewardToNetworkPacket.STREAM_CODEC, ClaimRewardToNetworkPacket::handle);
+        registrar.playToServer(SubmitFtbRewardSelectionPacket.TYPE, SubmitFtbRewardSelectionPacket.STREAM_CODEC, SubmitFtbRewardSelectionPacket::handle);
+        registrar.playToServer(RequestFtbTaskScanPayload.TYPE, RequestFtbTaskScanPayload.STREAM_CODEC, RequestFtbTaskScanPayload::handle);
+        registrar.playToClient(EnchantMergeListPayload.TYPE, EnchantMergeListPayload.STREAM_CODEC, EnchantMergeListPayload::handle);
+        registrar.playToServer(SubmitEnchantMergePayload.TYPE, SubmitEnchantMergePayload.STREAM_CODEC, SubmitEnchantMergePayload::handle);
     }
 
     /** 向服务端发送任意自定义 payload */

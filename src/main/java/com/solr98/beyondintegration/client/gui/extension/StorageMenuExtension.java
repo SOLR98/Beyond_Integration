@@ -1,5 +1,9 @@
 package com.solr98.beyondintegration.client.gui.extension;
 
+// 注意：Beyond Dimensions 本体将在下个版本更换 UI 框架，本类依赖其现有 GUI 布局/坐标/纹理，
+// 待 BD 正式发布后需校对代码与新版 GUI。
+
+
 import com.solr98.beyondintegration.api.IDimensionsNetGUIExtension;
 import com.solr98.beyondintegration.client.gui.WorkstationModeConstants;
 import com.solr98.beyondintegration.network.PacketHandler;

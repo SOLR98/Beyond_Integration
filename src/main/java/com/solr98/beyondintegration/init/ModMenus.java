@@ -31,6 +31,8 @@ public class ModMenus {
             () -> IMenuTypeExtension.create(DimensionsSmithMenu::new));
     public static final Supplier<MenuType<DimensionsEnchantMenu>> ENCHANT = MENUS.register("enchant",
             () -> IMenuTypeExtension.create(DimensionsEnchantMenu::new));
+    public static final Supplier<MenuType<DimensionsEnchantMergeMenu>> ENCHANT_MERGE = MENUS.register("enchant_merge",
+            () -> IMenuTypeExtension.create(DimensionsEnchantMergeMenu::new));
     public static final Supplier<MenuType<DimensionsApothEnchantMenu>> ENCHANT_APOTH = MENUS.register("enchant_apoth",
             () -> IMenuTypeExtension.create(DimensionsApothEnchantMenu::new));
 }

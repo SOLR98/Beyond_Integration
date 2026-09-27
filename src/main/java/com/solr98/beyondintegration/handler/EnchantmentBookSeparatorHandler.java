@@ -83,9 +83,16 @@ public class EnchantmentBookSeparatorHandler implements UnifiedStorageBeforeInse
             return pass(tryInsert);
         }
 
-        // 仅处理附魔书：STORED_ENCHANTMENTS 组件且附魔数 > 1 时拆分
+        // 仅处理附魔书：STORED_ENCHANTMENTS 组件且附魔数 > 1 时拆分；单附魔书走可选的同类同级自动合并
         ItemEnchantments stored = stack.get(DataComponents.STORED_ENCHANTMENTS);
         if (stored == null || stored.size() <= 1) {
+            if (stored != null && stored.size() == 1 && tryInsert.amount() == 1
+                    && CommandConfig.enchantMergeSameLevel()) {
+                Holder<Enchantment> holder = stored.keySet().iterator().next();
+                int level = stored.getLevel(holder);
+                var merged = tryMergeSameLevel(net, holder, level);
+                if (merged != null) return merged;
+            }
             if (CommandConfig.enchantDebug()) LOGGER.info("[enchant-sep] pass: not a multi-enchanted book");
             return pass(tryInsert);
         }
@@ -331,6 +338,78 @@ public class EnchantmentBookSeparatorHandler implements UnifiedStorageBeforeInse
     /** 构造放行结果：原样返回输入 */
     private static UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo pass(KeyAmount input) {
         return new UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo(input, false);
+    }
+
+    // ═══════════════════════════════════════════
+    //  同类同级单附魔书自动合并（可选，默认关闭）
+    // ═══════════════════════════════════════════
+
+    /**
+     * 尝试把输入的单附魔书与网络内同附魔同等级的书记合并为 L+1 级：
+     * 消耗网络经验（铁砧合并费用等级 → 0→费用等级的总经验点，20 mB/点）与网络那本书，
+     * 产出 L+1 级书插回网络（插入会再次经过拦截链，从而自然级联）。
+     *
+     * @return 拦截结果；null 表示不处理（原书放行入库）
+     */
+    private static UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo tryMergeSameLevel(
+            DimensionsNet net, Holder<Enchantment> holder, int level) {
+        Enchantment ench = holder.value();
+        if (level <= 0) return null;
+        if (level >= com.solr98.beyondintegration.init.DimensionsAnvilMenu.beyond$effectiveMaxLevel(ench)) return null;
+
+        ItemStackKey target = singleBookKey(holder, level);
+        if (net.getUnifiedStorage().getStackByKey(target).amount() < 1) return null;
+
+        // 铁砧合并两本同级附魔书的费用（等级）→ 经验点 → mB
+        int costLevel = anvilMergeCostLevel(ench, level + 1);
+        long mb = xpTotalCost(costLevel) * 20L;
+        if (mb > 0 && net.getUnifiedStorage().getStackByKey(xpFluidKey()).amount() < mb) return null; // 经验不足：放行
+
+        if (mb > 0) net.getUnifiedStorage().extract(xpFluidKey(), mb, false, false);
+        KeyAmount removed = net.getUnifiedStorage().extract(target, 1, false, false);
+        if (removed.amount() < 1) {
+            if (mb > 0) net.getUnifiedStorage().insert(xpFluidKey(), mb, false); // 并发兜底：回滚经验
+            return null;
+        }
+
+        ItemStack out = new ItemStack(Items.ENCHANTED_BOOK);
+        ItemEnchantments.Mutable mut = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+        mut.set(holder, level + 1);
+        out.set(DataComponents.STORED_ENCHANTMENTS, mut.toImmutable());
+        net.getUnifiedStorage().insert(new ItemStackKey(out), 1, false);
+        if (CommandConfig.enchantDebug())
+            LOGGER.info("[enchant-sep] merge same-level {} {} -> {}", holder.getKey(), level, level + 1);
+        return acceptEmpty();
+    }
+
+    /** 构造单附魔书的精确存储键 */
+    private static ItemStackKey singleBookKey(Holder<Enchantment> holder, int level) {
+        ItemStack b = new ItemStack(Items.ENCHANTED_BOOK);
+        ItemEnchantments.Mutable mut = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+        mut.set(holder, level);
+        b.set(DataComponents.STORED_ENCHANTMENTS, mut.toImmutable());
+        return new ItemStackKey(b);
+    }
+
+    /** 原版铁砧合并两本附魔书的费用等级（同附魔同级取 +1；第二本为书时稀有度系数减半，至少 1） */
+    private static int anvilMergeCostLevel(Enchantment ench, int resultLevel) {
+        // 1.21 以 getAnvilCost() 表示稀有度费用（原版等价 1/2/4/8）；第二本为书时减半，至少 1
+        int k3 = Math.max(1, ench.getAnvilCost() / 2);
+        return k3 * resultLevel;
+    }
+
+    /** 原版等级→升级所需经验点（对齐 Player.getXpNeededForNextLevel） */
+    private static int xpNeededForLevel(int level) {
+        if (level >= 30) return 112 + (level - 30) * 9;
+        if (level >= 15) return 37 + (level - 15) * 5;
+        return 7 + level * 2;
+    }
+
+    /** 从 0 升到指定等级所需的总经验点 */
+    private static long xpTotalCost(int level) {
+        long sum = 0;
+        for (int l = 0; l < level; l++) sum += xpNeededForLevel(l);
+        return sum;
     }
 
     /** 构造"已处理完毕"结果：返回空键，阻止原始物品写入 */

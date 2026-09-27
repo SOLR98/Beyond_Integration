@@ -24,7 +24,7 @@ import java.util.Set;
 public final class WorkstationActivation {
 
     /** 参与献祭激活的工作台 ID（storage=BD 终端、craft=合成台 不参与） */
-    private static final Set<String> ACTIVATABLE = Set.of("anvil", "cut", "grind", "smith", "enchant");
+    private static final Set<String> ACTIVATABLE = Set.of("anvil", "cut", "grind", "smith", "enchant", "enchant_merge");
 
     /** 激活尝试结果 */
     public enum Result { SUCCESS, ALREADY, DISABLED, INVALID, NO_NETWORK, NO_ITEM }

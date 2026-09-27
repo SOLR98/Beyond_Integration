@@ -151,6 +151,18 @@ public record TaczCraftPacket(ResourceLocation recipeId, int count, boolean toNe
                             }
                         }
                     }
+                    // 桶装流体替代：桶物品不足的缺口改为消耗网络流体（宽松语义，空桶有则一并扣）
+                    if (need > 0) {
+                        for (ItemStack candidate : ing.getItems()) {
+                            if (need <= 0) break;
+                            long sub = com.solr98.beyondintegration.handler.BucketFluidHelper
+                                    .substituteWithFluid(storage, candidate, need);
+                            if (sub > 0) {
+                                need -= (int) sub;
+                                slotTotals.merge(i, -sub, Long::sum);
+                            }
+                        }
+                    }
                 }
 
                 // 产出成品：按 toNetwork 决定放入网络存储或生成掉落物

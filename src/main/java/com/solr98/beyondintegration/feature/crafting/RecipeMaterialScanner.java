@@ -63,7 +63,14 @@ public final class RecipeMaterialScanner {
                 long amount = storage.getStackByKey(key).amount();
                 if (amount > 0) {
                     total += amount;
-                    keys.add(key);
+                    if (!keys.contains(key)) keys.add(key);
+                }
+                // 桶装流体替代折算：网络流体可替代该容器（宽松语义，空容器可选，有则消耗）
+                long substitutable = com.solr98.beyondintegration.handler.BucketFluidHelper
+                        .countSubstitutable(storage, candidate);
+                if (substitutable > 0) {
+                    total += substitutable;
+                    if (!keys.contains(key)) keys.add(key);
                 }
             }
             slotTotals.put(mi.slotIdx(), total);

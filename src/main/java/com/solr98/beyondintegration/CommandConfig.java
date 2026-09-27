@@ -77,6 +77,8 @@ public class CommandConfig {
         public final ModConfigSpec.DoubleValue enchantDefaultMult;
         public final ModConfigSpec.ConfigValue<List<? extends String>> enchantHighCostList;
         public final ModConfigSpec.BooleanValue enchantDebug;
+        /** 附魔分离：单附魔书同类同级自动合并（两本 L 级 → 一本 L+1 级，铁砧费用转点数，默认关闭） */
+        public final ModConfigSpec.BooleanValue enchantMergeSameLevel;
 
         // Vehicle energy charge
         public final ModConfigSpec.IntValue swVehicleEnergyChargeRate;
@@ -107,6 +109,13 @@ public class CommandConfig {
 
         // FTB Quests 集成（可选；检测到 rs_integration 时让路禁用）
         public final ModConfigSpec.BooleanValue FTB_INTEGRATION_ENABLED;
+        public final ModConfigSpec.IntValue FTB_DETECT_CACHE_TICKS;
+        public final ModConfigSpec.IntValue FTB_DETECT_MAX_ITEM_TYPES;
+        public final ModConfigSpec.BooleanValue FTB_AUTO_DETECT_ENABLED;
+        public final ModConfigSpec.IntValue FTB_AUTO_DETECT_THROTTLE_TICKS;
+        public final ModConfigSpec.IntValue FTB_AUTO_DETECT_MAX_PER_TICK;
+        public final ModConfigSpec.IntValue FTB_TOOLTIP_PUSH_THROTTLE_TICKS;
+        public final ModConfigSpec.BooleanValue FTB_SIMPLIFY_REWARD_NOTIFY;
 
         // TACZ ammo polling
         public final ModConfigSpec.BooleanValue TACZ_AMMO_POLL_ENABLED;
@@ -158,6 +167,10 @@ public class CommandConfig {
         public final ModConfigSpec.BooleanValue enchantPreviewEnabled;
         public final ModConfigSpec.BooleanValue enchantRefreshEnabled;
         public final ModConfigSpec.BooleanValue enchantAllowTreasure;
+        // 附魔合并（批量附魔工作站）配置
+        public final ModConfigSpec.BooleanValue enchantMergeEnable;
+        public final ModConfigSpec.BooleanValue enchantMergeConsumeBook;
+        public final ModConfigSpec.IntValue enchantMergeSplitXpCost;
 
         // Auto totem (network only)
         // BD modifications (tweaks applied to Beyond Dimensions)
@@ -167,6 +180,8 @@ public class CommandConfig {
         public final ModConfigSpec.IntValue xpRodMaxTargetLevel;
         public final ModConfigSpec.IntValue xpRodGrantBatchSize;
         public final ModConfigSpec.EnumValue<XpGrantMode> xpRodGrantMode;
+        /** 桶入网自动分离：含流体的容器入网时拆为"流体 + 空容器"（默认开启） */
+        public final ModConfigSpec.BooleanValue bucketSeparatorEnabled;
 
         public final ModConfigSpec.BooleanValue AUTO_TOTEM_ENABLED;
         public final ModConfigSpec.IntValue AUTO_TOTEM_COOLDOWN_SECONDS;
@@ -176,15 +191,11 @@ public class CommandConfig {
         public final ModConfigSpec.BooleanValue AUTO_TOTEM_HEAL_TO_FULL;
 
         // SetHealth revive (network only, event + mixin implementations)
+        // 通用项（冷却 / 伤害黑名单 / 无敌绕过 / 恢复上限 / 回满）复用 auto_totem 分区配置
         public final ModConfigSpec.BooleanValue REVIVE_EVENT_ENABLED;
         public final ModConfigSpec.BooleanValue REVIVE_MIXIN_ENABLED;
-        public final ModConfigSpec.IntValue REVIVE_COOLDOWN_SECONDS;
-        public final ModConfigSpec.ConfigValue<List<? extends String>> REVIVE_DAMAGE_BLACKLIST;
-        public final ModConfigSpec.BooleanValue REVIVE_RESPECT_BYPASSES;
         public final ModConfigSpec.BooleanValue REVIVE_EXTRA_TOTEM_ON_SET_HEALTH_DEATH;
         public final ModConfigSpec.IntValue REVIVE_EXTRA_TOTEM_COUNT;
-        public final ModConfigSpec.BooleanValue REVIVE_RESTORE_MAX_HEALTH;
-        public final ModConfigSpec.BooleanValue REVIVE_HEAL_TO_FULL;
         public final ModConfigSpec.BooleanValue REVIVE_RESET_DEATH_TIME;
 
         /**
@@ -224,6 +235,9 @@ public class CommandConfig {
             enchantDebug = builder
                     .comment(ConfigCommentLang.comment("enchant.debug"))
                     .define("debug", false);
+            enchantMergeSameLevel = builder
+                    .comment(ConfigCommentLang.comment("enchant.merge_same_level"))
+                    .define("merge_same_level", false);
             builder.pop();
 
 
@@ -265,7 +279,7 @@ public class CommandConfig {
             WORKSTATIONS_ENABLED = builder
                     .comment(ConfigCommentLang.comment("workstations.enabled"))
                     .defineList("enabled",
-                            Arrays.asList("craft", "anvil", "cut", "grind", "smith", "enchant"),
+                            Arrays.asList("craft", "anvil", "cut", "grind", "smith", "enchant", "enchant_merge"),
                             obj -> obj instanceof String);
 
             // 献祭激活（可选平衡）：开启后除合成台外的工作台需先献祭对应原版工作台激活（网络级）
@@ -281,7 +295,8 @@ public class CommandConfig {
                                     "cut:minecraft:stonecutter:1",
                                     "grind:minecraft:grindstone:1",
                                     "smith:minecraft:smithing_table:1",
-                                    "enchant:minecraft:enchanting_table:1"),
+                                    "enchant:minecraft:enchanting_table:1",
+                                    "enchant_merge:minecraft:enchanting_table:1"),
                             obj -> obj instanceof String);
             builder.pop();
             builder.pop();
@@ -290,6 +305,27 @@ public class CommandConfig {
             FTB_INTEGRATION_ENABLED = builder
                     .comment(ConfigCommentLang.comment("ftb_integration.enable"))
                     .define("enable", true);
+            FTB_DETECT_CACHE_TICKS = builder
+                    .comment(ConfigCommentLang.comment("ftb_integration.detect_cache_ticks"))
+                    .defineInRange("detect_cache_ticks", 20, 0, 200);
+            FTB_DETECT_MAX_ITEM_TYPES = builder
+                    .comment(ConfigCommentLang.comment("ftb_integration.detect_max_item_types"))
+                    .defineInRange("detect_max_item_types", 8192, 64, 65536);
+            FTB_AUTO_DETECT_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("ftb_integration.auto_detect_enable"))
+                    .define("auto_detect_enable", false);
+            FTB_AUTO_DETECT_THROTTLE_TICKS = builder
+                    .comment(ConfigCommentLang.comment("ftb_integration.auto_detect_throttle_ticks"))
+                    .defineInRange("auto_detect_throttle_ticks", 20, 5, 200);
+            FTB_AUTO_DETECT_MAX_PER_TICK = builder
+                    .comment(ConfigCommentLang.comment("ftb_integration.auto_detect_max_per_tick"))
+                    .defineInRange("auto_detect_max_per_tick", 4, 1, 64);
+            FTB_TOOLTIP_PUSH_THROTTLE_TICKS = builder
+                    .comment(ConfigCommentLang.comment("ftb_integration.tooltip_push_throttle_ticks"))
+                    .defineInRange("tooltip_push_throttle_ticks", 10, 1, 200);
+            FTB_SIMPLIFY_REWARD_NOTIFY = builder
+                    .comment(ConfigCommentLang.comment("ftb_integration.simplify_reward_notify"))
+                    .define("simplify_reward_notify", true);
             builder.pop();
 
             builder.comment(ConfigCommentLang.comment("anvil")).push("anvil");
@@ -356,6 +392,15 @@ public class CommandConfig {
                     .define("allowTreasure", false);
             builder.pop();
 
+            builder.comment(ConfigCommentLang.comment("enchant_merge")).push("enchant_merge");
+            enchantMergeEnable = builder.comment(ConfigCommentLang.comment("enchant_merge.enable"))
+                    .define("enable", true);
+            enchantMergeConsumeBook = builder.comment(ConfigCommentLang.comment("enchant_merge.consume_original_book"))
+                    .define("consume_original_book", false);
+            enchantMergeSplitXpCost = builder.comment(ConfigCommentLang.comment("enchant_merge.split_xp_cost"))
+                    .defineInRange("split_xp_cost", 0, 0, Integer.MAX_VALUE);
+            builder.pop();
+
             builder.comment(ConfigCommentLang.comment("bd_tweaks")).push("bd_tweaks");
             xpRodTweaksEnabled = builder
                     .comment(ConfigCommentLang.comment("bd_tweaks.xp_rod_enabled"))
@@ -372,6 +417,9 @@ public class CommandConfig {
             xpRodGrantMode = builder
                     .comment(ConfigCommentLang.comment("bd_tweaks.grant_mode"))
                     .defineEnum("grant_mode", XpGrantMode.BATCH);
+            bucketSeparatorEnabled = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.bucket_separator_enabled"))
+                    .define("bucket_separator_enabled", true);
             builder.pop();
 
             builder.comment(ConfigCommentLang.comment("auto_totem")).push("auto_totem");
@@ -404,29 +452,12 @@ public class CommandConfig {
             REVIVE_MIXIN_ENABLED = builder
                     .comment(ConfigCommentLang.comment("revive.mixin_enabled"))
                     .define("mixin_enabled", true);
-            REVIVE_COOLDOWN_SECONDS = builder
-                    .comment(ConfigCommentLang.comment("revive.cooldown_seconds"))
-                    .defineInRange("cooldown_seconds", 10, 0, 3600);
-            REVIVE_DAMAGE_BLACKLIST = builder
-                    .comment(ConfigCommentLang.comment("revive.damage_blacklist"))
-                    .defineList("damage_blacklist",
-                            Arrays.asList("outOfWorld", "fellOutOfWorld", "genericKill", "command"),
-                            obj -> obj instanceof String);
-            REVIVE_RESPECT_BYPASSES = builder
-                    .comment(ConfigCommentLang.comment("revive.respect_bypasses_invulnerability"))
-                    .define("respect_bypasses_invulnerability", false);
             REVIVE_EXTRA_TOTEM_ON_SET_HEALTH_DEATH = builder
                     .comment(ConfigCommentLang.comment("revive.extra_totem_on_set_health_death"))
                     .define("extra_totem_on_set_health_death", true);
             REVIVE_EXTRA_TOTEM_COUNT = builder
                     .comment(ConfigCommentLang.comment("revive.extra_totem_count"))
                     .defineInRange("extra_totem_count", 1, 0, 64);
-            REVIVE_RESTORE_MAX_HEALTH = builder
-                    .comment(ConfigCommentLang.comment("revive.restore_max_health"))
-                    .define("restore_max_health", true);
-            REVIVE_HEAL_TO_FULL = builder
-                    .comment(ConfigCommentLang.comment("revive.heal_to_full"))
-                    .define("heal_to_full", false);
             REVIVE_RESET_DEATH_TIME = builder
                     .comment(ConfigCommentLang.comment("revive.reset_death_time"))
                     .define("reset_death_time", true);
@@ -514,11 +545,41 @@ public class CommandConfig {
         return false;
     }
 
+    /** 服务端启用的工作站 ID 列表（原始配置值，供同步包下发给客户端） */
+    public static List<String> workstationsEnabledList() {
+        List<String> out = new java.util.ArrayList<>();
+        for (String s : SERVER.WORKSTATIONS_ENABLED.get()) {
+            if (s != null && !s.isEmpty()) out.add(s);
+        }
+        return out;
+    }
+
     /** 是否启用工作台献祭激活（可选平衡项；默认关闭） */
     public static boolean isWorkstationActivationEnabled() { return SERVER.WORKSTATION_ACTIVATION_ENABLED.get(); }
 
     /** 是否启用 FTB Quests 集成（检测到 rs_integration 时运行时让路禁用） */
     public static boolean ftbIntegrationEnabled() { return SERVER.FTB_INTEGRATION_ENABLED.get(); }
+
+    /** FTB 检测网络物品缓存的逻辑刻 TTL（0 = 不缓存，每次检测都重新扫描网络） */
+    public static int ftbDetectCacheTicks() { return SERVER.FTB_DETECT_CACHE_TICKS.get(); }
+
+    /** FTB 单次检测精准收集的物品种类上限（服务器全局配置） */
+    public static int ftbDetectMaxItemTypes() { return SERVER.FTB_DETECT_MAX_ITEM_TYPES.get(); }
+
+    /** 是否启用 FTB 自动检测（网络物品变化时自动触发任务检测） */
+    public static boolean ftbAutoDetectEnabled() { return SERVER.FTB_AUTO_DETECT_ENABLED.get(); }
+
+    /** FTB 自动检测节流窗口（逻辑刻，窗口内同一网络多次变化合并为一次检测） */
+    public static int ftbAutoDetectThrottleTicks() { return SERVER.FTB_AUTO_DETECT_THROTTLE_TICKS.get(); }
+
+    /** FTB 自动检测单 tick 最多处理的脏网络数（其余顺延到后续 tick） */
+    public static int ftbAutoDetectMaxPerTick() { return SERVER.FTB_AUTO_DETECT_MAX_PER_TICK.get(); }
+
+    /** FTB 任务 tooltip 网络数量推送节流窗口（逻辑刻，网络变化后最多该时长推送一次） */
+    public static int ftbTooltipPushThrottleTicks() { return SERVER.FTB_TOOLTIP_PUSH_THROTTLE_TICKS.get(); }
+
+    /** 是否简化 FTB 奖励领取通知（批量领取时合并为一条汇总，避免多条目刷屏） */
+    public static boolean ftbSimplifyRewardNotify() { return SERVER.FTB_SIMPLIFY_REWARD_NOTIFY.get(); }
 
     /** 工作台献祭成本列表（格式 "<工作台ID>:<物品ID>:<数量>"） */
     public static List<? extends String> workstationActivationCosts() { return SERVER.WORKSTATION_ACTIVATION_COSTS.get(); }
@@ -572,13 +633,25 @@ public class CommandConfig {
     public static boolean enchantUncapPower() { return SERVER.enchantUncapPower.get(); }
     public static int enchantCostPercent() { return SERVER.enchantCostPercent.get(); }
     public static int enchantRefreshLapis() { return SERVER.enchantRefreshLapis.get(); }
+
+    /** 附魔合并工作站总开关 */
+    public static boolean enchantMergeEnable() { return SERVER.enchantMergeEnable.get(); }
+    /** 附魔合并：拆分时是否连原附魔书载体一起消耗（false = 保留原载体，每步 1 本普通书；true = 每步 2 本） */
+    public static boolean enchantMergeConsumeBook() { return SERVER.enchantMergeConsumeBook.get(); }
+    /** 附魔合并：每步拆分消耗的经验点（0 = 不消耗） */
+    public static int enchantMergeSplitXpCost() { return SERVER.enchantMergeSplitXpCost.get(); }
     public static boolean enchantPreviewEnabled() { return SERVER.enchantPreviewEnabled.get(); }
     public static boolean enchantRefreshEnabled() { return SERVER.enchantRefreshEnabled.get(); }
     public static boolean enchantAllowTreasure() { return SERVER.enchantAllowTreasure.get(); }
     public static boolean enchantDebug() { return SERVER.enchantDebug.get(); }
+    /** 附魔分离：单附魔书同类同级自动合并（默认关闭） */
+    public static boolean enchantMergeSameLevel() { return SERVER.enchantMergeSameLevel.get(); }
 
     /** BD 修改：经验棒修改总开关（等级上限/分批/直设，关闭 = BD 原行为） */
     public static boolean xpRodTweaksEnabled() { return SERVER.xpRodTweaksEnabled.get(); }
+
+    /** BD 修改：桶入网自动分离（含流体的容器拆为流体 + 空容器；默认开启） */
+    public static boolean bucketSeparatorEnabled() { return SERVER.bucketSeparatorEnabled.get(); }
 
     /** BD 修改：熔炉烧网络终端触发批量烧炼（默认关闭；终端不消耗，产物即终端，取出时触发） */
     public static boolean furnaceTerminalSmeltAllEnabled() { return SERVER.furnaceTerminalSmeltAllEnabled.get(); }
@@ -604,13 +677,8 @@ public class CommandConfig {
     public static boolean reviveEventEnabled() { return SERVER.REVIVE_EVENT_ENABLED.get(); }
     /** Mixin 版复活实现开关（注入 checkTotemDeathProtection，配置 false 时方法体内直接返回） */
     public static boolean reviveMixinEnabled() { return SERVER.REVIVE_MIXIN_ENABLED.get(); }
-    public static int reviveCooldownSeconds() { return SERVER.REVIVE_COOLDOWN_SECONDS.get(); }
-    public static List<? extends String> reviveDamageBlacklist() { return SERVER.REVIVE_DAMAGE_BLACKLIST.get(); }
-    public static boolean reviveRespectBypassesInvulnerability() { return SERVER.REVIVE_RESPECT_BYPASSES.get(); }
     public static boolean reviveExtraTotemOnSetHealthDeath() { return SERVER.REVIVE_EXTRA_TOTEM_ON_SET_HEALTH_DEATH.get(); }
     public static int reviveExtraTotemCount() { return SERVER.REVIVE_EXTRA_TOTEM_COUNT.get(); }
-    public static boolean reviveRestoreMaxHealth() { return SERVER.REVIVE_RESTORE_MAX_HEALTH.get(); }
-    public static boolean reviveHealToFull() { return SERVER.REVIVE_HEAL_TO_FULL.get(); }
     public static boolean reviveResetDeathTime() { return SERVER.REVIVE_RESET_DEATH_TIME.get(); }
 
     public static ChargeMode ywzjChargeMode() { return SERVER.ywzjChargeMode.get(); }
