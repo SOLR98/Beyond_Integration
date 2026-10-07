@@ -79,6 +79,7 @@ public class PacketHandler {
         registrar.playToServer(RequestFtbTaskScanPayload.TYPE, RequestFtbTaskScanPayload.STREAM_CODEC, RequestFtbTaskScanPayload::handle);
         registrar.playToClient(EnchantMergeListPayload.TYPE, EnchantMergeListPayload.STREAM_CODEC, EnchantMergeListPayload::handle);
         registrar.playToServer(SubmitEnchantMergePayload.TYPE, SubmitEnchantMergePayload.STREAM_CODEC, SubmitEnchantMergePayload::handle);
+        registrar.playToServer(EmiBdActionPayload.TYPE, EmiBdActionPayload.STREAM_CODEC, EmiBdActionPayload::handle);
     }
 
     /** 向服务端发送任意自定义 payload */
