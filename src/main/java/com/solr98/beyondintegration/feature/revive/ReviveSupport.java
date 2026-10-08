@@ -36,7 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>复活动作：回血、恢复生命上限、重置死亡时间/姿态、原版图腾 buff 与动画。</li>
  * </ul>
  * 通用项（冷却 / 伤害黑名单 / 无敌绕过 / 恢复上限 / 回满）复用 {@code auto_totem} 分区配置
- * （复活救援为自动图腾的强化版，两者共享同一套基础规则）。
+ * （强化触发为网络图腾的强化版，两者共享同一套基础规则）。
  * <p>
  * 保守判定：死亡无法由致死级 LivingDamageEvent 解释时，一律按 setHealth 直杀处理（多扣图腾）。
  */
@@ -113,11 +113,14 @@ public final class ReviveSupport {
             return false;
         }
         net.setDirty();
-        // 消耗提示：本次消耗数量 + 网络剩余
+        // 消耗提示：本次消耗数量 + 网络剩余（HUD 快捷栏上方）
         long remain = net.getUnifiedStorage().getStackByKey(totemKey).amount();
-        player.displayClientMessage(Component.translatable(
-                "message.beyond_integration.revive.consumed", (long) cost, remain), false);
+        com.solr98.beyondintegration.network.PacketHandler.sendToPlayer(player,
+                new com.solr98.beyondintegration.network.HudHintPacket(
+                        "message.beyond_integration.revive.consumed", (long) cost, remain));
         applyRevive(player);
+        // 图腾爆发：对周围非友方实体造成范围伤害（可配置，默认关闭）
+        com.solr98.beyondintegration.feature.totem.TotemBurst.trigger(player);
         return true;
     }
 

@@ -4,7 +4,6 @@ import com.solr98.beyondintegration.client.SuperbAmmoCache;
 import com.solr98.beyondintegration.client.gui.BeyondSidebarAccess;
 import com.solr98.beyondintegration.client.gui.WorkstationModeConstants;
 import com.wintercogs.beyonddimensions.client.gui.DimensionsNetGUI;
-import com.wintercogs.beyonddimensions.client.gui.widget.LeftButtonSidebar;
 import com.wintercogs.beyonddimensions.common.menu.DimensionsNetMenu;
 import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -71,32 +70,21 @@ public class BDSidebarGuiHandler implements IGuiContainerHandler<DimensionsNetGU
 
     /** 左侧溢出列区域（本模组布局器把放不下的按钮移到主列左侧，BD 自身不覆盖该区域） */
     private static Rect2i overflowArea(DimensionsNetGUI<?> gui) {
-        LeftButtonSidebar sidebar = sidebarOf(gui);
-        if (sidebar == null) return null;
-        List<AbstractButton> tracked = ((BeyondSidebarAccess) sidebar).beyond$trackedButtons();
+        if (!(gui instanceof BeyondSidebarAccess access)) return null;
+        List<AbstractButton> tracked = access.beyond$trackedButtons();
+        int baseX = gui.getGuiLeft() - 18;
 
         int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE;
         int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE;
         for (AbstractButton b : tracked) {
             if (!b.visible) continue;
             // 主列按钮由 BD 自身避让，仅统计被移到左侧的溢出按钮
-            if (b.getX() >= sidebar.getX()) continue;
+            if (b.getX() >= baseX) continue;
             minX = Math.min(minX, b.getX());
             minY = Math.min(minY, b.getY());
             maxX = Math.max(maxX, b.getX() + b.getWidth());
             maxY = Math.max(maxY, b.getY() + b.getHeight());
         }
         return minX == Integer.MAX_VALUE ? null : new Rect2i(minX, minY, maxX - minX, maxY - minY);
-    }
-
-    /** 反射读取 BD GUI 的左侧按钮栏字段（BD 模组类字段名不混淆） */
-    private static LeftButtonSidebar sidebarOf(DimensionsNetGUI<?> gui) {
-        try {
-            var field = DimensionsNetGUI.class.getDeclaredField("leftButtonSidebar");
-            field.setAccessible(true);
-            return (LeftButtonSidebar) field.get(gui);
-        } catch (Throwable ignored) {
-            return null;
-        }
     }
 }

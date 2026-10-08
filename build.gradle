@@ -224,16 +224,16 @@ dependencies {
     implementation fg.deobf("curse.maven:quark-243121:6427817")
     implementation fg.deobf("curse.maven:zeta-968868:7335229")
     implementation fg.deobf("curse.maven:mouse-tweaks-60089:5338457")
+    implementation fg.deobf("curse.maven:rs-integration-1630184:9065984")
 
-    // FTB Quests 前置依赖（architectury / FTB Teams）：开发环境运行必需，缺失会导致 ModSorter 强制依赖失败
-    implementation fg.deobf("curse.maven:architectury-api-419699:5137938")
-    implementation fg.deobf("curse.maven:ftb-library-forge-404465:8226927")
-    implementation fg.deobf("curse.maven:ftb-teams-forge-404468:7499810")
-    implementation fg.deobf("curse.maven:ftb-quests-forge-289412:8078538")
-    implementation fg.deobf("curse.maven:ftb-xmod-compat-889915:6402486")
-    implementation fg.deobf("curse.maven:item-filters-309674:4838266")
+
+
+
     implementation fg.deobf("curse.maven:tacz-unidict-1305429:8147682")
-
+    implementation fg.deobf("curse.maven:appleskin-248787:4770828")
+    implementation fg.deobf("curse.maven:thirst-was-taken-679270:6660408")
+    implementation fg.deobf("curse.maven:thirst-was-reclaimed-884742:8852255")
+    implementation fg.deobf("curse.maven:legendary-survival-overhaul-840254:8591693")
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
     // JDBC drivers for audit database backend

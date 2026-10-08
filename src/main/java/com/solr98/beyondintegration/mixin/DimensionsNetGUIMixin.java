@@ -23,12 +23,17 @@ import com.solr98.beyondintegration.network.RequestWorkstationActivationPacket;
 import com.solr98.beyondintegration.network.ToggleEnchantSeparationPacket;
 import com.solr98.beyondintegration.network.ToggleEnergyChargePacket;
 import com.wintercogs.beyonddimensions.client.gui.DimensionsNetGUI;
-import com.wintercogs.beyonddimensions.client.gui.widget.LeftButtonSidebar;
+import com.solr98.beyondintegration.client.gui.BeyondSidebarAccess;
 import com.wintercogs.beyonddimensions.common.menu.DimensionsNetMenu;
+import com.wintercogs.beyonddimensions.config.CommonConfigRuntime;
+import com.solr98.beyondintegration.ClientConfig;
+import com.solr98.beyondintegration.client.SearchHistory;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -49,14 +54,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 注入 BeyondDimensions 的 {@link DimensionsNetGUI}（存储网络界面），
- * 扩展该界面：附魔分离/自动充电开关按钮（左侧按钮栏 + 反射调用父类 addRenderableWidget 注册）、
- * 工作站模式切换按钮、Superb Warfare 弹药面板（显示/提取网络弹药，支持 Shift 批量），并处理对应点击交互。
+ * 注入 BeyondDimensions 的 {@link DimensionsNetGUI}（存储网络界面），兼容 0.7.27 / 0.7.30。
+ * 不依赖 BD 的 LeftButtonSidebar：反射读取 BD 原生左侧按钮（两版同名，基准坐标 guiLeft-18, guiTop+6），
+ * 连同本模组按钮交给 LeftSidebarLayout 统一重排。扩展该界面：附魔分离/自动充电开关按钮
+ * （反射调用父类 addRenderableWidget 注册）、工作站模式切换按钮、Superb Warfare 弹药面板
+ * （显示/提取网络弹药，支持 Shift 批量），并处理对应点击交互。
  */
 @Mixin(value = DimensionsNetGUI.class, remap = false)
-public class DimensionsNetGUIMixin {
-    /** 0.7.30+ 左侧按钮栏：addButton 自动排列按钮坐标（按钮仍需 addRenderableWidget 注册渲染/点击） */
-    @Shadow(remap = false) private LeftButtonSidebar leftButtonSidebar;
+public class DimensionsNetGUIMixin implements BeyondSidebarAccess {
+    /** BD 原生左侧按钮字段（0.7.27/0.7.30 同名、顺序固定），反射读取以兼容两版 */
+    @Unique private static final String[] beyond$nativeButtonFields = {
+            "sortButton", "secondSortButton", "reverseButton", "searchToggleButton",
+            "addPageButton", "removePageButton", "craftButton", "primaryNetSwitcherButton"
+    };
+    /** 接管布局的全部左侧按钮（BD 原生 + 本模组） */
+    @Unique private final List<AbstractButton> beyond$allButtons = new ArrayList<>();
     /** BD 可容纳的最大行数（按当前屏幕高度计算） */
     @Shadow(remap = false) protected int calMaxLines() { return 0; }
     /** BD GUI 图像高度（按当前行数计算） */
@@ -113,6 +125,11 @@ public class DimensionsNetGUIMixin {
     @Unique private final java.util.List<net.minecraft.client.gui.components.Button> beyond$rsButtons = new java.util.ArrayList<>();
     /** 本模组接管的按钮（排后组，onInit 收集；用于接管布局重排） */
     @Unique private final java.util.List<AbstractButton> beyond$biButtons = new java.util.ArrayList<>();
+    // ── 搜索框增强：JEI/EMI 同步开关 + 搜索历史下拉 ──
+    @Shadow(remap = false) protected EditBox searchField;
+    @Unique private boolean beyond$historyOpen = false;
+    @Unique private int beyond$historyScroll = 0;
+    @Unique private AbstractButton beyond$searchToggleBtn;
     /** 附魔物品(装备)分离开关按钮（全局配置关闭物品分离时不创建/不显示） */
     /** 上次记录的附魔分离状态，用于检测变化并刷新 tooltip */
     @Unique private boolean beyond$lastEnchantState = true;
@@ -165,8 +182,8 @@ public class DimensionsNetGUIMixin {
         beyond$energyBtn.updateTooltip();
         beyond$lastEnergyState = SuperbAmmoCache.getEnergyCharge();
         // 本模组开关按钮：统一加入 BD 左侧按钮栏（自动排列）
-        beyond$addWidget(leftButtonSidebar.addButton(beyond$enchantBtn));
-        beyond$addWidget(leftButtonSidebar.addButton(beyond$energyBtn));
+        beyond$addWidget(beyond$enchantBtn);
+        beyond$addWidget(beyond$energyBtn);
         beyond$biButtons.add(beyond$enchantBtn);
         beyond$biButtons.add(beyond$energyBtn);
 
@@ -187,7 +204,7 @@ public class DimensionsNetGUIMixin {
             // RI 原生自动进食按钮已屏蔽，这里以 BD 侧栏按钮替代其功能（进食/选择/模式切换）
             for (var role : com.solr98.beyondintegration.client.widget.RsAutoEatButton.Role.values()) {
                 var autoEatBtn = new com.solr98.beyondintegration.client.widget.RsAutoEatButton(role, 0, 0);
-                beyond$addWidget(leftButtonSidebar.addButton(autoEatBtn));
+                beyond$addWidget(autoEatBtn);
                 beyond$biButtons.add(autoEatBtn);
             }
 
@@ -197,7 +214,7 @@ public class DimensionsNetGUIMixin {
                     b -> com.solr98.beyondintegration.compat.RsIntegrationCompat.toggleMachineCenter());
             machineCenterBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                     Component.translatable("gui.beyond_integration.rs_machine_center")));
-            beyond$addWidget(leftButtonSidebar.addButton(machineCenterBtn));
+            beyond$addWidget(machineCenterBtn);
             beyond$biButtons.add(machineCenterBtn);
 
             var resonanceBtn = new com.wintercogs.beyonddimensions.client.gui.widget.shared.IconButton(
@@ -206,10 +223,14 @@ public class DimensionsNetGUIMixin {
                     b -> com.solr98.beyondintegration.compat.RsIntegrationCompat.toggleResonanceBackpack());
             resonanceBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                     Component.translatable("gui.beyond_integration.rs_resonance_backpack")));
-            beyond$addWidget(leftButtonSidebar.addButton(resonanceBtn));
+            beyond$addWidget(resonanceBtn);
             beyond$biButtons.add(resonanceBtn);
         }
 
+        // 收集 BD 原生按钮（反射，兼容 0.7.27/0.7.30），合并本模组按钮后统一接管布局
+        beyond$allButtons.clear();
+        beyond$allButtons.addAll(beyond$collectNativeButtons());
+        beyond$allButtons.addAll(beyond$biButtons);
         // 接管左侧栏布局：BD 原有按钮始终在最前（保持原序），本模组按钮排后；超出 GUI 底部的按钮移到左侧新增列
         beyond$applySidebarLayout();
 
@@ -221,6 +242,8 @@ public class DimensionsNetGUIMixin {
         PacketHandler.sendToServer(new RequestEnergyChargePacket());
         // 工作台献祭激活状态请求（可选平衡项）：供工作站模式按钮显示锁定状态
         PacketHandler.sendToServer(new RequestWorkstationActivationPacket());
+
+        beyond$initSearch();
     }
 
     /** 渲染前：屏蔽 RI 原生按钮，并每帧重排左侧栏（防止 RI 在渲染后事件中把它们设回可见/固定坐标） */
@@ -234,7 +257,31 @@ public class DimensionsNetGUIMixin {
     @Unique
     private void beyond$applySidebarLayout() {
         var self = (DimensionsNetGUI<?>) (Object) this;
-        LeftSidebarLayout.apply(leftButtonSidebar, beyond$biButtons, self.getGuiTop() + self.getYSize());
+        LeftSidebarLayout.apply(beyond$allButtons, beyond$biButtons,
+                self.getGuiLeft() - 18, self.getGuiTop() + 6, self.getGuiTop() + self.getYSize());
+    }
+
+    /** 反射读取 BD 原生左侧按钮（按固定字段名顺序），BD 类/字段名不混淆 */
+    @Unique
+    private List<AbstractButton> beyond$collectNativeButtons() {
+        List<AbstractButton> list = new ArrayList<>();
+        for (String name : beyond$nativeButtonFields) {
+            try {
+                var field = DimensionsNetGUI.class.getDeclaredField(name);
+                field.setAccessible(true);
+                Object value = field.get(this);
+                if (value instanceof AbstractButton button) {
+                    list.add(button);
+                    if ("searchToggleButton".equals(name)) beyond$searchToggleBtn = button;
+                }
+            } catch (Throwable ignored) {}
+        }
+        return list;
+    }
+
+    @Override
+    public List<AbstractButton> beyond$trackedButtons() {
+        return beyond$allButtons;
     }
 
     /** 屏蔽 RI 原生按钮：每帧渲染前强制隐藏并禁用（RI 会在渲染后事件中把它们设回可见/可点） */
@@ -355,9 +402,155 @@ public class DimensionsNetGUIMixin {
             else tooltip.add(Component.literal(NumberFormat.getIntegerInstance().format(count)).withStyle(ChatFormatting.WHITE));
             if (ammoItem != null) g.renderTooltip(f, tooltip, new ItemStack(ammoItem).getTooltipImage(), new ItemStack(ammoItem), mx, my);
         }
+
+        // 搜索历史下拉（最上层）
+        beyond$renderHistory(g, mx, my);
     }
 
     /** 点击处理：模式切换按钮 / 弹药面板提取（开关按钮由 widget 体系处理；Shift 批量 256，普通 64） */
+    @Inject(method = "mouseClicked", at = @At("TAIL"))
+    private void beyond$searchClickTail(double mx, double my, int button, CallbackInfoReturnable<Boolean> cir) {
+        beyond$historyAfterClick(mx, my, button);
+    }
+
+    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true, remap = true)
+    private void beyond$searchClickHead(double mx, double my, int button, CallbackInfoReturnable<Boolean> cir) {
+        if (beyond$historyClick(mx, my, button)) cir.setReturnValue(true);
+    }
+
+    @Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true, remap = true)
+    private void beyond$searchScroll(double mx, double my, double delta, CallbackInfoReturnable<Boolean> cir) {
+        if (beyond$historyScrollBy(mx, my, delta)) cir.setReturnValue(true);
+    }
+
+    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true, remap = true)
+    private void beyond$searchKey(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && beyond$historyOpen) {
+            beyond$historyOpen = false;
+            cir.setReturnValue(true);
+            return;
+        }
+        if ((keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER)
+                && searchField != null && searchField.isFocused()) {
+            SearchHistory.add(searchField.getValue());
+            beyond$historyOpen = false;
+        }
+    }
+
+    // ═══ 搜索框增强：JEI/EMI 同步开关 + 搜索历史下拉 ═══
+
+    @Unique
+    private void beyond$initSearch() {
+        CommonConfigRuntime.searchTextWithJEIEMI = ClientConfig.searchSyncJei();
+        if (searchField == null) return;
+        // 同步开关按钮：放入左侧栏，排在 BD 原生"关闭/保存搜索"按钮下方
+        var btn = net.minecraft.client.gui.components.Button.builder(Component.literal("J"), b -> beyond$toggleSearchSync())
+                .size(16, 16).build();
+        btn.setTooltip(beyond$searchSyncTip());
+        beyond$addWidget(btn);
+        int idx = beyond$searchToggleBtn != null ? beyond$allButtons.indexOf(beyond$searchToggleBtn) : -1;
+        if (idx >= 0) beyond$allButtons.add(idx + 1, btn);
+        else beyond$allButtons.add(btn);
+        beyond$applySidebarLayout();
+    }
+
+    @Unique
+    private void beyond$toggleSearchSync() {
+        boolean v = !ClientConfig.searchSyncJei();
+        ClientConfig.setSearchSyncJei(v);
+        CommonConfigRuntime.searchTextWithJEIEMI = v;
+    }
+
+    @Unique
+    private static Tooltip beyond$searchSyncTip() {
+        return Tooltip.create(Component.translatable(ClientConfig.searchSyncJei()
+                ? "gui.beyond_integration.search.toggle.on" : "gui.beyond_integration.search.toggle.off"));
+    }
+
+    @Unique
+    private void beyond$applySearch(String t) {
+        var self = (DimensionsNetGUI<?>) (Object) this;
+        var menu = (DimensionsNetMenu) self.getMenu();
+        menu.loadSearchText(t);
+        CommonConfigRuntime.uiSearch = t;
+        menu.markForceAllUpdateClientView();
+        menu.updateViewerStorage(false);
+    }
+
+    @Unique private int beyond$rowH() { return Minecraft.getInstance().font.lineHeight + 2; }
+    @Unique private int beyond$histVisible() { return searchField == null ? 0 : Math.min(ClientConfig.searchHistoryRows(), SearchHistory.list().size()); }
+    @Unique private int beyond$histTop() { return searchField.getY() + searchField.getHeight(); }
+    @Unique private boolean beyond$inHist(double mx, double my) {
+        if (!beyond$historyOpen || searchField == null) return false;
+        return mx >= searchField.getX() && mx < searchField.getX() + searchField.getWidth()
+                && my >= beyond$histTop() && my < beyond$histTop() + beyond$histVisible() * beyond$rowH();
+    }
+
+    @Unique
+    private boolean beyond$historyClick(double mx, double my, int button) {
+        if (!beyond$historyOpen || button != 0 || !beyond$inHist(mx, my)) return false;
+        int idx = beyond$historyScroll + (int) ((my - beyond$histTop()) / beyond$rowH());
+        var hist = SearchHistory.list();
+        if (idx >= 0 && idx < hist.size()) {
+            String v = hist.get(idx);
+            searchField.setValue(v);
+            SearchHistory.add(v);
+            beyond$applySearch(v);
+        }
+        beyond$historyOpen = false;
+        return true;
+    }
+
+    @Unique
+    private void beyond$historyAfterClick(double mx, double my, int button) {
+        if (searchField == null) return;
+        boolean inField = mx >= searchField.getX() && mx < searchField.getX() + searchField.getWidth()
+                && my >= searchField.getY() && my < searchField.getY() + searchField.getHeight();
+        if (button == 0 && inField) {
+            beyond$historyOpen = !beyond$historyOpen && !SearchHistory.list().isEmpty();
+            beyond$historyScroll = 0;
+        } else if (beyond$historyOpen) {
+            beyond$historyOpen = false;
+        }
+    }
+
+    @Unique
+    private boolean beyond$historyScrollBy(double mx, double my, double delta) {
+        if (!beyond$inHist(mx, my)) return false;
+        int maxScroll = Math.max(0, SearchHistory.list().size() - beyond$histVisible());
+        int dir = delta > 0 ? -1 : delta < 0 ? 1 : 0;
+        beyond$historyScroll = Math.max(0, Math.min(maxScroll, beyond$historyScroll + dir));
+        return true;
+    }
+
+    @Unique
+    private void beyond$renderHistory(GuiGraphics g, int mx, int my) {
+        if (!beyond$historyOpen || searchField == null) return;
+        var hist = SearchHistory.list();
+        if (hist.isEmpty()) { beyond$historyOpen = false; return; }
+        var font = Minecraft.getInstance().font;
+        int x = searchField.getX(), w = searchField.getWidth();
+        int rowH = beyond$rowH(), vis = beyond$histVisible(), top = beyond$histTop();
+        int maxScroll = Math.max(0, hist.size() - vis);
+        beyond$historyScroll = Math.max(0, Math.min(beyond$historyScroll, maxScroll));
+        g.fill(x, top, x + w, top + vis * rowH, 0xF0101010);
+        g.fill(x, top, x + w, top + 1, 0xFF9A9A9A);
+        for (int i = 0; i < vis; i++) {
+            int idx = beyond$historyScroll + i;
+            if (idx >= hist.size()) break;
+            int ry = top + i * rowH;
+            boolean hover = mx >= x && mx < x + w && my >= ry && my < ry + rowH;
+            if (hover) g.fill(x + 1, ry, x + w - 1, ry + rowH, 0x40FFFFFF);
+            g.drawString(font, font.plainSubstrByWidth(hist.get(idx), w - 4), x + 2, ry + 1, 0xFFFFFF, false);
+        }
+        if (hist.size() > vis) {
+            int track = vis * rowH;
+            int barH = Math.max(6, track * vis / hist.size());
+            int barY = top + (maxScroll == 0 ? 0 : beyond$historyScroll * (track - barH) / maxScroll);
+            g.fill(x + w - 2, barY, x + w - 1, barY + barH, 0xFFAAAAAA);
+        }
+    }
+
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true, remap = true)
     private void onMouseClicked(double mx, double my, int button, CallbackInfoReturnable<Boolean> cir) {
         var self = (DimensionsNetGUI<?>) (Object) this;

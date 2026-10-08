@@ -121,6 +121,33 @@ public class ModConfigScreen {
                 .setSaveConsumer(ClientConfig::setEnchantPreviewOn)
                 .build());
 
+        clientCat.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.client.enchant_merge_rows"),
+                ClientConfig.CLIENT.enchantMergeRows.get())
+                .setTooltip(Component.translatable("beyond_integration.config.client.enchant_merge_rows.tooltip"))
+                .setDefaultValue(5).setMin(1).setMax(10)
+                .setSaveConsumer(ClientConfig::setEnchantMergeRows)
+                .build());
+
+        clientCat.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.client.search_sync_jei"),
+                ClientConfig.CLIENT.searchSyncJei.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(ClientConfig::setSearchSyncJei)
+                .build());
+        clientCat.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.client.search_history_rows"),
+                ClientConfig.CLIENT.searchHistoryRows.get())
+                .setDefaultValue(5).setMin(1).setMax(20)
+                .setSaveConsumer(ClientConfig::setSearchHistoryRows)
+                .build());
+        clientCat.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.client.search_history_max"),
+                ClientConfig.CLIENT.searchHistoryMax.get())
+                .setDefaultValue(20).setMin(1).setMax(100)
+                .setSaveConsumer(ClientConfig::setSearchHistoryMax)
+                .build());
+
         // ========== 3. 工作台（服务端可用列表） ==========
         ConfigCategory workstation = builder.getOrCreateCategory(
                 Component.translatable("beyond_integration.config.workstation"));
@@ -266,6 +293,48 @@ public class ModConfigScreen {
                 CommandConfig.SERVER.enchantMergeSplitXpCost.get())
                 .setDefaultValue(0).setMin(0).setMax(Integer.MAX_VALUE)
                 .setSaveConsumer(CommandConfig.SERVER.enchantMergeSplitXpCost::set)
+                .build());
+        enchantMerge.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.enchant_merge.check_conflict"),
+                CommandConfig.SERVER.enchantMergeCheckConflict.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.enchantMergeCheckConflict::set)
+                .build());
+        enchantMerge.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.enchant_merge.assume_all_enchantments"),
+                CommandConfig.SERVER.enchantMergeAssumeAll.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.enchantMergeAssumeAll::set)
+                .build());
+        enchantMerge.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.enchant_merge.all_enchant_extra_cost"),
+                CommandConfig.SERVER.enchantMergeAssumeAllExtraCost.get())
+                .setDefaultValue(3000).setMin(0).setMax(Integer.MAX_VALUE)
+                .setSaveConsumer(CommandConfig.SERVER.enchantMergeAssumeAllExtraCost::set)
+                .build());
+        enchantMerge.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.enchant_merge.keep_removed_books"),
+                CommandConfig.SERVER.enchantMergeKeepRemovedBooks.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.enchantMergeKeepRemovedBooks::set)
+                .build());
+        enchantMerge.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.enchant_merge.extra_cost_per_enchant"),
+                CommandConfig.SERVER.enchantMergeExtraCostPerEnchant.get())
+                .setDefaultValue(0).setMin(0).setMax(Integer.MAX_VALUE)
+                .setSaveConsumer(CommandConfig.SERVER.enchantMergeExtraCostPerEnchant::set)
+                .build());
+        enchantMerge.addEntry(eb.startDoubleField(
+                Component.translatable("beyond_integration.config.enchant_merge.cost_multiplier"),
+                CommandConfig.SERVER.enchantMergeCostMultiplier.get())
+                .setDefaultValue(1.0).setMin(0.0).setMax(1000.0)
+                .setSaveConsumer(CommandConfig.SERVER.enchantMergeCostMultiplier::set)
+                .build());
+        enchantMerge.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.enchant_merge.cost_percent_bonus"),
+                CommandConfig.SERVER.enchantMergeCostPercentBonus.get())
+                .setDefaultValue(0).setMin(0).setMax(1000)
+                .setSaveConsumer(CommandConfig.SERVER.enchantMergeCostPercentBonus::set)
                 .build());
 
         // ========== 5. 铁砧 ==========
@@ -425,62 +494,6 @@ public class ModConfigScreen {
         if (!hasTacz) addMark(ammo, eb, Component.translatable("beyond_integration.config.hidden.tacz"));
         if (!hasSw) addMark(ammo, eb, Component.translatable("beyond_integration.config.hidden.sw"));
 
-        // ========== FTB Quests 集成（依赖 FTB Quests） ==========
-        ConfigCategory ftb = builder.getOrCreateCategory(
-                Component.translatable("beyond_integration.config.ftb"));
-        if (modLoaded("ftbquests")) {
-            ftb.addEntry(eb.startBooleanToggle(
-                    Component.translatable("beyond_integration.config.ftb.enabled"),
-                    CommandConfig.SERVER.FTB_INTEGRATION_ENABLED.get())
-                    .setDefaultValue(true)
-                    .setSaveConsumer(CommandConfig.SERVER.FTB_INTEGRATION_ENABLED::set)
-                    .build());
-            ftb.addEntry(eb.startIntField(
-                    Component.translatable("beyond_integration.config.ftb.detect_cache_ticks"),
-                    CommandConfig.SERVER.FTB_DETECT_CACHE_TICKS.get())
-                    .setDefaultValue(20).setMin(0).setMax(200)
-                    .setSaveConsumer(CommandConfig.SERVER.FTB_DETECT_CACHE_TICKS::set)
-                    .build());
-            ftb.addEntry(eb.startIntField(
-                    Component.translatable("beyond_integration.config.ftb.detect_max_item_types"),
-                    CommandConfig.SERVER.FTB_DETECT_MAX_ITEM_TYPES.get())
-                    .setDefaultValue(8192).setMin(64).setMax(65536)
-                    .setSaveConsumer(CommandConfig.SERVER.FTB_DETECT_MAX_ITEM_TYPES::set)
-                    .build());
-            ftb.addEntry(eb.startBooleanToggle(
-                    Component.translatable("beyond_integration.config.ftb.auto_detect_enabled"),
-                    CommandConfig.SERVER.FTB_AUTO_DETECT_ENABLED.get())
-                    .setDefaultValue(false)
-                    .setSaveConsumer(CommandConfig.SERVER.FTB_AUTO_DETECT_ENABLED::set)
-                    .build());
-            ftb.addEntry(eb.startIntField(
-                    Component.translatable("beyond_integration.config.ftb.auto_detect_throttle_ticks"),
-                    CommandConfig.SERVER.FTB_AUTO_DETECT_THROTTLE_TICKS.get())
-                    .setDefaultValue(20).setMin(5).setMax(200)
-                    .setSaveConsumer(CommandConfig.SERVER.FTB_AUTO_DETECT_THROTTLE_TICKS::set)
-                    .build());
-            ftb.addEntry(eb.startIntField(
-                    Component.translatable("beyond_integration.config.ftb.auto_detect_max_per_tick"),
-                    CommandConfig.SERVER.FTB_AUTO_DETECT_MAX_PER_TICK.get())
-                    .setDefaultValue(4).setMin(1).setMax(64)
-                    .setSaveConsumer(CommandConfig.SERVER.FTB_AUTO_DETECT_MAX_PER_TICK::set)
-                    .build());
-            ftb.addEntry(eb.startIntField(
-                    Component.translatable("beyond_integration.config.ftb.tooltip_push_throttle_ticks"),
-                    CommandConfig.SERVER.FTB_TOOLTIP_PUSH_THROTTLE_TICKS.get())
-                    .setDefaultValue(10).setMin(1).setMax(200)
-                    .setSaveConsumer(CommandConfig.SERVER.FTB_TOOLTIP_PUSH_THROTTLE_TICKS::set)
-                    .build());
-            ftb.addEntry(eb.startBooleanToggle(
-                    Component.translatable("beyond_integration.config.ftb.simplify_reward_notify"),
-                    CommandConfig.SERVER.FTB_SIMPLIFY_REWARD_NOTIFY.get())
-                    .setDefaultValue(true)
-                    .setSaveConsumer(CommandConfig.SERVER.FTB_SIMPLIFY_REWARD_NOTIFY::set)
-                    .build());
-        } else {
-            addMark(ftb, eb, Component.translatable("beyond_integration.config.hidden.ftb"));
-        }
-
         // ========== 物品自动充电（装备位 / 饰品） ==========
         ConfigCategory energyCharge = builder.getOrCreateCategory(
                 Component.translatable("beyond_integration.config.energy_charge"));
@@ -534,7 +547,7 @@ public class ModConfigScreen {
                 .setSaveConsumer(CommandConfig.SERVER.ENERGY_AMMO_CHARGE_MAID_BAUBLES::set)
                 .build());
 
-        // ========== 8. 自动图腾 ==========
+        // ========== 8. 网络图腾 ==========
         ConfigCategory totem = builder.getOrCreateCategory(
                 Component.translatable("beyond_integration.config.totem"));
         totem.addEntry(eb.startBooleanToggle(
@@ -574,7 +587,7 @@ public class ModConfigScreen {
                 .setSaveConsumer(list -> CommandConfig.SERVER.AUTO_TOTEM_DAMAGE_BLACKLIST.set(new ArrayList<>(list)))
                 .build());
 
-        // 复活救援（自动图腾强化版）：通用项复用上方 auto_totem 配置，以下为其独有项
+        // 网络图腾强化触发：通用项复用上方 auto_totem 配置，以下为其独有项
         addMark(totem, eb, Component.translatable("beyond_integration.config.revive"));
         totem.addEntry(eb.startBooleanToggle(
                 Component.translatable("beyond_integration.config.revive.event_enabled"),
@@ -599,6 +612,33 @@ public class ModConfigScreen {
                 CommandConfig.SERVER.REVIVE_RESET_DEATH_TIME.get())
                 .setDefaultValue(true)
                 .setSaveConsumer(CommandConfig.SERVER.REVIVE_RESET_DEATH_TIME::set)
+                .build());
+
+        // 图腾爆发：网络图腾触发后范围伤害
+        addMark(totem, eb, Component.translatable("beyond_integration.config.totem_burst"));
+        totem.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.totem_burst.enabled"),
+                CommandConfig.SERVER.TOTEM_BURST_ENABLED.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.TOTEM_BURST_ENABLED::set)
+                .build());
+        totem.addEntry(eb.startDoubleField(
+                Component.translatable("beyond_integration.config.totem_burst.radius"),
+                CommandConfig.SERVER.TOTEM_BURST_RADIUS.get())
+                .setDefaultValue(6.0).setMin(0.5).setMax(64.0)
+                .setSaveConsumer(CommandConfig.SERVER.TOTEM_BURST_RADIUS::set)
+                .build());
+        totem.addEntry(eb.startDoubleField(
+                Component.translatable("beyond_integration.config.totem_burst.damage_percent"),
+                CommandConfig.SERVER.TOTEM_BURST_DAMAGE_PERCENT.get())
+                .setDefaultValue(50.0).setMin(0.0).setMax(1000.0)
+                .setSaveConsumer(CommandConfig.SERVER.TOTEM_BURST_DAMAGE_PERCENT::set)
+                .build());
+        totem.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.totem_burst.ignore_invulnerability"),
+                CommandConfig.SERVER.TOTEM_BURST_IGNORE_INVULNERABILITY.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.TOTEM_BURST_IGNORE_INVULNERABILITY::set)
                 .build());
 
         // ========== 9. 物品黑名单 ==========
@@ -660,6 +700,30 @@ public class ModConfigScreen {
                 .setDefaultValue(false)
                 .setSaveConsumer(CommandConfig.SERVER.furnaceTerminalSmeltAllEnabled::set)
                 .build());
+        xpRod.addEntry(eb.startDoubleField(
+                Component.translatable("beyond_integration.config.bd_tweaks.net_furnace_smelt_speed"),
+                CommandConfig.SERVER.netFurnaceSmeltSpeed.get())
+                .setDefaultValue(1.0D).setMin(0.1D).setMax(100.0D)
+                .setSaveConsumer(CommandConfig.SERVER.netFurnaceSmeltSpeed::set)
+                .build());
+        xpRod.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.bd_tweaks.primary_net_jei_sync"),
+                CommandConfig.SERVER.primaryNetJeiSync.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.primaryNetJeiSync::set)
+                .build());
+        xpRod.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.bd_tweaks.net_pathway_filter_rows"),
+                CommandConfig.SERVER.netPathwayFilterRows.get())
+                .setDefaultValue(3).setMin(1).setMax(6)
+                .setSaveConsumer(CommandConfig.SERVER.netPathwayFilterRows::set)
+                .build());
+        xpRod.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.bd_tweaks.neted_block_keep_nbt"),
+                CommandConfig.SERVER.netedBlockKeepNbt.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.netedBlockKeepNbt::set)
+                .build());
         xpRod.addEntry(eb.startIntField(
                 Component.translatable("beyond_integration.config.xp_rod.max_target_level"),
                 CommandConfig.SERVER.xpRodMaxTargetLevel.get())
@@ -678,6 +742,116 @@ public class ModConfigScreen {
                 CommandConfig.SERVER.xpRodGrantMode.get())
                 .setDefaultValue(CommandConfig.XpGrantMode.BATCH)
                 .setSaveConsumer(CommandConfig.SERVER.xpRodGrantMode::set)
+                .build());
+
+        // ========== 网络磁铁（自定义档位吸取范围） ==========
+        ConfigCategory magnet = builder.getOrCreateCategory(
+                Component.translatable("beyond_integration.config.magnet"));
+        magnet.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.magnet.custom_tiers_enabled"),
+                CommandConfig.SERVER.magnetCustomTiersEnabled.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.magnetCustomTiersEnabled::set)
+                .build());
+        magnet.addEntry(eb.startStrList(
+                Component.translatable("beyond_integration.config.magnet.item_range_tiers"),
+                new ArrayList<>(CommandConfig.SERVER.magnetItemRangeTiers.get()))
+                .setDefaultValue(Arrays.asList(
+                        "lowest:2:0",
+                        "low:3:0",
+                        "mid:5:2",
+                        "high:7:5",
+                        "highest:10:10",
+                        "chunk:-1:1200"))
+                .setSaveConsumer(list -> CommandConfig.SERVER.magnetItemRangeTiers.set(new ArrayList<>(list)))
+                .build());
+        magnet.addEntry(eb.startStrList(
+                Component.translatable("beyond_integration.config.magnet.fluid_range_tiers"),
+                new ArrayList<>(CommandConfig.SERVER.magnetFluidRangeTiers.get()))
+                .setDefaultValue(Arrays.asList(
+                        "lowest:2:0",
+                        "low:3:0",
+                        "mid:5:10",
+                        "high:7:20",
+                        "highest:10:50",
+                        "chunk:-1:1200"))
+                .setSaveConsumer(list -> CommandConfig.SERVER.magnetFluidRangeTiers.set(new ArrayList<>(list)))
+                .build());
+
+        // ========== 口渴（网络喂食器） ==========
+        ConfigCategory feederThirst = builder.getOrCreateCategory(
+                Component.translatable("beyond_integration.config.feeder_thirst"));
+        feederThirst.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.feeder_thirst.mb_per_use"),
+                CommandConfig.SERVER.feederThirstMbPerUse.get())
+                .setDefaultValue(50).setMin(1).setMax(1000000)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstMbPerUse::set)
+                .build());
+        feederThirst.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.feeder_thirst.dirty_thirst"),
+                CommandConfig.SERVER.feederThirstDirtyThirst.get())
+                .setDefaultValue(1).setMin(0).setMax(20)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstDirtyThirst::set)
+                .build());
+        feederThirst.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.feeder_thirst.dirty_quenched"),
+                CommandConfig.SERVER.feederThirstDirtyQuenched.get())
+                .setDefaultValue(0).setMin(0).setMax(20)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstDirtyQuenched::set)
+                .build());
+        feederThirst.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.feeder_thirst.slightly_dirty_thirst"),
+                CommandConfig.SERVER.feederThirstSlightlyDirtyThirst.get())
+                .setDefaultValue(1).setMin(0).setMax(20)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstSlightlyDirtyThirst::set)
+                .build());
+        feederThirst.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.feeder_thirst.slightly_dirty_quenched"),
+                CommandConfig.SERVER.feederThirstSlightlyDirtyQuenched.get())
+                .setDefaultValue(1).setMin(0).setMax(20)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstSlightlyDirtyQuenched::set)
+                .build());
+        feederThirst.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.feeder_thirst.acceptable_thirst"),
+                CommandConfig.SERVER.feederThirstAcceptableThirst.get())
+                .setDefaultValue(2).setMin(0).setMax(20)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstAcceptableThirst::set)
+                .build());
+        feederThirst.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.feeder_thirst.acceptable_quenched"),
+                CommandConfig.SERVER.feederThirstAcceptableQuenched.get())
+                .setDefaultValue(2).setMin(0).setMax(20)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstAcceptableQuenched::set)
+                .build());
+        feederThirst.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.feeder_thirst.purified_thirst"),
+                CommandConfig.SERVER.feederThirstPurifiedThirst.get())
+                .setDefaultValue(3).setMin(0).setMax(20)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstPurifiedThirst::set)
+                .build());
+        feederThirst.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.feeder_thirst.purified_quenched"),
+                CommandConfig.SERVER.feederThirstPurifiedQuenched.get())
+                .setDefaultValue(3).setMin(0).setMax(20)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstPurifiedQuenched::set)
+                .build());
+        feederThirst.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.feeder_thirst.vanilla_water_purity"),
+                CommandConfig.SERVER.feederThirstVanillaWaterPurity.get())
+                .setDefaultValue(1).setMin(0).setMax(3)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstVanillaWaterPurity::set)
+                .build());
+        feederThirst.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.feeder_thirst.separate_hydration"),
+                CommandConfig.SERVER.feederThirstSeparateHydration.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstSeparateHydration::set)
+                .build());
+        feederThirst.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.feeder_thirst.regen_min_saturation"),
+                CommandConfig.SERVER.feederThirstRegenMinSaturation.get())
+                .setDefaultValue(6).setMin(0).setMax(20)
+                .setSaveConsumer(CommandConfig.SERVER.feederThirstRegenMinSaturation::set)
                 .build());
 
         // ========== 12. 附魔分离 ==========

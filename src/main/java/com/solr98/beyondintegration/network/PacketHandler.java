@@ -3,7 +3,6 @@ package com.solr98.beyondintegration.network;
 import com.solr98.beyondintegration.BeyondIntegration;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.fml.ModList;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
@@ -24,7 +23,7 @@ public class PacketHandler {
             PROTOCOL_VERSION::equals
     );
 
-    /** 注册所有数据包；superbwarfare 与 tacz 相关包仅在对应模组加载时注册 */
+    /** 注册所有数据包（与 1.21.1 分支及参考模组一致：无条件注册，保证两端包 ID 完全一致） */
     public static void register() {
         INSTANCE.registerMessage(id++, RecipeFillPacket.class,
                 RecipeFillPacket::encode,
@@ -40,6 +39,16 @@ public class PacketHandler {
                 NetworkItemCountsPacket::encode,
                 NetworkItemCountsPacket::decode,
                 NetworkItemCountsPacket::handle);
+
+        INSTANCE.registerMessage(id++, PrimaryNetSyncPacket.class,
+                PrimaryNetSyncPacket::encode,
+                PrimaryNetSyncPacket::decode,
+                PrimaryNetSyncPacket::handle);
+
+        INSTANCE.registerMessage(id++, HudHintPacket.class,
+                HudHintPacket::encode,
+                HudHintPacket::decode,
+                HudHintPacket::handle);
 
         INSTANCE.registerMessage(id++, SetAnvilNamePacket.class,
                 SetAnvilNamePacket::encode,
@@ -116,50 +125,10 @@ public class PacketHandler {
                 ExtractNetworkItemPacket::decode,
                 ExtractNetworkItemPacket::handle);
 
-        INSTANCE.registerMessage(id++, ClaimAllToNetworkPacket.class,
-                ClaimAllToNetworkPacket::encode,
-                ClaimAllToNetworkPacket::decode,
-                ClaimAllToNetworkPacket::handle);
-
-        INSTANCE.registerMessage(id++, RequestFtbTaskNetworkCountPacket.class,
-                RequestFtbTaskNetworkCountPacket::encode,
-                RequestFtbTaskNetworkCountPacket::decode,
-                RequestFtbTaskNetworkCountPacket::handle);
-
-        INSTANCE.registerMessage(id++, FtbTaskNetworkCountResponsePacket.class,
-                FtbTaskNetworkCountResponsePacket::encode,
-                FtbTaskNetworkCountResponsePacket::decode,
-                FtbTaskNetworkCountResponsePacket::handle);
-
-        INSTANCE.registerMessage(id++, OpenFtbItemSubmitSelectPacket.class,
-                OpenFtbItemSubmitSelectPacket::encode,
-                OpenFtbItemSubmitSelectPacket::decode,
-                OpenFtbItemSubmitSelectPacket::handle);
-
-        INSTANCE.registerMessage(id++, SubmitFtbItemSelectionPacket.class,
-                SubmitFtbItemSelectionPacket::encode,
-                SubmitFtbItemSelectionPacket::decode,
-                SubmitFtbItemSelectionPacket::handle);
-
-        INSTANCE.registerMessage(id++, ClaimRewardToNetworkPacket.class,
-                ClaimRewardToNetworkPacket::encode,
-                ClaimRewardToNetworkPacket::decode,
-                ClaimRewardToNetworkPacket::handle);
-
-        INSTANCE.registerMessage(id++, SubmitFtbRewardSelectionPacket.class,
-                SubmitFtbRewardSelectionPacket::encode,
-                SubmitFtbRewardSelectionPacket::decode,
-                SubmitFtbRewardSelectionPacket::handle);
-
-        INSTANCE.registerMessage(id++, RequestFtbTaskScanPacket.class,
-                RequestFtbTaskScanPacket::encode,
-                RequestFtbTaskScanPacket::decode,
-                RequestFtbTaskScanPacket::handle);
-
-        INSTANCE.registerMessage(id++, EnchantMergeListPacket.class,
-                EnchantMergeListPacket::encode,
-                EnchantMergeListPacket::decode,
-                EnchantMergeListPacket::handle);
+        INSTANCE.registerMessage(id++, EmiBdActionPacket.class,
+                EmiBdActionPacket::encode,
+                EmiBdActionPacket::decode,
+                EmiBdActionPacket::handle);
 
         INSTANCE.registerMessage(id++, SubmitEnchantMergePacket.class,
                 SubmitEnchantMergePacket::encode,
@@ -168,55 +137,60 @@ public class PacketHandler {
 
 
 
-        if (ModList.get().isLoaded("superbwarfare")) {
-            INSTANCE.registerMessage(id++, SuperbAmmoStatusResponsePacket.class,
-                    SuperbAmmoStatusResponsePacket::encode,
-                    SuperbAmmoStatusResponsePacket::decode,
-                    SuperbAmmoStatusResponsePacket::handle);
-            INSTANCE.registerMessage(id++, RequestSuperbAmmoStatusPacket.class,
-                    RequestSuperbAmmoStatusPacket::encode,
-                    RequestSuperbAmmoStatusPacket::decode,
-                    RequestSuperbAmmoStatusPacket::handle);
-            INSTANCE.registerMessage(id++, RequestSuperbAmmoExtractPacket.class,
-                    RequestSuperbAmmoExtractPacket::encode,
-                    RequestSuperbAmmoExtractPacket::decode,
-                    RequestSuperbAmmoExtractPacket::handle);
-            INSTANCE.registerMessage(id++, SuperbAmmoDeltaS2CPacket.class,
-                    SuperbAmmoDeltaS2CPacket::encode,
-                    SuperbAmmoDeltaS2CPacket::decode,
-                    SuperbAmmoDeltaS2CPacket::handle);
-            INSTANCE.registerMessage(id++, RequestItemAmmoPacket.class,
-                    RequestItemAmmoPacket::encode,
-                    RequestItemAmmoPacket::decode,
-                    RequestItemAmmoPacket::handle);
-            INSTANCE.registerMessage(id++, ItemAmmoResponsePacket.class,
-                    ItemAmmoResponsePacket::encode,
-                    ItemAmmoResponsePacket::decode,
-                    ItemAmmoResponsePacket::handle);
-        }
+        INSTANCE.registerMessage(id++, SuperbAmmoStatusResponsePacket.class,
+                SuperbAmmoStatusResponsePacket::encode,
+                SuperbAmmoStatusResponsePacket::decode,
+                SuperbAmmoStatusResponsePacket::handle);
 
-        if (ModList.get().isLoaded("tacz")) {
-            INSTANCE.registerMessage(id++, RequestNetworkItemsPacket.class,
-                    RequestNetworkItemsPacket::encode,
-                    RequestNetworkItemsPacket::decode,
-                    RequestNetworkItemsPacket::handle);
-            INSTANCE.registerMessage(id++, TaczCraftPacket.class,
-                    TaczCraftPacket::encode,
-                    TaczCraftPacket::decode,
-                    TaczCraftPacket::handle);
-            INSTANCE.registerMessage(id++, RequestAmmoCountPacket.class,
-                    RequestAmmoCountPacket::encode,
-                    RequestAmmoCountPacket::decode,
-                    RequestAmmoCountPacket::handle);
-            INSTANCE.registerMessage(id++, AmmoCountResponsePacket.class,
-                    AmmoCountResponsePacket::encode,
-                    AmmoCountResponsePacket::decode,
-                    AmmoCountResponsePacket::handle);
-            INSTANCE.registerMessage(id++, TaczAmmoPushS2CPacket.class,
-                    TaczAmmoPushS2CPacket::encode,
-                    TaczAmmoPushS2CPacket::decode,
-                    TaczAmmoPushS2CPacket::handle);
-        }
+        INSTANCE.registerMessage(id++, RequestSuperbAmmoStatusPacket.class,
+                RequestSuperbAmmoStatusPacket::encode,
+                RequestSuperbAmmoStatusPacket::decode,
+                RequestSuperbAmmoStatusPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestSuperbAmmoExtractPacket.class,
+                RequestSuperbAmmoExtractPacket::encode,
+                RequestSuperbAmmoExtractPacket::decode,
+                RequestSuperbAmmoExtractPacket::handle);
+
+        INSTANCE.registerMessage(id++, SuperbAmmoDeltaS2CPacket.class,
+                SuperbAmmoDeltaS2CPacket::encode,
+                SuperbAmmoDeltaS2CPacket::decode,
+                SuperbAmmoDeltaS2CPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestItemAmmoPacket.class,
+                RequestItemAmmoPacket::encode,
+                RequestItemAmmoPacket::decode,
+                RequestItemAmmoPacket::handle);
+
+        INSTANCE.registerMessage(id++, ItemAmmoResponsePacket.class,
+                ItemAmmoResponsePacket::encode,
+                ItemAmmoResponsePacket::decode,
+                ItemAmmoResponsePacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestNetworkItemsPacket.class,
+                RequestNetworkItemsPacket::encode,
+                RequestNetworkItemsPacket::decode,
+                RequestNetworkItemsPacket::handle);
+
+        INSTANCE.registerMessage(id++, TaczCraftPacket.class,
+                TaczCraftPacket::encode,
+                TaczCraftPacket::decode,
+                TaczCraftPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestAmmoCountPacket.class,
+                RequestAmmoCountPacket::encode,
+                RequestAmmoCountPacket::decode,
+                RequestAmmoCountPacket::handle);
+
+        INSTANCE.registerMessage(id++, AmmoCountResponsePacket.class,
+                AmmoCountResponsePacket::encode,
+                AmmoCountResponsePacket::decode,
+                AmmoCountResponsePacket::handle);
+
+        INSTANCE.registerMessage(id++, TaczAmmoPushS2CPacket.class,
+                TaczAmmoPushS2CPacket::encode,
+                TaczAmmoPushS2CPacket::decode,
+                TaczAmmoPushS2CPacket::handle);
     }
 
     /** 客户端 → 服务端发送 */

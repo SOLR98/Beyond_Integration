@@ -40,8 +40,8 @@ public class JeiIngredientElementMixin {
     private void beyond$networkCountOverlay(CallbackInfoReturnable<IDrawable> cir) {
         if (cir.getReturnValue() != null) return;
         try {
-            // 仅在打开 BD 终端时接管角标；未打开时保持 JEI 原行为
-            if (BeyondJeiNetworkHelper.currentNetMenu() == null) return;
+            // 服务端已同步主网络、或已打开 BD 终端时接管角标；否则保持 JEI 原行为
+            if (!BeyondJeiNetworkHelper.isActive()) return;
             ItemStack stack = ingredient.getItemStack().orElse(ItemStack.EMPTY);
             if (stack.isEmpty()) return;
             cir.setReturnValue(new NetworkCountOverlay(stack.copyWithCount(1)));

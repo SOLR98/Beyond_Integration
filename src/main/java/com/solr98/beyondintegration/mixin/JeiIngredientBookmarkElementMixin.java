@@ -36,8 +36,8 @@ public class JeiIngredientBookmarkElementMixin {
     private void beyond$networkCountOverlay(CallbackInfoReturnable<IDrawable> cir) {
         if (cir.getReturnValue() != null) return;
         try {
-            // 仅在打开 BD 终端时接管角标；未打开时保持 JEI 原行为
-            if (BeyondJeiNetworkHelper.currentNetMenu() == null) return;
+            // 服务端已同步主网络、或已打开 BD 终端时接管角标；否则保持 JEI 原行为
+            if (!BeyondJeiNetworkHelper.isActive()) return;
             IElement<?> self = (IElement<?>) (Object) this;
             ItemStack stack = self.getTypedIngredient().getItemStack().orElse(ItemStack.EMPTY);
             if (stack.isEmpty()) return;

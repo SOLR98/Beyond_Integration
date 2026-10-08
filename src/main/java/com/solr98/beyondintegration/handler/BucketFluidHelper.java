@@ -8,7 +8,10 @@ import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
 
@@ -23,12 +26,71 @@ public final class BucketFluidHelper {
 
     /** 一桶对应的流体量（mB） */
     public static final long MB_PER_BUCKET = 1000L;
+    /** 一瓶对应的流体量（mB） */
+    public static final long MB_PER_BOTTLE = 250L;
 
     private BucketFluidHelper() {}
 
-    /** 该流体是否有对应桶物品（无则无法组装） */
+    /** 水类容器打上对应纯度标签（Compat：仅 Thirst 加载时调用其 API） */
+    private static ItemStack beyond$tagPurity(ItemStack out, FluidStackKey fluidKey) {
+        if (out.isEmpty() || !isWaterFluid(fluidKey)) return out;
+        com.solr98.beyondintegration.feature.feeder.ThirstBridge.get().tagPurity(out, waterPurity(fluidKey));
+        return out;
+    }
+
+    /** 该流体是否有可组装的桶物品（本模组水无专属桶，回退原版水桶） */
     public static boolean hasBucketItem(FluidStackKey fluidKey) {
-        return fluidKey != null && fluidKey.getSource().getBucket() != Items.AIR;
+        return bucketItemOf(fluidKey) != Items.AIR;
+    }
+
+    /** 该流体对应的桶物品（本模组水无专属桶，回退原版水桶） */
+    public static Item bucketItemOf(FluidStackKey fluidKey) {
+        if (fluidKey == null) return Items.AIR;
+        Item bucket = fluidKey.getSource().getBucket();
+        if (bucket != Items.AIR) return bucket;
+        return isWaterFluid(fluidKey) ? Items.WATER_BUCKET : Items.AIR;
+    }
+
+    /** 水类流体（本模组 4 档水或原版水） */
+    public static boolean isWaterFluid(FluidStackKey fluidKey) {
+        if (fluidKey == null) return false;
+        Fluid fluid = fluidKey.getSource();
+        return com.solr98.beyondintegration.init.ModFluids.isOurWater(fluid) || fluid == Fluids.WATER;
+    }
+
+    /** 水类流体对应的纯度（本模组按档位 0~3，原版水按配置）；非水返回 -1 */
+    public static int waterPurity(FluidStackKey fluidKey) {
+        if (fluidKey == null) return -1;
+        Fluid fluid = fluidKey.getSource();
+        int purity = com.solr98.beyondintegration.init.ModFluids.purityOf(fluid);
+        if (purity >= 0) return purity;
+        if (fluid == Fluids.WATER) return com.solr98.beyondintegration.CommandConfig.feederThirstVanillaWaterPurity();
+        return -1;
+    }
+
+    /** 该物品是否为"水"药水瓶（可反向拆解为水 + 玻璃瓶） */
+    public static boolean isWaterBottle(ItemStack stack) {
+        return stack != null && stack.is(Items.POTION) && PotionUtils.getPotion(stack) == Potions.WATER;
+    }
+
+    /**
+     * 消耗网络流体生成"水"药水瓶（空瓶由调用方提供/扣除）。
+     *
+     * @return 产出的水瓶（流体不足时返回 EMPTY）
+     */
+    public static ItemStack fillWaterBottles(IStackHandler storage, FluidStackKey fluidKey, int count) {
+        if (storage == null || fluidKey == null || count <= 0) return ItemStack.EMPTY;
+        long fluidAvailable = storage.getStackByKey(fluidKey).amount() / MB_PER_BOTTLE;
+        long make = Math.min(fluidAvailable, count);
+        if (make <= 0L) return ItemStack.EMPTY;
+        long got = storage.extract(fluidKey, make * MB_PER_BOTTLE, false, false).amount();
+        long actual = got / MB_PER_BOTTLE;
+        long leftover = got - actual * MB_PER_BOTTLE;
+        if (leftover > 0L) storage.insert(fluidKey, leftover, false);
+        if (actual <= 0L) return ItemStack.EMPTY;
+        ItemStack out = new ItemStack(Items.POTION, (int) actual);
+        PotionUtils.setPotion(out, Potions.WATER);
+        return beyond$tagPurity(out, fluidKey);
     }
 
     /**
@@ -239,7 +301,7 @@ public final class BucketFluidHelper {
      */
     public static ItemStack fillBuckets(IStackHandler storage, FluidStackKey fluidKey, int count) {
         if (storage == null || fluidKey == null || count <= 0) return ItemStack.EMPTY;
-        Item bucket = fluidKey.getSource().getBucket();
+        Item bucket = bucketItemOf(fluidKey);
         if (bucket == Items.AIR) return ItemStack.EMPTY;
 
         ItemStackKey bucketKey = new ItemStackKey(new ItemStack(Items.BUCKET));
@@ -259,6 +321,6 @@ public final class BucketFluidHelper {
         if (leftoverFluid > 0L) storage.insert(fluidKey, leftoverFluid, false);
         if (actual <= 0L) return ItemStack.EMPTY;
 
-        return new ItemStack(bucket, (int) actual);
+        return beyond$tagPurity(new ItemStack(bucket, (int) actual), fluidKey);
     }
 }

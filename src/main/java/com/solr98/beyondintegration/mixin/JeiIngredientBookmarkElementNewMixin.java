@@ -36,7 +36,7 @@ public class JeiIngredientBookmarkElementNewMixin {
         if (cir.getReturnValue() != null) return;
         try {
             // 仅在打开 BD 终端时接管角标；未打开时保持 JEI 原行为
-            if (BeyondJeiNetworkHelper.currentNetMenu() == null) return;
+            if (!BeyondJeiNetworkHelper.isActive()) return;
             IElement<?> self = (IElement<?>) (Object) this;
             ItemStack stack = self.getTypedIngredient().getItemStack().orElse(ItemStack.EMPTY);
             if (stack.isEmpty()) return;

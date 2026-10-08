@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "beyonddimensions:net_hopper_block"
+    }
+  ],
+  "result": {
+    "item": "beyonddimensions:net_hopper_block"
+  }
+}

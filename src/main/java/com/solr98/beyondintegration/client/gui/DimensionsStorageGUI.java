@@ -31,7 +31,7 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
     protected int mouseX, mouseY;
 
     /** 工作站面板顶部 Y 坐标（位于存储网格与玩家背包之间的间隙处） */
-    protected int getGapY() { return this.topPos + 24 + 18 + (this.menu.getLines() - 2) * 18 + 26; }
+    protected int getGapY() { return this.topPos + 24 + 18 + (this.menu.getLines() - 2) * 18 + this.menu.bottomStripHeight(); }
     /** 工作站面板高度（默认 62px，合成界面覆盖为 72px） */
     protected int getPanelHeight() { return 62; }
     /** 子类渲染工作站面板内容（默认空实现） */
@@ -117,19 +117,20 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
         g.blit(TEX_TOP, this.leftPos, dy, 0,0,194,24,194,24); dy += 24;
         g.blit(TEX_TSL, this.leftPos, dy, 0,0,194,18,194,18); dy += 18;
         for (int i = 0; i < this.menu.getLines() - 2; i++) { g.blit(TEX_MSL, this.leftPos, dy, 0,0,194,18,194,18); dy += 18; }
-        g.blit(TEX_BSL, this.leftPos, dy, 0,0,194,26,194,26); dy += 26;
+        g.blit(TEX_BSL, this.leftPos, dy, 0,0,194,this.menu.bottomStripHeight(),194,this.menu.bottomStripHeight()); dy += this.menu.bottomStripHeight();
         renderWorkstationPanel(g);
         dy += getPanelHeight();
-        g.blit(TEX_CONN, this.leftPos, dy, 0,0,176,8,176,8); dy += 8;
+        int sep = this.menu.connectionSeparatorHeight();
+        if (sep > 0) { g.blit(TEX_CONN, this.leftPos, dy, 0,0,176,sep,176,sep); dy += sep; }
         g.blit(TEX_PINV, this.leftPos, dy, 0,0,176,89,176,89);
     }
 
     /** 计算界面总高度（含工作站面板高度，供重建图像尺寸用） */
-    @Override protected int rebuildImageHeight() { int ph = this.menu.getPanelHeight(); return 24+18+(this.menu.getLines()-2)*18+26+ph+8+89; }
+    @Override protected int rebuildImageHeight() { int ph = this.menu.getPanelHeight(); return 24+18+(this.menu.getLines()-2)*18+this.menu.bottomStripHeight()+ph+this.menu.connectionSeparatorHeight()+89; }
     /** 重排标题与背包标签的 Y 坐标（含工作站面板高度） */
-    @Override protected void rebuildLabelHeight() { int ph = this.menu.getPanelHeight(); this.titleLabelY = 8; this.inventoryLabelY = 24 + this.menu.getLines() * 18 + 5 + ph + 8; }
+    @Override protected void rebuildLabelHeight() { int ph = this.menu.getPanelHeight(); this.titleLabelY = 8; this.inventoryLabelY = 24 + this.menu.getLines() * 18 + 5 + ph + this.menu.connectionSeparatorHeight(); }
     /** 按当前屏幕可用高度计算存储网格最大行数（扣除工作站面板占位） */
-    @Override protected int calMaxLines() { int ph = this.menu.getPanelHeight(); return (int)((this.height - 36 - (24+18+26+ph+8+89)) / 18 + 2); }
+    @Override protected int calMaxLines() { int ph = this.menu.getPanelHeight(); return (int)((this.height - 36 - (24+18+this.menu.bottomStripHeight()+ph+this.menu.connectionSeparatorHeight()+89)) / 18 + 2); }
     /** 关闭界面时清除工作站切换上下文标记 */
     @Override public void onClose() { WorkstationTransferHelper.clearPending(); super.onClose(); }
 }

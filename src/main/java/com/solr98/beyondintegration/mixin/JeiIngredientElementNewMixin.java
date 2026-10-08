@@ -40,7 +40,7 @@ public class JeiIngredientElementNewMixin {
         if (cir.getReturnValue() != null) return;
         try {
             // 仅在打开 BD 终端时接管角标；未打开时保持 JEI 原行为
-            if (BeyondJeiNetworkHelper.currentNetMenu() == null) return;
+            if (!BeyondJeiNetworkHelper.isActive()) return;
             ItemStack stack = ingredient.getItemStack().orElse(ItemStack.EMPTY);
             if (stack.isEmpty()) return;
             cir.setReturnValue(new NetworkCountOverlay(stack.copyWithCount(1)));

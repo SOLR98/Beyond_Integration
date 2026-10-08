@@ -118,7 +118,11 @@ public class DimensionsStorageMenu extends DimensionsNetMenu {
     // 面板高度：决定存储槽行数与背包偏移（子类重写）
     public int getPanelHeight() { return 62; }
     // 工作台槽位 Y 坐标：面板顶部偏移 + 存储行数自适应
-    public int ey(int baseY) { return 68 + (getLines() - 2) * 18 + baseY + 1; }
+    public int ey(int baseY) { return 24 + 18 + bottomStripHeight() + (getLines() - 2) * 18 + baseY + 1; }
+    /** 工作站面板上方“底栏”条带高度（与界面 TEX_BSL 一致；子类可覆写）。 */
+    public int bottomStripHeight() { return 26; }
+    /** 面板与玩家物品栏之间的连接分隔条高度（与界面一致；子类可覆写为 0）。 */
+    public int connectionSeparatorHeight() { return 8; }
 
     // 恢复原版 shift+点击：原版 clicked(QUICK_MOVE) → quickMoveStack + while 循环已驱动连续合成；
     // 默认拦截 BD 的 CallSeverClickPacket → customClickHandler → quickMoveHandle（避免双通道重复处理），
@@ -138,9 +142,9 @@ public class DimensionsStorageMenu extends DimensionsNetMenu {
         int ph = getPanelHeight();
         inventoryStartIndex = slots.size();
         for (int r = 0; r < 3; ++r) for (int c = 0; c < 9; ++c)
-            addSlot(new Slot(inv, c + r * 9 + 9, 8 + c * 18, 25 + ph + (getLines() - 1) * 18 + 26 + 6 + 8 + r * 18));
+            addSlot(new Slot(inv, c + r * 9 + 9, 8 + c * 18, 25 + ph + (getLines() - 1) * 18 + bottomStripHeight() + 6 + connectionSeparatorHeight() + r * 18));
         for (int c = 0; c < 9; ++c)
-            addSlot(new Slot(inv, c, 8 + c * 18, 25 + ph + (getLines() - 1) * 18 + 26 + 6 + 8 + 3 * 18 + 4));
+            addSlot(new Slot(inv, c, 8 + c * 18, 25 + ph + (getLines() - 1) * 18 + bottomStripHeight() + 6 + connectionSeparatorHeight() + 3 * 18 + 4));
         inventoryEndIndex = slots.size();
     }
 
@@ -154,7 +158,7 @@ public class DimensionsStorageMenu extends DimensionsNetMenu {
         int i = inventoryStartIndex; n = 0;
         while (i < inventoryEndIndex) {
             Slot s = slots.get(i);
-            setSlotY(s, 25 + ph + (getLines() - 1) * 18 + 26 + 6 + 8 + (n / 9 < 3 ? n / 9 * 18 : 3 * 18 + 4));
+            setSlotY(s, 25 + ph + (getLines() - 1) * 18 + bottomStripHeight() + 6 + connectionSeparatorHeight() + (n / 9 < 3 ? n / 9 * 18 : 3 * 18 + 4));
             i++; n++;
         }
     }

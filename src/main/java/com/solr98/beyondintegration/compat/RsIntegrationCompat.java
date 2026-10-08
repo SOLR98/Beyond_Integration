@@ -24,6 +24,10 @@ public final class RsIntegrationCompat {
     /** 已由本模组接管的 RI 按钮：位置由 BD 侧栏布局决定，屏蔽 RI 的坐标覆盖 */
     private static final java.util.Set<Button> MANAGED = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
+    /** 本模组打开 RI 界面时记录的来源 BD 界面，RI 界面关闭后返回（见 RsIntegrationAutoEatReturnMixin） */
+    private static final java.util.concurrent.atomic.AtomicReference<Screen> RETURN_SCREEN =
+            new java.util.concurrent.atomic.AtomicReference<>();
+
     private RsIntegrationCompat() {}
 
     /** 登记由本模组接管的按钮 */
@@ -75,8 +79,16 @@ public final class RsIntegrationCompat {
             Object screen = Class.forName("com.huanghuang.rsintegration.autoeat.client.AutoEatScreen")
                     .getConstructor(modeCls)
                     .newInstance(mode);
-            net.minecraft.client.Minecraft.getInstance().setScreen((net.minecraft.client.gui.screens.Screen) screen);
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            // 记录来源 BD 界面：RI 选择界面关闭后返回，而非回游戏
+            RETURN_SCREEN.set(mc.screen);
+            mc.setScreen((net.minecraft.client.gui.screens.Screen) screen);
         } catch (Throwable ignored) {}
+    }
+
+    /** RI 选择界面关闭时取出并清除返回目标（非本模组打开时为 null） */
+    public static Screen takeReturnScreen() {
+        return RETURN_SCREEN.getAndSet(null);
     }
 
     /** 反射循环切换 RI 自动进食模式（等同其 MODE 按钮） */

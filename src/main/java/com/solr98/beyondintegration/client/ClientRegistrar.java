@@ -35,6 +35,12 @@ public class ClientRegistrar {
     public static void register() {
         // JEI 点击取物（公开 API + 高优先级事件拦截，替代 FocusInputHandler Mixin）
         JeiExtractInputHandler.register();
+        // BD 终端快捷操作（Shift/Space + 点击：提取/批量转移/批量合成/网格清理；EMI 联动，EmiLink 让路）
+        EmiBdShortcuts.register();
+        // 快捷栏上方“复制配置”提示（瞄准网络方块且手持其物品时）
+        FMLJavaModLoadingContext.get().getModEventBus().addListener((net.minecraftforge.client.event.RegisterGuiOverlaysEvent e) ->
+                e.registerAbove(net.minecraftforge.client.gui.overlay.VanillaGuiOverlay.HOTBAR.id(),
+                        "beyond_net_hint", new NetHintOverlay()));
         ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,()->new ConfigScreenHandler.ConfigScreenFactory((mc,parent)->{if(ModList.get().isLoaded("cloth_config")){try{return ModConfigScreen.createScreen(parent);}catch(NoClassDefFoundError e){}}return parent;}));
         FMLJavaModLoadingContext.get().getModEventBus().addListener((FMLClientSetupEvent e)->{e.enqueueWork(()->{
             MenuScreens.<DimensionsStorageMenu,DimensionsStorageGUI<DimensionsStorageMenu>>register(ModMenus.STORAGE.get(),(a,b,c)->new DimensionsStorageGUI<>(a,b,c));
@@ -45,6 +51,8 @@ public class ClientRegistrar {
             MenuScreens.register(ModMenus.CRAFT.get(),DimensionsCraftGUI::new);
         MenuScreens.register(ModMenus.ENCHANT.get(),DimensionsEnchantGUI::new);
         MenuScreens.register(ModMenus.ENCHANT_MERGE.get(),DimensionsEnchantMergeGUI::new);
+        MenuScreens.register(ModMenus.NET_PATHWAY_FILTER.get(), com.solr98.beyondintegration.client.gui.NetPathwayFilterGUI::new);
+        MenuScreens.register(ModMenus.MAGNET.get(), com.solr98.beyondintegration.client.gui.MagnetGUI::new);
         });});
         FMLJavaModLoadingContext.get().getModEventBus().addListener((RegisterKeyMappingsEvent e)->{
             e.register(BDKeyBindings.OPEN_CRAFT);
@@ -66,16 +74,20 @@ public class ClientRegistrar {
             if (ev.getLevel().isClientSide() && ev.getEntity() == net.minecraft.client.Minecraft.getInstance().player) {
                 SuperbAmmoCache.clear();
                 NetworkItemCache.clear();
-                FtbTaskNetworkCountCache.clear();
                 WorkstationActivationCache.reset();
             }
         });
+        // 主网络镜像：仅在“登录/退出”时清空（换维度/重生不清，避免服务端不重发导致缓存空掉）
+        MinecraftForge.EVENT_BUS.addListener(
+            (net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingIn ev) ->
+                PrimaryNetClientStorage.clear()
+        );
         MinecraftForge.EVENT_BUS.addListener(
             (net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut ev) -> {
                 SuperbAmmoCache.clear();
                 NetworkItemCache.clear();
-                FtbTaskNetworkCountCache.clear();
                 WorkstationActivationCache.reset();
+                PrimaryNetClientStorage.clear();
             }
         );
         if(ModList.get().isLoaded("tacz")){

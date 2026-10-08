@@ -1,6 +1,8 @@
 package com.solr98.beyondintegration.init;
 
 import com.solr98.beyondintegration.BeyondIntegration;
+import com.solr98.beyondintegration.common.menu.MagnetMenu;
+import com.solr98.beyondintegration.common.menu.NetPathwayFilterMenu;
 import com.solr98.beyondintegration.feature.crafting.*;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
@@ -32,6 +34,10 @@ public class ModMenus {
     public static final RegistryObject<MenuType<DimensionsEnchantMenu>> ENCHANT = MENU_TYPES.register("enchant",()->IForgeMenuType.create(DimensionsEnchantMenu::new));
     // 批量附魔工作站菜单（单附魔书合并到装备）
     public static final RegistryObject<MenuType<DimensionsEnchantMergeMenu>> ENCHANT_MERGE = MENU_TYPES.register("enchant_merge",()->IForgeMenuType.create(DimensionsEnchantMergeMenu::new));
+    // 维度网络通道过滤菜单
+    public static final RegistryObject<MenuType<NetPathwayFilterMenu>> NET_PATHWAY_FILTER = MENU_TYPES.register("net_pathway_filter",()->IForgeMenuType.create(NetPathwayFilterMenu::new));
+    // 网络磁铁菜单（BI 复制 BD 磁铁界面，用于后续自定义）
+    public static final RegistryObject<MenuType<MagnetMenu>> MAGNET = MENU_TYPES.register("magnet",()->IForgeMenuType.create(MagnetMenu::new));
     // 注册到事件总线
     public static void register(IEventBus b){MENU_TYPES.register(b);}
 }

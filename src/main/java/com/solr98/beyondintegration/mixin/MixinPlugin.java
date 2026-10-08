@@ -28,6 +28,14 @@ public class MixinPlugin implements IMixinConfigPlugin {
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         var modList = ModList.get();
         if (modList == null) return true;
+        // EmiLink 与本模组争夺同一批 EMI / BD-EMI 交互钩子（网络槽提取、Space 批量转移、
+        // 结果槽批量合成、合成网格清理）。检测到 EmiLink 时本模组对所有 EMI 目标类一律不注入，
+        // 由 EmiLink 独占，避免同一处点击被两个模组重复处理。
+        // 常量在编译期内联，此处不会触发 EmiBdCompat 的类加载。
+        if (targetClassName.startsWith("dev.emi.emi.")
+                || targetClassName.startsWith("com.wintercogs.beyonddimensions.integration.module.emi.")) {
+            return !modList.isLoaded(com.solr98.beyondintegration.compat.EmiBdCompat.CONFLICT_MOD_ID);
+        }
         if (targetClassName.startsWith("euphy.upo.sentrymechanicalarm.")) {
             return modList.isLoaded("sentrymechanicalarm");
         }
@@ -58,10 +66,9 @@ public class MixinPlugin implements IMixinConfigPlugin {
             }
             return true;
         }
-        if (targetClassName.startsWith("dev.ftb.mods.ftbquests.")) {
-            // FTB Quests 集成（网络物品计入任务/消耗型补足/奖励进网络）：仅 FTB Quests 加载时应用；
-            // 检测到 rs_integration（RI）时让路禁用，避免与其同类功能冲突
-            return modList.isLoaded("ftbquests") && !modList.isLoaded("rs_integration");
+        if (mixinClassName.contains("FeederThirst")) {
+            // 网络喂食器口渴补水集成：Thirst 或 Legendary Survival Overhaul 任一加载时应用
+            return modList.isLoaded("thirst") || modList.isLoaded("legendarysurvivaloverhaul");
         }
         return true;
     }

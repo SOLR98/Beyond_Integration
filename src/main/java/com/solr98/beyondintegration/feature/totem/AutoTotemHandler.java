@@ -29,7 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 自动图腾处理器（Forge 事件订阅）：玩家死亡时自动从网络存储（仅网络）抽取图腾救援。
+ * 网络图腾处理器（Forge 事件订阅）：玩家死亡时自动从网络存储（仅网络）抽取不死图腾。
  * 支持启用开关、冷却时间与伤害黑名单（空列表 = 所有伤害类型均可触发）。
  * 触发后可选恢复被降低的最大生命值上限（restore_max_health）、回满血（heal_to_full），
  * 并施加原版图腾效果。
@@ -64,11 +64,12 @@ public class AutoTotemHandler {
         lastUse.put(player.getUUID(), now);
         event.setCanceled(true);
 
-        // 消耗提示：本次消耗数量 + 网络剩余
+        // 消耗提示：本次消耗数量 + 网络剩余（HUD 快捷栏上方）
         long remain = net.getUnifiedStorage().getStackByKey(
                 new ItemStackKey(new ItemStack(Items.TOTEM_OF_UNDYING))).amount();
-        player.displayClientMessage(Component.translatable(
-                "message.beyond_integration.totem.consumed", got.amount(), remain), false);
+        com.solr98.beyondintegration.network.PacketHandler.sendToPlayer(player,
+                new com.solr98.beyondintegration.network.HudHintPacket(
+                        "message.beyond_integration.totem.consumed", got.amount(), remain));
 
         // 对齐原版 checkTotemDeathProtection
         player.awardStat(Stats.ITEM_USED.get(Items.TOTEM_OF_UNDYING));
@@ -89,6 +90,8 @@ public class AutoTotemHandler {
         player.invulnerableTime = 20;
         // 客户端实体事件 35：图腾粒子 + TOTEM_USE 音效 + 图腾弹出动画
         player.level().broadcastEntityEvent(player, (byte) 35);
+        // 图腾爆发：对周围非友方实体造成范围伤害（可配置，默认关闭）
+        TotemBurst.trigger(player);
     }
 
     // 登出时清理冷却记录，避免内存残留

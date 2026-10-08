@@ -56,7 +56,7 @@ public final class ConfigCommentLang {
 
     /** COMMON 配置文件的语言判断样本路径（单行注释，覆盖多个分区）。 */
     private static final String[] COMMON_SAMPLES = {
-            "language", "network_list", "vehicle", "blacklist", "craft", "anvil", "auto_totem", "revive"
+            "language", "network_list", "vehicle", "blacklist", "craft", "anvil", "auto_totem", "totem_burst", "revive", "feeder_thirst"
     };
 
     /** CLIENT 配置文件的语言判断样本路径（单行注释）。 */
