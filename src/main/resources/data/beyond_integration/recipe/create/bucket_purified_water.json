@@ -1,0 +1,30 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    },
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "thirst"
+    }
+  ],
+  "type": "create:filling",
+  "ingredients": [
+    {
+      "item": "minecraft:bucket"
+    },
+    {
+      "amount": 1000,
+      "fluid": "beyond_integration:purified_water"
+    }
+  ],
+  "results": [
+    {
+      "id": "minecraft:water_bucket",
+      "components": {
+        "thirst:purity": 3
+      }
+    }
+  ]
+}

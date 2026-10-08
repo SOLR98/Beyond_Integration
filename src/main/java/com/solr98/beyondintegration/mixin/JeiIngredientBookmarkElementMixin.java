@@ -3,19 +3,31 @@ package com.solr98.beyondintegration.mixin;
 import com.solr98.beyondintegration.jei.BeyondJeiNetworkHelper;
 import com.solr98.beyondintegration.jei.NetworkCountOverlay;
 import mezz.jei.api.gui.drawable.IDrawable;
+import mezz.jei.api.ingredients.IIngredientHelper;
+import mezz.jei.api.ingredients.IIngredientRenderer;
+import mezz.jei.common.gui.JeiTooltip;
 import mezz.jei.gui.overlay.elements.IElement;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Coerce;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * JEI 收藏栏物品扩展（{@code mezz.jei.gui.overlay.elements.IngredientBookmarkElement}）：
- * createRenderOverlay：打开 BD 终端时，为左侧收藏物品叠加网络库存数量角标。
+ * <ol>
+ *   <li>createRenderOverlay：打开 BD 终端时，为左侧收藏物品叠加网络库存数量角标；</li>
+ *   <li>getTooltip：悬停时追加库存数量与取物品操作提示（Shift+左键取一组 / Shift+右键取 1 个）。</li>
+ * </ol>
  * <p>
- * 说明：与物品列表条目一致，不注入 getTooltip（避免 JEI 版本间内部类路径差异导致 Mixin 应用失败）。
+ * 跨 JEI 版本兼容：{@code IngredientGridTooltipHelper} 在旧版位于 {@code mezz.jei.gui.overlay}、
+ * 新版移入 {@code mezz.jei.gui.overlay.ingredients}。这里用 Mixin 的 {@link Coerce} 把该参数
+ * 声明为 {@code Object}（超类型），一个 Mixin 即可同时匹配新旧布局，避免引用不存在的 helper 类。
  * JEI 未安装时（@Pseudo）自动跳过；JEI 内部类结构变化时 require=0 静默失效。
  */
 @Pseudo
@@ -28,11 +40,30 @@ public class JeiIngredientBookmarkElementMixin {
         if (cir.getReturnValue() != null) return;
         try {
             // 仅在打开 BD 终端时接管角标；未打开时保持 JEI 原行为
-            if (BeyondJeiNetworkHelper.currentNetMenu() == null) return;
+            if (!BeyondJeiNetworkHelper.isActive()) return;
             IElement<?> self = (IElement<?>) (Object) this;
             ItemStack stack = self.getTypedIngredient().getItemStack().orElse(ItemStack.EMPTY);
             if (stack.isEmpty()) return;
             cir.setReturnValue(new NetworkCountOverlay(stack.copyWithCount(1)));
+        } catch (Throwable ignored) {}
+    }
+
+    /** tooltip：网络有库存时追加数量与取物品操作提示 */
+    @Inject(method = "getTooltip", at = @At("RETURN"), remap = false, require = 0)
+    private void beyond$networkTooltip(JeiTooltip tooltip, @Coerce Object tooltipHelper,
+                                       IIngredientRenderer<?> ingredientRenderer, IIngredientHelper<?> ingredientHelper,
+                                       CallbackInfo ci) {
+        try {
+            IElement<?> self = (IElement<?>) (Object) this;
+            ItemStack stack = self.getTypedIngredient().getItemStack().orElse(ItemStack.EMPTY);
+            if (stack.isEmpty()) return;
+            long count = BeyondJeiNetworkHelper.getNetworkCount(stack);
+            if (count <= 0) return;
+            tooltip.add(Component.translatable("jei.beyond_integration.network_count",
+                    Component.literal(String.valueOf(count)).withStyle(ChatFormatting.GOLD))
+                    .withStyle(ChatFormatting.GRAY));
+            tooltip.add(Component.translatable("jei.beyond_integration.pull_hint")
+                    .withStyle(ChatFormatting.DARK_GRAY));
         } catch (Throwable ignored) {}
     }
 }

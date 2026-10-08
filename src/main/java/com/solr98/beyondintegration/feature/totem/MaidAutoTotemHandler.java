@@ -88,6 +88,8 @@ public class MaidAutoTotemHandler {
         maid.invulnerableTime = 20;
         // 客户端实体事件 35：图腾粒子 + TOTEM_USE 音效 + 图腾弹出动画
         maid.level().broadcastEntityEvent(maid, (byte) 35);
+        // 图腾爆发：对周围非友方实体造成范围伤害（可配置，默认关闭）
+        TotemBurst.trigger(maid);
     }
 
     /** 女仆实体移除/卸载时清理冷却记录（防止内存残留） */

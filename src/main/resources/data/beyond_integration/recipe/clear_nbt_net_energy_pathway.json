@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "beyonddimensions:net_energy_pathway"
+    }
+  ],
+  "result": {
+    "id": "beyonddimensions:net_energy_pathway",
+    "count": 1
+  }
+}

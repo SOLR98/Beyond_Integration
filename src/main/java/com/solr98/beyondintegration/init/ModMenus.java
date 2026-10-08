@@ -1,6 +1,8 @@
 package com.solr98.beyondintegration.init;
 
 import com.solr98.beyondintegration.BeyondIntegration;
+import com.solr98.beyondintegration.common.menu.MagnetMenu;
+import com.solr98.beyondintegration.common.menu.NetPathwayFilterMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
@@ -35,4 +37,8 @@ public class ModMenus {
             () -> IMenuTypeExtension.create(DimensionsEnchantMergeMenu::new));
     public static final Supplier<MenuType<DimensionsApothEnchantMenu>> ENCHANT_APOTH = MENUS.register("enchant_apoth",
             () -> IMenuTypeExtension.create(DimensionsApothEnchantMenu::new));
+    public static final Supplier<MenuType<NetPathwayFilterMenu>> NET_PATHWAY_FILTER = MENUS.register("net_pathway_filter",
+            () -> IMenuTypeExtension.create(NetPathwayFilterMenu::new));
+    public static final Supplier<MenuType<MagnetMenu>> MAGNET = MENUS.register("magnet",
+            () -> IMenuTypeExtension.create(MagnetMenu::new));
 }

@@ -42,6 +42,9 @@ public class BeyondIntegration {
         // 配方序列化器（熔炉烧终端：terminal_smelt）
         com.solr98.beyondintegration.init.ModRecipes.register(modEventBus);
 
+        // 净化水系列流体（脏水/微脏水/可接受水/纯净水）
+        com.solr98.beyondintegration.init.ModFluids.register(modEventBus);
+
         NeoForge.EVENT_BUS.addListener(RegisterCommandsEvent.class, this::onRegisterCommands);
         NeoForge.EVENT_BUS.register(this);
 
@@ -80,6 +83,7 @@ public class BeyondIntegration {
 
         // 注册自动使用图腾处理器（仅从维度网络取用图腾）
         NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.AutoTotemHandler());
+        NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.TotemBurstTicker());
         LOGGER.info("Registered AutoTotemHandler");
 
         // setHealth 复活实现（事件版 + Mixin 版）：配置关闭时不注册处理器（类不加载，零事件开销）
@@ -156,39 +160,6 @@ public class BeyondIntegration {
             // 加载 TaCZ 事件类型（未装 TaCZ 时 NoClassDefFoundError，见 TaczEventHandler 类注释）
             com.solr98.beyondintegration.handler.TaczEventHandler.registerEvents();
             LOGGER.info("Registered TACZ handlers");
-        }
-
-        // 若已加载 ftbquests 模组：登出清理领取标记；网络销毁/停服清理检测缓存；注册自动检测服务
-        if (ModList.get().isLoaded("ftbquests")) {
-            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent.class,
-                    e -> com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.requestSync());
-            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,
-                    e -> {
-                        if (e.getEntity() != null) {
-                            com.solr98.beyondintegration.feature.ftb.FtbIntegrationHelper
-                                    .clearCache(e.getEntity().getUUID());
-                            com.solr98.beyondintegration.feature.ftb.FtbTooltipPushService
-                                    .onPlayerLoggedOut(e.getEntity().getUUID());
-                        }
-                        com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.requestSync();
-                    });
-            NeoForge.EVENT_BUS.addListener(com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed.class,
-                    e -> {
-                        com.solr98.beyondintegration.feature.ftb.FtbIntegrationHelper.clearNetCache(e.getDestroyedId());
-                        com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.onNetDestroyed(e.getDestroyedId());
-                    });
-            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
-                    e -> {
-                        com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.tick(e.getServer());
-                        com.solr98.beyondintegration.feature.ftb.FtbTooltipPushService.tick(e.getServer());
-                    });
-            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppingEvent.class,
-                    e -> {
-                        com.solr98.beyondintegration.feature.ftb.FtbIntegrationHelper.clearAllCaches();
-                        com.solr98.beyondintegration.feature.ftb.FtbAutoDetectService.clear();
-                        com.solr98.beyondintegration.feature.ftb.FtbTooltipPushService.clear();
-                    });
-            LOGGER.info("Registered FtbIntegration cache cleanup");
         }
 
         // 统一订阅中心全局清理：网络销毁 / 服务器停止时批量退订全部 BD 订阅

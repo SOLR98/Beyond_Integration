@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "beyonddimensions:net_pathway"
+    }
+  ],
+  "result": {
+    "id": "beyonddimensions:net_pathway",
+    "count": 1
+  }
+}

@@ -49,9 +49,9 @@ public class ClientEventHandler {
         JeiExtractInputHandler.register();
         // 工作台状态缓存：进服/登出时重置（服务端启用列表与激活状态由同步包重新下发）
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn.class,
-                e -> WorkstationActivationCache.reset());
+                e -> { WorkstationActivationCache.reset(); PrimaryNetClientStorage.clear(); });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class,
-                e -> WorkstationActivationCache.reset());
+                e -> { WorkstationActivationCache.reset(); PrimaryNetClientStorage.clear(); });
         // 悬停可存入网络的槽位左上角 "+" 角标（客户端渲染）
         NeoForge.EVENT_BUS.addListener(HoverStoreOverlay::onScreenRender);
         EmiBdShortcuts.register();
@@ -71,9 +71,14 @@ public class ClientEventHandler {
     }
 
     @SubscribeEvent
+    /** 注册 HUD 叠加层：快捷栏上方“复制配置”提示 */
+    public static void onRegisterGuiLayers(net.neoforged.neoforge.client.event.RegisterGuiLayersEvent event) {
+        event.registerAboveAll(net.minecraft.resources.ResourceLocation.tryBuild(BeyondIntegration.MODID, "net_hint"), new NetHintOverlay());
+    }
+
+    @SubscribeEvent
     /** 注册各工作站的菜单界面（附魔台分原版/神化两个 GUI） */
-    public static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
-        event.register(ModMenus.ANVIL.get(), DimensionsAnvilGUI::new);
+    public static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {        event.register(ModMenus.ANVIL.get(), DimensionsAnvilGUI::new);
         event.register(ModMenus.CUT.get(), DimensionsCutGUI::new);
         event.register(ModMenus.GRIND.get(), DimensionsGrindGUI::new);
         event.register(ModMenus.SMITH.get(), DimensionsSmithGUI::new);
@@ -81,6 +86,8 @@ public class ClientEventHandler {
         event.register(ModMenus.ENCHANT.get(), DimensionsEnchantGUI::new);
         event.register(ModMenus.ENCHANT_APOTH.get(), DimensionsEnchantApothGUI::new);
         event.register(ModMenus.ENCHANT_MERGE.get(), DimensionsEnchantMergeGUI::new);
+        event.register(ModMenus.NET_PATHWAY_FILTER.get(), com.solr98.beyondintegration.client.gui.NetPathwayFilterGUI::new);
+        event.register(ModMenus.MAGNET.get(), com.solr98.beyondintegration.client.gui.MagnetGUI::new);
     }
 
     @SubscribeEvent

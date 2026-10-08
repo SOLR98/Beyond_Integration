@@ -32,13 +32,16 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
     protected int mouseX, mouseY; // 当前鼠标坐标（渲染期间记录）
 
     /** 工作站面板的起始 Y（相对 topPos） */
-    protected int getGapY() { return this.topPos + 24 + 18 + (this.menu.getLines() - 2) * 18 + 26; }
+    protected int getGapY() { return this.topPos + 24 + 18 + (this.menu.getLines() - 2) * 18 + this.menu.bottomStripHeight(); }
     protected int getPanelHeight() { return 62; } // 工作站面板高度（子类可覆盖）
     protected void renderWorkstationPanel(GuiGraphics g) {} // 工作站面板渲染钩子（默认空实现）
 
     @Override protected void init() {
         super.init();
         addWorkstationActionButtons();
+        // 网络存储视图重同步：BD 首次全量同步若早于客户端菜单就绪到达会被丢弃且不重发（基线已推进），
+        // 在界面初始化后主动请求一次全量重发，避免工作站网络存储内容为空。
+        PacketHandler.sendToServer(new com.solr98.beyondintegration.network.payload.RequestWorkstationResyncPayload());
         // 打开工作站界面音效（对齐原版方块打开行为：铁砧=ANVIL_USE，切石/磨石=STONECUTTER；存储界面无）
         var soundManager = net.minecraft.client.Minecraft.getInstance().getSoundManager();
         if (this instanceof DimensionsAnvilGUI) {
@@ -47,6 +50,22 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
             soundManager.play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_STONECUTTER_SELECT_RECIPE, 1.0F));
         } else if (this instanceof DimensionsCraftGUI || this instanceof DimensionsSmithGUI) {
             soundManager.play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+        }
+    }
+
+    // 存储视图重同步重试：首次请求若仍早于服务端菜单就绪，则在视图为空时按节流最多重试 5 次
+    private int beyond$resyncTries = 0;
+    private int beyond$resyncCooldown = 20;
+
+    @Override public void containerTick() {
+        super.containerTick();
+        if (this.menu != null && this.menu.clientNetStorage != null
+                && this.menu.clientNetStorage.getStorage().isEmpty() && this.beyond$resyncTries < 5) {
+            if (--this.beyond$resyncCooldown <= 0) {
+                this.beyond$resyncTries++;
+                this.beyond$resyncCooldown = 20;
+                PacketHandler.sendToServer(new com.solr98.beyondintegration.network.payload.RequestWorkstationResyncPayload());
+            }
         }
     }
 
@@ -114,17 +133,20 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
         g.blit(TEX_TOP, this.leftPos, dy, 0, 0, 194, 24, 194, 24); dy += 24;
         g.blit(TEX_TSL, this.leftPos, dy, 0, 0, 194, 18, 194, 18); dy += 18;
         for (int i = 0; i < this.menu.getLines() - 2; i++) { g.blit(TEX_MSL, this.leftPos, dy, 0, 0, 194, 18, 194, 18); dy += 18; }
-        g.blit(TEX_BSL, this.leftPos, dy, 0, 0, 194, 26, 194, 26); dy += 26;
+        g.blit(TEX_BSL, this.leftPos, dy, 0, 0, 194, this.menu.bottomStripHeight(), 194, this.menu.bottomStripHeight()); dy += this.menu.bottomStripHeight();
         renderWorkstationPanel(g);
         dy += getPanelHeight();
-        g.blit(CommonTextures.COMMON_CONNECTION, this.leftPos, dy, 0, 0, 176, 8, 176, 8);
-        dy += 8;
+        int sep = this.menu.connectionSeparatorHeight();
+        if (sep > 0) {
+            g.blit(CommonTextures.COMMON_CONNECTION, this.leftPos, dy, 0, 0, 176, sep, 176, sep);
+            dy += sep;
+        }
         g.blit(TEX_PINV, this.leftPos, dy, 0, 0, 176, 89, 176, 89);
     }
 
-    @Override protected int rebuildImageHeight() { int ph = this.menu.getPanelHeight(); return 24 + 18 + (this.menu.getLines() - 2) * 18 + 26 + ph + 8 + 89; } // 按面板高度计算界面总高
-    @Override protected void rebuildLabelHeight() { int ph = this.menu.getPanelHeight(); this.titleLabelY = 8; this.inventoryLabelY = 24 + this.menu.getLines() * 18 + 5 + ph + 8; } // 重新计算标题/物品栏标签 Y
-    @Override protected int calMaxLines() { int ph = this.menu.getPanelHeight(); return (int)((this.height - 36 - (24 + 18 + 26 + ph + 8 + 89)) / 18 + 2); } // 计算可用行数上限
+    @Override protected int rebuildImageHeight() { int ph = this.menu.getPanelHeight(); return 24 + 18 + (this.menu.getLines() - 2) * 18 + this.menu.bottomStripHeight() + ph + this.menu.connectionSeparatorHeight() + 89; } // 按面板高度计算界面总高
+    @Override protected void rebuildLabelHeight() { int ph = this.menu.getPanelHeight(); this.titleLabelY = 8; this.inventoryLabelY = 24 + this.menu.getLines() * 18 + 5 + ph + this.menu.connectionSeparatorHeight(); } // 重新计算标题/物品栏标签 Y
+    @Override protected int calMaxLines() { int ph = this.menu.getPanelHeight(); return (int)((this.height - 36 - (24 + 18 + this.menu.bottomStripHeight() + ph + this.menu.connectionSeparatorHeight() + 89)) / 18 + 2); } // 计算可用行数上限
     @Override public void onClose() { WorkstationTransferHelper.clearPending(); super.onClose(); } // 关闭时清除切换标记
 }
 

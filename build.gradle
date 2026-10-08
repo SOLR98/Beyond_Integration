@@ -144,10 +144,9 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 
 dependencies {
-    // Optional client-side EMI API/runtime for BD terminal shortcuts.
-    compileOnly "dev.emi:emi-neoforge:${emi_version}:api"
-    compileOnly "dev.emi:emi-neoforge:${emi_version}"
-    runtimeOnly "dev.emi:emi-neoforge:${emi_version}"
+    // Optional client-side EMI API/runtime for BD terminal shortcuts.（本地 jar 引入，替代 maven）
+    implementation files("libs/emi-1.1.24+1.21.1+neoforge.jar")
+
     // Example mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
@@ -195,8 +194,8 @@ dependencies {
     implementation "curse.maven:apothic-attributes-898963:8502288"
     implementation "curse.maven:apothic-spawners-986583:8469405"
     implementation "curse.maven:apotheosis-313970:8564919"
-    implementation "curse.maven:ftb-library-forge-404465:8858846"
-    implementation "curse.maven:ftb-quests-forge-289412:8885017"
+    implementation "curse.maven:thirst-was-reclaimed-884742:8893710"
+    implementation "curse.maven:legendary-survival-overhaul-840254:8597620"
     
 }
 

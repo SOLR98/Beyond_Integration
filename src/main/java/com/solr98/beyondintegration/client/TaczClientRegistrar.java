@@ -30,13 +30,11 @@ public class TaczClientRegistrar {
             TaczAmmoCache.clear();
             SuperbAmmoCache.INSTANCE.clear();
             NetworkItemCache.clear();
-            FtbTaskNetworkCountCache.clear();
         });
         NeoForge.EVENT_BUS.addListener(ClientPlayerNetworkEvent.LoggingOut.class, e -> {
             TaczAmmoCache.clear();
             SuperbAmmoCache.INSTANCE.clear();
             NetworkItemCache.clear();
-            FtbTaskNetworkCountCache.clear();
         });
     }
 }

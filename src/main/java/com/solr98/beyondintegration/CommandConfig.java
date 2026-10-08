@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * 模组服务端配置文件定义：集中管理所有 COMMON 类型配置项，
- * 涵盖命令语言、附魔分离、载具充电、物品黑名单、铁砧工作站、自动图腾与弹药轮询等。
+ * 涵盖命令语言、附魔分离、载具充电、物品黑名单、铁砧工作站、网络图腾与弹药轮询等。
  */
 public class CommandConfig {
     /** 构建完成的配置规格对象，供 NeoForge 注册使用。 */
@@ -107,16 +107,6 @@ public class CommandConfig {
         public final ModConfigSpec.BooleanValue WORKSTATION_ACTIVATION_ENABLED;
         public final ModConfigSpec.ConfigValue<List<? extends String>> WORKSTATION_ACTIVATION_COSTS;
 
-        // FTB Quests 集成（可选；检测到 rs_integration 时让路禁用）
-        public final ModConfigSpec.BooleanValue FTB_INTEGRATION_ENABLED;
-        public final ModConfigSpec.IntValue FTB_DETECT_CACHE_TICKS;
-        public final ModConfigSpec.IntValue FTB_DETECT_MAX_ITEM_TYPES;
-        public final ModConfigSpec.BooleanValue FTB_AUTO_DETECT_ENABLED;
-        public final ModConfigSpec.IntValue FTB_AUTO_DETECT_THROTTLE_TICKS;
-        public final ModConfigSpec.IntValue FTB_AUTO_DETECT_MAX_PER_TICK;
-        public final ModConfigSpec.IntValue FTB_TOOLTIP_PUSH_THROTTLE_TICKS;
-        public final ModConfigSpec.BooleanValue FTB_SIMPLIFY_REWARD_NOTIFY;
-
         // TACZ ammo polling
         public final ModConfigSpec.BooleanValue TACZ_AMMO_POLL_ENABLED;
         public final ModConfigSpec.IntValue TACZ_AMMO_POLL_INTERVAL_TICKS;
@@ -171,8 +161,16 @@ public class CommandConfig {
         public final ModConfigSpec.BooleanValue enchantMergeEnable;
         public final ModConfigSpec.BooleanValue enchantMergeConsumeBook;
         public final ModConfigSpec.IntValue enchantMergeSplitXpCost;
+        // 附魔合并新行为：冲突判定 / 视为拥有全部附魔 / 返还书 / 费用调整
+        public final ModConfigSpec.BooleanValue enchantMergeCheckConflict;
+        public final ModConfigSpec.BooleanValue enchantMergeAssumeAll;
+        public final ModConfigSpec.IntValue enchantMergeAssumeAllExtraCost;
+        public final ModConfigSpec.BooleanValue enchantMergeKeepRemovedBooks;
+        public final ModConfigSpec.IntValue enchantMergeExtraCostPerEnchant;
+        public final ModConfigSpec.DoubleValue enchantMergeCostMultiplier;
+        public final ModConfigSpec.IntValue enchantMergeCostPercentBonus;
 
-        // Auto totem (network only)
+        // Network totem (network only)
         // BD modifications (tweaks applied to Beyond Dimensions)
         public final ModConfigSpec.BooleanValue xpRodTweaksEnabled;
         /** 熔炉烧网络终端：批量烧炼网络内全部可烧炼物品（默认关闭） */
@@ -182,6 +180,42 @@ public class CommandConfig {
         public final ModConfigSpec.EnumValue<XpGrantMode> xpRodGrantMode;
         /** 桶入网自动分离：含流体的容器入网时拆为"流体 + 空容器"（默认开启） */
         public final ModConfigSpec.BooleanValue bucketSeparatorEnabled;
+        /** 网络熔炉熔炼速度倍率（1.0=原速；配方耗时按倍率缩放，越大越快） */
+        public final ModConfigSpec.DoubleValue netFurnaceSmeltSpeed;
+        /** 服务端：会话级主网络物品计数同步（JEI 任意界面显示/取物；关闭则仅 BD 终端界面生效，默认关闭） */
+        public final ModConfigSpec.BooleanValue primaryNetJeiSync;
+        /** 维度网络通道（net_pathway）标记槽行数（1~6，全局；标记槽数 = 行数*9） */
+        public final ModConfigSpec.IntValue netPathwayFilterRows;
+        /** 维度网络方块被破坏时保留配置 NBT（标记槽 + 方块配置；默认开启） */
+        public final ModConfigSpec.BooleanValue netedBlockKeepNbt;
+
+        // ===== 网络磁铁（BI 接管吸取范围/间隔，完全自定义档位） =====
+        /** 是否使用下方自定义档位列表（false 时用与 BD 等价的默认六档） */
+        public final ModConfigSpec.BooleanValue magnetCustomTiersEnabled;
+        /** 物品吸取档位列表，格式：名称:半径:间隔（半径 -1 = 整区块） */
+        public final ModConfigSpec.ConfigValue<List<? extends String>> magnetItemRangeTiers;
+        /** 流体吸取档位列表，格式：名称:半径:间隔（半径 -1 = 整区块） */
+        public final ModConfigSpec.ConfigValue<List<? extends String>> magnetFluidRangeTiers;
+
+        // ===== 网络喂食器口渴（Thirst）集成（独立配置区） =====
+        /** 每多少 mB 水补充一次 */
+        public final ModConfigSpec.IntValue feederThirstMbPerUse;
+        /** 各纯度档每次补充的口渴值 */
+        public final ModConfigSpec.IntValue feederThirstDirtyThirst;
+        public final ModConfigSpec.IntValue feederThirstSlightlyDirtyThirst;
+        public final ModConfigSpec.IntValue feederThirstAcceptableThirst;
+        public final ModConfigSpec.IntValue feederThirstPurifiedThirst;
+        /** 各纯度档每次补充的水饱和 */
+        public final ModConfigSpec.IntValue feederThirstDirtyQuenched;
+        public final ModConfigSpec.IntValue feederThirstSlightlyDirtyQuenched;
+        public final ModConfigSpec.IntValue feederThirstAcceptableQuenched;
+        public final ModConfigSpec.IntValue feederThirstPurifiedQuenched;
+        /** 原版水(minecraft:water)在喂食器补水时视为的纯度（0脏/1微脏/2可接受/3纯净） */
+        public final ModConfigSpec.IntValue feederThirstVanillaWaterPurity;
+        /** 同时存在多种口渴系统时，是否对每套各给完整补水数值（默认关：只给一份，补最缺的那套） */
+        public final ModConfigSpec.BooleanValue feederThirstSeparateHydration;
+        /** 回血模式维持的饥饿/水饱和下限（默认 6，覆盖 LSO 单次回血消耗） */
+        public final ModConfigSpec.IntValue feederThirstRegenMinSaturation;
 
         public final ModConfigSpec.BooleanValue AUTO_TOTEM_ENABLED;
         public final ModConfigSpec.IntValue AUTO_TOTEM_COOLDOWN_SECONDS;
@@ -189,6 +223,12 @@ public class CommandConfig {
         public final ModConfigSpec.BooleanValue AUTO_TOTEM_RESPECT_BYPASSES;
         public final ModConfigSpec.BooleanValue AUTO_TOTEM_RESTORE_MAX_HEALTH;
         public final ModConfigSpec.BooleanValue AUTO_TOTEM_HEAL_TO_FULL;
+
+        /** 图腾爆发（网络图腾触发后对周围造成范围伤害） */
+        public final ModConfigSpec.BooleanValue TOTEM_BURST_ENABLED;
+        public final ModConfigSpec.DoubleValue TOTEM_BURST_RADIUS;
+        public final ModConfigSpec.DoubleValue TOTEM_BURST_DAMAGE_PERCENT;
+        public final ModConfigSpec.BooleanValue TOTEM_BURST_IGNORE_INVULNERABILITY;
 
         // SetHealth revive (network only, event + mixin implementations)
         // 通用项（冷却 / 伤害黑名单 / 无敌绕过 / 恢复上限 / 回满）复用 auto_totem 分区配置
@@ -301,33 +341,6 @@ public class CommandConfig {
             builder.pop();
             builder.pop();
 
-            builder.comment(ConfigCommentLang.comment("ftb_integration")).push("ftb_integration");
-            FTB_INTEGRATION_ENABLED = builder
-                    .comment(ConfigCommentLang.comment("ftb_integration.enable"))
-                    .define("enable", true);
-            FTB_DETECT_CACHE_TICKS = builder
-                    .comment(ConfigCommentLang.comment("ftb_integration.detect_cache_ticks"))
-                    .defineInRange("detect_cache_ticks", 20, 0, 200);
-            FTB_DETECT_MAX_ITEM_TYPES = builder
-                    .comment(ConfigCommentLang.comment("ftb_integration.detect_max_item_types"))
-                    .defineInRange("detect_max_item_types", 8192, 64, 65536);
-            FTB_AUTO_DETECT_ENABLED = builder
-                    .comment(ConfigCommentLang.comment("ftb_integration.auto_detect_enable"))
-                    .define("auto_detect_enable", false);
-            FTB_AUTO_DETECT_THROTTLE_TICKS = builder
-                    .comment(ConfigCommentLang.comment("ftb_integration.auto_detect_throttle_ticks"))
-                    .defineInRange("auto_detect_throttle_ticks", 20, 5, 200);
-            FTB_AUTO_DETECT_MAX_PER_TICK = builder
-                    .comment(ConfigCommentLang.comment("ftb_integration.auto_detect_max_per_tick"))
-                    .defineInRange("auto_detect_max_per_tick", 4, 1, 64);
-            FTB_TOOLTIP_PUSH_THROTTLE_TICKS = builder
-                    .comment(ConfigCommentLang.comment("ftb_integration.tooltip_push_throttle_ticks"))
-                    .defineInRange("tooltip_push_throttle_ticks", 10, 1, 200);
-            FTB_SIMPLIFY_REWARD_NOTIFY = builder
-                    .comment(ConfigCommentLang.comment("ftb_integration.simplify_reward_notify"))
-                    .define("simplify_reward_notify", true);
-            builder.pop();
-
             builder.comment(ConfigCommentLang.comment("anvil")).push("anvil");
             anvilCostMode = builder.comment(ConfigCommentLang.comment("anvil.costMode"))
                     .defineEnum("costMode", AnvilChargeMode.POINTS);
@@ -399,6 +412,20 @@ public class CommandConfig {
                     .define("consume_original_book", false);
             enchantMergeSplitXpCost = builder.comment(ConfigCommentLang.comment("enchant_merge.split_xp_cost"))
                     .defineInRange("split_xp_cost", 0, 0, Integer.MAX_VALUE);
+            enchantMergeCheckConflict = builder.comment(ConfigCommentLang.comment("enchant_merge.check_conflict"))
+                    .define("check_conflict", true);
+            enchantMergeAssumeAll = builder.comment(ConfigCommentLang.comment("enchant_merge.assume_all_enchantments"))
+                    .define("assume_all_enchantments", false);
+            enchantMergeAssumeAllExtraCost = builder.comment(ConfigCommentLang.comment("enchant_merge.all_enchant_extra_cost"))
+                    .defineInRange("all_enchant_extra_cost", 3000, 0, Integer.MAX_VALUE);
+            enchantMergeKeepRemovedBooks = builder.comment(ConfigCommentLang.comment("enchant_merge.keep_removed_books"))
+                    .define("keep_removed_books", false);
+            enchantMergeExtraCostPerEnchant = builder.comment(ConfigCommentLang.comment("enchant_merge.extra_cost_per_enchant"))
+                    .defineInRange("extra_cost_per_enchant", 0, 0, Integer.MAX_VALUE);
+            enchantMergeCostMultiplier = builder.comment(ConfigCommentLang.comment("enchant_merge.cost_multiplier"))
+                    .defineInRange("cost_multiplier", 1.0D, 0.0D, 1000.0D);
+            enchantMergeCostPercentBonus = builder.comment(ConfigCommentLang.comment("enchant_merge.cost_percent_bonus"))
+                    .defineInRange("cost_percent_bonus", 0, 0, 1000);
             builder.pop();
 
             builder.comment(ConfigCommentLang.comment("bd_tweaks")).push("bd_tweaks");
@@ -420,6 +447,87 @@ public class CommandConfig {
             bucketSeparatorEnabled = builder
                     .comment(ConfigCommentLang.comment("bd_tweaks.bucket_separator_enabled"))
                     .define("bucket_separator_enabled", true);
+            netFurnaceSmeltSpeed = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.net_furnace_smelt_speed"))
+                    .defineInRange("net_furnace_smelt_speed", 1.0D, 0.1D, 100.0D);
+            primaryNetJeiSync = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.primary_net_jei_sync"))
+                    .define("primary_net_jei_sync", false);
+            netPathwayFilterRows = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.net_pathway_filter_rows"))
+                    .defineInRange("net_pathway_filter_rows", 3, 1, 6);
+            netedBlockKeepNbt = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.neted_block_keep_nbt"))
+                    .define("neted_block_keep_nbt", true);
+            builder.pop();
+
+            // ===== 网络磁铁（BI 接管：完全自定义档位吸取范围） =====
+            builder.comment(ConfigCommentLang.comment("magnet")).push("magnet");
+            magnetCustomTiersEnabled = builder
+                    .comment(ConfigCommentLang.comment("magnet.custom_tiers_enabled"))
+                    .define("custom_tiers_enabled", true);
+            magnetItemRangeTiers = builder
+                    .comment(ConfigCommentLang.comment("magnet.item_range_tiers"))
+                    .defineList("item_range_tiers",
+                            Arrays.asList(
+                                    "lowest:2:0",
+                                    "low:3:0",
+                                    "mid:5:2",
+                                    "high:7:5",
+                                    "highest:10:10",
+                                    "chunk:-1:1200"),
+                            obj -> obj instanceof String);
+            magnetFluidRangeTiers = builder
+                    .comment(ConfigCommentLang.comment("magnet.fluid_range_tiers"))
+                    .defineList("fluid_range_tiers",
+                            Arrays.asList(
+                                    "lowest:2:0",
+                                    "low:3:0",
+                                    "mid:5:10",
+                                    "high:7:20",
+                                    "highest:10:50",
+                                    "chunk:-1:1200"),
+                            obj -> obj instanceof String);
+            builder.pop();
+
+            // ===== 网络喂食器口渴（Thirst）集成 =====
+            builder.comment(ConfigCommentLang.comment("feeder_thirst")).push("feeder_thirst");
+            feederThirstMbPerUse = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.mb_per_use"))
+                    .defineInRange("mb_per_use", 50, 1, 1000000);
+            feederThirstDirtyThirst = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.dirty_thirst"))
+                    .defineInRange("dirty_thirst", 1, 0, 20);
+            feederThirstDirtyQuenched = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.dirty_quenched"))
+                    .defineInRange("dirty_quenched", 0, 0, 20);
+            feederThirstSlightlyDirtyThirst = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.slightly_dirty_thirst"))
+                    .defineInRange("slightly_dirty_thirst", 1, 0, 20);
+            feederThirstSlightlyDirtyQuenched = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.slightly_dirty_quenched"))
+                    .defineInRange("slightly_dirty_quenched", 1, 0, 20);
+            feederThirstAcceptableThirst = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.acceptable_thirst"))
+                    .defineInRange("acceptable_thirst", 2, 0, 20);
+            feederThirstAcceptableQuenched = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.acceptable_quenched"))
+                    .defineInRange("acceptable_quenched", 2, 0, 20);
+            feederThirstPurifiedThirst = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.purified_thirst"))
+                    .defineInRange("purified_thirst", 3, 0, 20);
+            feederThirstPurifiedQuenched = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.purified_quenched"))
+                    .defineInRange("purified_quenched", 3, 0, 20);
+            feederThirstVanillaWaterPurity = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.vanilla_water_purity"))
+                    .defineInRange("vanilla_water_purity", 1, 0, 3);
+            feederThirstSeparateHydration = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.separate_hydration"))
+                    .define("separate_hydration", false);
+            feederThirstRegenMinSaturation = builder
+                    .comment(ConfigCommentLang.comment("feeder_thirst.regen_min_saturation"))
+                    .defineInRange("regen_min_saturation", 6, 0, 20);
             builder.pop();
 
             builder.comment(ConfigCommentLang.comment("auto_totem")).push("auto_totem");
@@ -443,6 +551,21 @@ public class CommandConfig {
             AUTO_TOTEM_HEAL_TO_FULL = builder
                     .comment(ConfigCommentLang.comment("auto_totem.heal_to_full"))
                     .define("heal_to_full", false);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("totem_burst")).push("totem_burst");
+            TOTEM_BURST_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("totem_burst.enabled"))
+                    .define("enabled", false);
+            TOTEM_BURST_RADIUS = builder
+                    .comment(ConfigCommentLang.comment("totem_burst.radius"))
+                    .defineInRange("radius", 6.0D, 0.5D, 64.0D);
+            TOTEM_BURST_DAMAGE_PERCENT = builder
+                    .comment(ConfigCommentLang.comment("totem_burst.damage_percent"))
+                    .defineInRange("damage_percent", 50.0D, 0.0D, 1000.0D);
+            TOTEM_BURST_IGNORE_INVULNERABILITY = builder
+                    .comment(ConfigCommentLang.comment("totem_burst.ignore_invulnerability"))
+                    .define("ignore_invulnerability", true);
             builder.pop();
 
             builder.comment(ConfigCommentLang.comment("revive")).push("revive");
@@ -557,30 +680,6 @@ public class CommandConfig {
     /** 是否启用工作台献祭激活（可选平衡项；默认关闭） */
     public static boolean isWorkstationActivationEnabled() { return SERVER.WORKSTATION_ACTIVATION_ENABLED.get(); }
 
-    /** 是否启用 FTB Quests 集成（检测到 rs_integration 时运行时让路禁用） */
-    public static boolean ftbIntegrationEnabled() { return SERVER.FTB_INTEGRATION_ENABLED.get(); }
-
-    /** FTB 检测网络物品缓存的逻辑刻 TTL（0 = 不缓存，每次检测都重新扫描网络） */
-    public static int ftbDetectCacheTicks() { return SERVER.FTB_DETECT_CACHE_TICKS.get(); }
-
-    /** FTB 单次检测精准收集的物品种类上限（服务器全局配置） */
-    public static int ftbDetectMaxItemTypes() { return SERVER.FTB_DETECT_MAX_ITEM_TYPES.get(); }
-
-    /** 是否启用 FTB 自动检测（网络物品变化时自动触发任务检测） */
-    public static boolean ftbAutoDetectEnabled() { return SERVER.FTB_AUTO_DETECT_ENABLED.get(); }
-
-    /** FTB 自动检测节流窗口（逻辑刻，窗口内同一网络多次变化合并为一次检测） */
-    public static int ftbAutoDetectThrottleTicks() { return SERVER.FTB_AUTO_DETECT_THROTTLE_TICKS.get(); }
-
-    /** FTB 自动检测单 tick 最多处理的脏网络数（其余顺延到后续 tick） */
-    public static int ftbAutoDetectMaxPerTick() { return SERVER.FTB_AUTO_DETECT_MAX_PER_TICK.get(); }
-
-    /** FTB 任务 tooltip 网络数量推送节流窗口（逻辑刻，网络变化后最多该时长推送一次） */
-    public static int ftbTooltipPushThrottleTicks() { return SERVER.FTB_TOOLTIP_PUSH_THROTTLE_TICKS.get(); }
-
-    /** 是否简化 FTB 奖励领取通知（批量领取时合并为一条汇总，避免多条目刷屏） */
-    public static boolean ftbSimplifyRewardNotify() { return SERVER.FTB_SIMPLIFY_REWARD_NOTIFY.get(); }
-
     /** 工作台献祭成本列表（格式 "<工作台ID>:<物品ID>:<数量>"） */
     public static List<? extends String> workstationActivationCosts() { return SERVER.WORKSTATION_ACTIVATION_COSTS.get(); }
 
@@ -640,6 +739,20 @@ public class CommandConfig {
     public static boolean enchantMergeConsumeBook() { return SERVER.enchantMergeConsumeBook.get(); }
     /** 附魔合并：每步拆分消耗的经验点（0 = 不消耗） */
     public static int enchantMergeSplitXpCost() { return SERVER.enchantMergeSplitXpCost.get(); }
+    /** 附魔合并：是否启用冲突判定（默认开；关=允许互斥附魔共存） */
+    public static boolean enchantMergeCheckConflict() { return SERVER.enchantMergeCheckConflict.get(); }
+    /** 附魔合并：是否视网络拥有装备可用的全部附魔（无书时按高额经验计费） */
+    public static boolean enchantMergeAssumeAll() { return SERVER.enchantMergeAssumeAll.get(); }
+    /** 附魔合并：视为拥有时为“无书”附魔每项收取的额外经验点 */
+    public static int enchantMergeAssumeAllExtraCost() { return SERVER.enchantMergeAssumeAllExtraCost.get(); }
+    /** 附魔合并：清除/降级时是否把移除的附魔组装成附魔书放入网络 */
+    public static boolean enchantMergeKeepRemovedBooks() { return SERVER.enchantMergeKeepRemovedBooks.get(); }
+    /** 附魔合并：每成功合并一个附魔附加的固定经验点 */
+    public static int enchantMergeExtraCostPerEnchant() { return SERVER.enchantMergeExtraCostPerEnchant.get(); }
+    /** 附魔合并：总费用倍率 */
+    public static double enchantMergeCostMultiplier() { return SERVER.enchantMergeCostMultiplier.get(); }
+    /** 附魔合并：总费用百分比加成（0-1000） */
+    public static int enchantMergeCostPercentBonus() { return SERVER.enchantMergeCostPercentBonus.get(); }
     public static boolean enchantPreviewEnabled() { return SERVER.enchantPreviewEnabled.get(); }
     public static boolean enchantRefreshEnabled() { return SERVER.enchantRefreshEnabled.get(); }
     public static boolean enchantAllowTreasure() { return SERVER.enchantAllowTreasure.get(); }
@@ -653,8 +766,65 @@ public class CommandConfig {
     /** BD 修改：桶入网自动分离（含流体的容器拆为流体 + 空容器；默认开启） */
     public static boolean bucketSeparatorEnabled() { return SERVER.bucketSeparatorEnabled.get(); }
 
+    // ===== 网络喂食器口渴（Thirst）集成 =====
+
+    /** 每多少 mB 水补充一次 */
+    public static int feederThirstMbPerUse() { return SERVER.feederThirstMbPerUse.get(); }
+
+    /** 指定纯度档每次补充的口渴值 */
+    public static int feederThirstThirstPerUse(int purity) {
+        return switch (purity) {
+            case 0 -> SERVER.feederThirstDirtyThirst.get();
+            case 1 -> SERVER.feederThirstSlightlyDirtyThirst.get();
+            case 2 -> SERVER.feederThirstAcceptableThirst.get();
+            case 3 -> SERVER.feederThirstPurifiedThirst.get();
+            default -> SERVER.feederThirstDirtyThirst.get();
+        };
+    }
+
+    /** 指定纯度档每次补充的水饱和 */
+    public static int feederThirstQuenchedPerUse(int purity) {
+        return switch (purity) {
+            case 0 -> SERVER.feederThirstDirtyQuenched.get();
+            case 1 -> SERVER.feederThirstSlightlyDirtyQuenched.get();
+            case 2 -> SERVER.feederThirstAcceptableQuenched.get();
+            case 3 -> SERVER.feederThirstPurifiedQuenched.get();
+            default -> SERVER.feederThirstDirtyQuenched.get();
+        };
+    }
+
+    /** 原版水在喂食器补水时视为的纯度 */
+    public static int feederThirstVanillaWaterPurity() { return SERVER.feederThirstVanillaWaterPurity.get(); }
+
+    /** 同时存在多种口渴系统时，是否对每套系统各给完整补水数值 */
+    public static boolean feederThirstSeparateHydration() { return SERVER.feederThirstSeparateHydration.get(); }
+
+    /** 回血模式维持的饥饿/水饱和下限 */
+    public static int feederThirstRegenMinSaturation() { return SERVER.feederThirstRegenMinSaturation.get(); }
+
     /** BD 修改：熔炉烧网络终端触发批量烧炼（默认关闭；终端不消耗，产物即终端，取出时触发） */
     public static boolean furnaceTerminalSmeltAllEnabled() { return SERVER.furnaceTerminalSmeltAllEnabled.get(); }
+
+    /** 网络熔炉熔炼速度倍率（1.0=原速） */
+    public static double netFurnaceSmeltSpeed() { return SERVER.netFurnaceSmeltSpeed.get(); }
+
+    /** 服务端：会话级主网络物品计数同步（JEI 任意界面生效；默认关闭 = 仅 BD 终端界面） */
+    public static boolean primaryNetJeiSync() { return SERVER.primaryNetJeiSync.get(); }
+
+    /** 维度网络通道（net_pathway）标记槽行数（1~6，全局） */
+    public static int netPathwayFilterRows() { return SERVER.netPathwayFilterRows.get(); }
+
+    /** 维度网络方块被破坏时保留配置 NBT（标记槽 + 方块配置） */
+    public static boolean netedBlockKeepNbt() { return SERVER.netedBlockKeepNbt.get(); }
+
+    /** 网络磁铁是否使用自定义档位列表 */
+    public static boolean magnetCustomTiersEnabled() { return SERVER.magnetCustomTiersEnabled.get(); }
+
+    /** 网络磁铁物品吸取档位列表（名称:半径:间隔；半径 -1 = 整区块） */
+    public static List<? extends String> magnetItemRangeTiers() { return SERVER.magnetItemRangeTiers.get(); }
+
+    /** 网络磁铁流体吸取档位列表（名称:半径:间隔；半径 -1 = 整区块） */
+    public static List<? extends String> magnetFluidRangeTiers() { return SERVER.magnetFluidRangeTiers.get(); }
 
     /** 经验棒可设定的目标等级上限（默认 21863，受经验总量 int 边界约束） */
     public static int xpRodMaxTargetLevel() { return SERVER.xpRodMaxTargetLevel.get(); }
@@ -667,11 +837,20 @@ public class CommandConfig {
 
     public static boolean autoTotemEnabled() { return SERVER.AUTO_TOTEM_ENABLED.get(); }
     public static int autoTotemCooldownSeconds() { return SERVER.AUTO_TOTEM_COOLDOWN_SECONDS.get(); }
-    /** 返回自动图腾不触发的伤害类型黑名单。 */
+    /** 返回网络图腾不触发的伤害类型黑名单。 */
     public static List<? extends String> autoTotemDamageBlacklist() { return SERVER.AUTO_TOTEM_DAMAGE_BLACKLIST.get(); }
     public static boolean autoTotemRespectBypassesInvulnerability() { return SERVER.AUTO_TOTEM_RESPECT_BYPASSES.get(); }
     public static boolean autoTotemRestoreMaxHealth() { return SERVER.AUTO_TOTEM_RESTORE_MAX_HEALTH.get(); }
     public static boolean autoTotemHealToFull() { return SERVER.AUTO_TOTEM_HEAL_TO_FULL.get(); }
+
+    /** 图腾爆发开关（网络图腾触发后范围伤害） */
+    public static boolean totemBurstEnabled() { return SERVER.TOTEM_BURST_ENABLED.get(); }
+    /** 图腾爆发半径（格） */
+    public static double totemBurstRadius() { return SERVER.TOTEM_BURST_RADIUS.get(); }
+    /** 图腾爆发伤害占触发者最大生命的百分比 */
+    public static double totemBurstDamagePercent() { return SERVER.TOTEM_BURST_DAMAGE_PERCENT.get(); }
+    /** 图腾爆发是否无视无敌帧 */
+    public static boolean totemBurstIgnoreInvulnerability() { return SERVER.TOTEM_BURST_IGNORE_INVULNERABILITY.get(); }
 
     /** 事件版复活实现开关（配置 false 时不注册处理器，类不加载） */
     public static boolean reviveEventEnabled() { return SERVER.REVIVE_EVENT_ENABLED.get(); }

@@ -30,6 +30,8 @@ public final class JeiExtractInputHandler {
 
     /** 注册到 NeoForge 事件总线（客户端初始化时调用） */
     public static void register() {
+        // 本模组不依赖 JEI：未安装时不注册（避免引用了 JEI 类型的监听被加载/校验）
+        if (!ModList.get().isLoaded("jei")) return;
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST,
                 ScreenEvent.MouseButtonPressed.Pre.class, JeiExtractInputHandler::onMousePressed);
     }

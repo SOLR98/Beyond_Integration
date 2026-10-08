@@ -36,6 +36,14 @@ public class ClientConfig {
         public final ModConfigSpec.ConfigValue<List<? extends String>> workstationOrder;
         /** 附魔台悬停预览开关（默认开）：悬停费用按钮直接显示将获得的附魔列表 */
         public final ModConfigSpec.BooleanValue enchantPreviewOn;
+        /** 附魔合并工作站每页候选行数（默认 5，最高 10；改动需重开界面生效） */
+        public final ModConfigSpec.IntValue enchantMergeRows;
+        /** 终端搜索框是否与 JEI/EMI 搜索同步（默认开） */
+        public final ModConfigSpec.BooleanValue searchSyncJei;
+        /** 搜索历史下拉最多显示的行数（默认 5） */
+        public final ModConfigSpec.IntValue searchHistoryRows;
+        /** 搜索历史最多保存条数（默认 20） */
+        public final ModConfigSpec.IntValue searchHistoryMax;
 
         ClientValues(ModConfigSpec.Builder builder) {
             taczSmithUseNetwork = builder
@@ -58,6 +66,18 @@ public class ClientConfig {
             enchantPreviewOn = builder
                     .comment(ConfigCommentLang.comment("enchant_preview_on"))
                     .define("enchant_preview_on", true);
+            enchantMergeRows = builder
+                    .comment(ConfigCommentLang.comment("enchant_merge_rows"))
+                    .defineInRange("enchant_merge_rows", 5, 1, 10);
+            searchSyncJei = builder
+                    .comment(ConfigCommentLang.comment("search_sync_jei"))
+                    .define("search_sync_jei", true);
+            searchHistoryRows = builder
+                    .comment(ConfigCommentLang.comment("search_history_rows"))
+                    .defineInRange("search_history_rows", 5, 1, 20);
+            searchHistoryMax = builder
+                    .comment(ConfigCommentLang.comment("search_history_max"))
+                    .defineInRange("search_history_max", 20, 1, 100);
         }
     }
 
@@ -114,4 +134,26 @@ public class ClientConfig {
         CLIENT.enchantPreviewOn.set(v);
         CLIENT_SPEC.save();
     }
+
+    /** 读取附魔合并每页候选行数（1-10，默认 5） */
+    public static int enchantMergeRows() { return CLIENT.enchantMergeRows.get(); }
+
+    /** 写入附魔合并每页候选行数并保存客户端配置 */
+    public static void setEnchantMergeRows(int v) {
+        CLIENT.enchantMergeRows.set(v);
+        CLIENT_SPEC.save();
+    }
+
+    /** 读取终端搜索框是否与 JEI/EMI 同步 */
+    public static boolean searchSyncJei() { return CLIENT.searchSyncJei.get(); }
+    public static void setSearchSyncJei(boolean v) {
+        CLIENT.searchSyncJei.set(v);
+        CLIENT_SPEC.save();
+    }
+    /** 搜索历史下拉可见行数 */
+    public static int searchHistoryRows() { return CLIENT.searchHistoryRows.get(); }
+    public static void setSearchHistoryRows(int v) { CLIENT.searchHistoryRows.set(v); CLIENT_SPEC.save(); }
+    /** 搜索历史最多保存条数 */
+    public static int searchHistoryMax() { return CLIENT.searchHistoryMax.get(); }
+    public static void setSearchHistoryMax(int v) { CLIENT.searchHistoryMax.set(v); CLIENT_SPEC.save(); }
 }

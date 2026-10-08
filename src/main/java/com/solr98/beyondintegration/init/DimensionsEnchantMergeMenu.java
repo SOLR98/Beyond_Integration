@@ -2,8 +2,6 @@ package com.solr98.beyondintegration.init;
 
 import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.handler.EnchantmentBookSeparatorHandler;
-import com.solr98.beyondintegration.network.PacketHandler;
-import com.solr98.beyondintegration.network.payload.EnchantMergeListPayload;
 import com.wintercogs.beyonddimensions.api.storage.handler.impl.AbstractUnorderedStackHandler;
 import com.wintercogs.beyonddimensions.api.storage.handler.impl.UnorderedStackHandlerRemoveZero;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
@@ -36,8 +34,8 @@ import java.util.Map;
 
 /**
  * 批量附魔工作站菜单（第 8 种网络工作站）：
- * 放入单件可附魔装备，服务端扫描网络中的<b>单附魔书</b>，列出该装备可附加/升级的附魔候选
- * （过滤适用性、冲突、无可提升项），下发客户端由玩家勾选并调整等级。
+ * 放入单件可附魔装备；<b>候选列表与显示由客户端基于装备可附魔列表 + 客户端网络视图构建</b>，
+ * 服务端只接受提交的合并操作。
  *
  * 合并规则：
  * <ul>
@@ -50,13 +48,10 @@ import java.util.Map;
  */
 public class DimensionsEnchantMergeMenu extends DimensionsStorageMenu implements ICleanableWorkstation {
     private static final int WEQ_X = 8;
-    private static final int WEQ_Y = 14;
+    private static final int WEQ_Y = 10;
 
     protected final Container beyond$mergeSlots;
     protected int beyond$wsS = -1;
-
-    /** 可合并附魔候选（服务端计算下发；客户端由 EnchantMergeListPayload 镜像） */
-    public final List<MergeOption> options = new ArrayList<>();
 
     // 客户端构造
     public DimensionsEnchantMergeMenu(int id, Inventory inv, FriendlyByteBuf b) {
@@ -79,7 +74,6 @@ public class DimensionsEnchantMergeMenu extends DimensionsStorageMenu implements
             @Override public boolean mayPlace(ItemStack s) { return beyond$canMergeItem(s); }
         });
         customSlotIndices.add(slots.size() - 1);
-        if (!player.level().isClientSide()) beyond$recalc();
     }
 
     /** 是否为可作为合并目标的装备：非附魔书、且物品本身可附魔（已附魔装备允许继续升级） */
@@ -119,51 +113,11 @@ public class DimensionsEnchantMergeMenu extends DimensionsStorageMenu implements
         return map;
     }
 
-    /** 服务端重算候选并下发（装备变化时调用） */
-    private void beyond$recalc() {
-        if (player.level().isClientSide()) return;
-        List<MergeOption> out = new ArrayList<>();
-        ItemStack item = beyond$mergeSlots.getItem(0);
-        if (!item.isEmpty() && beyond$canMergeItem(item) && CommandConfig.enchantMergeEnable()) {
-            Map<Holder<Enchantment>, Map<Integer, BookRef>> books = beyond$scanAllBooks(this.storage);
-            if (!books.isEmpty()) {
-                ItemEnchantments existing = EnchantmentHelper.getEnchantmentsForCrafting(item);
-                boolean ignoreConflict = CommandConfig.enchantIgnoreConflict();
-                for (Map.Entry<Holder<Enchantment>, Map<Integer, BookRef>> entry : books.entrySet()) {
-                    Holder<Enchantment> holder = entry.getKey();
-                    Map<Integer, BookRef> byLevel = entry.getValue();
-                    if (byLevel.isEmpty()) continue;
-                    int maxLevel = 0;
-                    long levelMask = 0;
-                    for (Map.Entry<Integer, BookRef> le : byLevel.entrySet()) {
-                        int lv = le.getKey();
-                        if (lv > maxLevel) maxLevel = lv;
-                        if (lv >= 1 && lv <= 63) levelMask |= 1L << (lv - 1);
-                    }
-                    int cur = existing.getLevel(holder);
-                    if (cur > 0 && maxLevel <= cur) continue;
-                    if (!beyond$applicable(holder, item)) continue;
-                    if (cur == 0 && !ignoreConflict && beyond$conflicts(holder, existing)) continue;
-                    BookRef top = byLevel.get(maxLevel);
-                    out.add(new MergeOption(holder, maxLevel,
-                            (int) Math.min(Integer.MAX_VALUE, top.count()), cur, levelMask));
-                }
-            }
-        }
-        options.clear();
-        options.addAll(out);
-        if (player instanceof ServerPlayer sp) {
-            PacketHandler.sendToPlayer(sp, new EnchantMergeListPayload(containerId, out));
-        }
-    }
-
-    /** 客户端接收候选列表 */
-    public void acceptOptions(List<MergeOption> list) {
-        options.clear();
-        if (list != null) options.addAll(list);
-    }
-
-    /** 服务端执行合并：所选等级书优先；否则拆分最接近的更高等级书（每步消耗普通书/经验按配置） */
+    /**
+     * 服务端执行合并：按提交的 (附魔, 等级) 列表应用目标状态——
+     * 等级 0 = 清除该附魔；低于已有 = 降级；高于已有 = 升级。
+     * 清除/降级免费且不消耗、不返还附魔书；升级消耗单附魔书 + 网络 XP（必要时拆分高等级书）。
+     */
     public void doMerge(ServerPlayer sp, List<Holder<Enchantment>> holders, List<Integer> levels) {
         if (sp.level().isClientSide()) return;
         if (!CommandConfig.enchantMergeEnable()) return;
@@ -174,28 +128,70 @@ public class DimensionsEnchantMergeMenu extends DimensionsStorageMenu implements
 
         Map<Holder<Enchantment>, Map<Integer, BookRef>> books = beyond$scanAllBooks(storage);
         ItemEnchantments existing = EnchantmentHelper.getEnchantmentsForCrafting(item);
-        boolean ignoreConflict = CommandConfig.enchantIgnoreConflict();
+        boolean checkConflict = CommandConfig.enchantMergeCheckConflict();
+        boolean assumeAll = CommandConfig.enchantMergeAssumeAll();
+        boolean keepRemoved = CommandConfig.enchantMergeKeepRemovedBooks();
+        long extraPerEnchant = CommandConfig.enchantMergeExtraCostPerEnchant();
+        long assumeExtra = CommandConfig.enchantMergeAssumeAllExtraCost();
+        // 按提交（启用）顺序收集附魔；未提及的已有附魔追加保留；最终按等级降序写入（同级保持启用顺序）
+        Map<Holder<Enchantment>, Integer> ordered = new java.util.LinkedHashMap<>();
+        java.util.Set<Holder<Enchantment>> cleared = new java.util.HashSet<>();
+        List<Refund> refunds = new ArrayList<>();
         List<Plan> plans = new ArrayList<>();
         long totalXp = 0;
         int splitSteps = 0;
+        boolean changed = false;
         for (int i = 0; i < holders.size() && i < levels.size(); i++) {
             Holder<Enchantment> holder = holders.get(i);
             if (holder == null) continue;
-            Map<Integer, BookRef> byLevel = books.get(holder);
-            if (byLevel == null || byLevel.isEmpty()) continue;
-            int maxLevel = 0;
-            for (int lv : byLevel.keySet()) if (lv > maxLevel) maxLevel = lv;
-            int chosen = Mth.clamp(levels.get(i), 1, maxLevel);
             int cur = existing.getLevel(holder);
-            int result = Math.max(cur, chosen);
-            if (result <= cur) continue;
-            if (!beyond$applicable(holder, item)) continue;
-            if (cur == 0 && !ignoreConflict && beyond$conflicts(holder, existing)) continue;
+            int chosen = levels.get(i);
+            if (chosen <= 0) {
+                if (cur > 0) {
+                    cleared.add(holder);
+                    changed = true;
+                    if (keepRemoved) refunds.add(new Refund(holder, cur)); // 清除：返还原等级书
+                }
+                continue;
+            }
+            if (chosen == cur) { ordered.put(holder, cur); continue; }  // 不变（仍记录）
+            if (chosen < cur) {
+                ordered.put(holder, chosen);
+                changed = true;
+                if (keepRemoved) refunds.add(new Refund(holder, cur - chosen)); // 降级：返还差值书
+                continue;
+            }
+            // 升级
+            Map<Integer, BookRef> byLevel = books.get(holder);
+            boolean hasBook = byLevel != null && !byLevel.isEmpty();
+            if (!hasBook && !assumeAll) continue; // 无书且未开启“视为拥有”
+            int maxLevel;
+            if (hasBook) {
+                maxLevel = 0;
+                for (int lv : byLevel.keySet()) if (lv > maxLevel) maxLevel = lv;
+                if (cur > maxLevel) maxLevel = cur;
+            } else {
+                maxLevel = holder.value().getMaxLevel();
+            }
+            chosen = Mth.clamp(chosen, 1, maxLevel);
+            if (chosen <= cur) continue;
+            if (!beyond$applicable(holder, item)) continue;                // 不适用
+            if (cur == 0 && checkConflict && beyond$conflicts(holder, existing)) continue; // 冲突
+            ordered.put(holder, chosen);
+            changed = true;
+            long mergeCost = EnchantmentBookSeparatorHandler.calcCost(
+                    List.of(new EnchantmentBookSeparatorHandler.Entry(holder, chosen)), 1);
+            if (!hasBook) {
+                // 视为拥有：不消耗书，按高额经验计费
+                long cost = mergeCost + assumeExtra + extraPerEnchant;
+                plans.add(new Plan(holder, chosen, chosen, null, cost, 0, true));
+                totalXp += cost;
+                continue;
+            }
             BookRef exact = byLevel.get(chosen);
             if (exact != null) {
-                long cost = EnchantmentBookSeparatorHandler.calcCost(
-                        List.of(new EnchantmentBookSeparatorHandler.Entry(holder, chosen)), 1);
-                plans.add(new Plan(holder, result, chosen, exact.key(), cost, 0));
+                long cost = mergeCost + extraPerEnchant;
+                plans.add(new Plan(holder, chosen, chosen, exact.key(), cost, 0, false));
                 totalXp += cost;
             } else {
                 int from = 0;
@@ -203,54 +199,67 @@ public class DimensionsEnchantMergeMenu extends DimensionsStorageMenu implements
                 if (from <= chosen) continue;
                 BookRef src = byLevel.get(from);
                 int steps = from - chosen;
-                long mergeCost = EnchantmentBookSeparatorHandler.calcCost(
-                        List.of(new EnchantmentBookSeparatorHandler.Entry(holder, chosen)), 1); // 合并到装备仍按公式计费
-                long cost = mergeCost + (long) CommandConfig.enchantMergeSplitXpCost() * steps * 20L;
-                plans.add(new Plan(holder, result, chosen, src.key(), cost, from));
+                long cost = mergeCost + (long) CommandConfig.enchantMergeSplitXpCost() * steps * 20L + extraPerEnchant;
+                plans.add(new Plan(holder, chosen, chosen, src.key(), cost, from, false));
                 totalXp += cost;
                 splitSteps += steps;
             }
         }
-        if (plans.isEmpty()) return;
+        // 追加未被提交提及且未清除的已有附魔（保留）
+        for (Holder<Enchantment> h : existing.keySet()) {
+            if (!ordered.containsKey(h) && !cleared.contains(h)) {
+                ordered.put(h, existing.getLevel(h));
+            }
+        }
+        if (plans.isEmpty() && !changed) return; // 无任何变化
+        totalXp = beyond$scaleCost(totalXp); // 统一应用倍率 / 百分比加成
 
-        // 预检：经验流体 / 每本书 / 拆分所需普通书
-        long netXp = storage.extract(EnchantmentBookSeparatorHandler.xpFluidKey(), Long.MAX_VALUE, true, false).amount();
-        if (netXp < totalXp) {
-            sp.sendSystemMessage(Component.translatable("gui.beyond_integration.enchant_merge.need_xp"));
-            return;
-        }
-        for (Plan p : plans) {
-            if (storage.extract(p.key(), 1, true, false).amount() < 1) return;
-        }
         int bookNeed = splitSteps * (CommandConfig.enchantMergeConsumeBook() ? 2 : 1);
-        if (bookNeed > 0) {
-            long haveBooks = storage.getStackByKey(new ItemStackKey(new ItemStack(Items.BOOK))).amount();
-            if (haveBooks < bookNeed) {
-                sp.sendSystemMessage(Component.translatable("gui.beyond_integration.enchant_merge.need_book", bookNeed));
+        if (!plans.isEmpty()) {
+            // 预检：经验流体 / 每本升级书 / 拆分所需普通书
+            long netXp = storage.extract(EnchantmentBookSeparatorHandler.xpFluidKey(), Long.MAX_VALUE, true, false).amount();
+            if (netXp < totalXp) {
+                sp.sendSystemMessage(Component.translatable("gui.beyond_integration.enchant_merge.need_xp"));
                 return;
             }
-        }
-
-        // 执行：扣 XP / 普通书 → 逐本扣书、拆分产出并施加附魔
-        if (totalXp > 0) storage.extract(EnchantmentBookSeparatorHandler.xpFluidKey(), totalXp, false, false);
-        if (bookNeed > 0) storage.extract(new ItemStackKey(new ItemStack(Items.BOOK)), bookNeed, false, false);
-        ItemStack result = item.copy();
-        for (Plan p : plans) {
-            if (storage.extract(p.key(), 1, false, false).amount() < 1) continue;
-            if (p.splitFrom() > p.chosenLevel()) {
-                for (int lv = p.splitFrom() - 1; lv >= p.chosenLevel(); lv--) {
-                    ItemStack book = new ItemStack(Items.ENCHANTED_BOOK);
-                    ItemEnchantments.Mutable mut = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-                    mut.set(p.holder(), lv);
-                    book.set(DataComponents.STORED_ENCHANTMENTS, mut.toImmutable());
-                    storage.insert(new ItemStackKey(book), 1, false);
+            for (Plan p : plans) {
+                if (!p.noBook() && storage.extract(p.key(), 1, true, false).amount() < 1) return;
+            }
+            if (bookNeed > 0) {
+                long haveBooks = storage.getStackByKey(new ItemStackKey(new ItemStack(Items.BOOK))).amount();
+                if (haveBooks < bookNeed) {
+                    sp.sendSystemMessage(Component.translatable("gui.beyond_integration.enchant_merge.need_book", bookNeed));
+                    return;
                 }
             }
-            ItemEnchantments cur = EnchantmentHelper.getEnchantmentsForCrafting(result);
-            ItemEnchantments.Mutable mut = new ItemEnchantments.Mutable(cur);
-            mut.set(p.holder(), p.resultLevel());
-            EnchantmentHelper.setEnchantments(result, mut.toImmutable());
+            // 执行升级：扣 XP / 普通书 → 逐本扣书并产出拆分书
+            if (totalXp > 0) storage.extract(EnchantmentBookSeparatorHandler.xpFluidKey(), totalXp, false, false);
+            if (bookNeed > 0) storage.extract(new ItemStackKey(new ItemStack(Items.BOOK)), bookNeed, false, false);
+            for (Plan p : plans) {
+                if (p.noBook()) continue; // 视为拥有：不消耗书
+                if (storage.extract(p.key(), 1, false, false).amount() < 1) {
+                    // 并发兜底：扣书失败则该升级项回退为原等级
+                    ordered.put(p.holder(), existing.getLevel(p.holder()));
+                    continue;
+                }
+                if (p.splitFrom() > p.chosenLevel()) {
+                    for (int lv = p.splitFrom() - 1; lv >= p.chosenLevel(); lv--) {
+                        beyond$insertBook(storage, p.holder(), lv);
+                    }
+                }
+            }
         }
+
+        // 保留清除/降级移除的附魔为附魔书放入网络
+        for (Refund r : refunds) beyond$insertBook(storage, r.holder(), r.level());
+
+        // 应用目标状态（支持清除/降级/升级）；按等级降序写入，同级保持启用顺序
+        ItemStack result = item.copy();
+        List<Map.Entry<Holder<Enchantment>, Integer>> merged = new ArrayList<>(ordered.entrySet());
+        merged.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
+        ItemEnchantments.Mutable orderedMut = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+        for (Map.Entry<Holder<Enchantment>, Integer> en : merged) orderedMut.set(en.getKey(), en.getValue());
+        EnchantmentHelper.setEnchantments(result, orderedMut.toImmutable());
         beyond$mergeSlots.setItem(0, result);
         sp.awardStat(net.minecraft.stats.Stats.ENCHANT_ITEM);
         sp.level().playSound(null, sp.blockPosition(), SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.BLOCKS,
@@ -263,18 +272,44 @@ public class DimensionsEnchantMergeMenu extends DimensionsStorageMenu implements
     }
 
     // ── 候选/计划数据结构 ──
-    /** 可合并附魔候选：附魔 Holder / 网络最高可合并等级 / 该等级书数量 / 装备已有等级 / 有库存等级位掩码（bit i = i+1 级） */
-    public record MergeOption(Holder<Enchantment> holder, int maxLevel, int stock, int existing, long levelMask) {}
     /** 网络单附魔书某等级的引用 */
     private record BookRef(int level, ItemStackKey key, long count) {}
-    /** 一次合并计划项：resultLevel 为写入装备的最终等级；splitFrom 为拆分来源等级（0 = 直接使用所选等级书，不拆分） */
-    private record Plan(Holder<Enchantment> holder, int resultLevel, int chosenLevel, ItemStackKey key, long cost, int splitFrom) {}
+    /** 清除/降级移除的附魔（组装成书返还，level = 返还等级） */
+    private record Refund(Holder<Enchantment> holder, int level) {}
+    /** 一次合并计划项：splitFrom 为拆分来源等级（0 = 直接使用所选等级书）；noBook = 视为拥有（不消耗书） */
+    private record Plan(Holder<Enchantment> holder, int resultLevel, int chosenLevel, ItemStackKey key, long cost, int splitFrom, boolean noBook) {}
+
+    /** 费用缩放：统一乘倍率与百分比加成（结果向下取整）。 */
+    private static long beyond$scaleCost(long base) {
+        double mult = CommandConfig.enchantMergeCostMultiplier();
+        int pct = CommandConfig.enchantMergeCostPercentBonus();
+        return Math.max(0L, Math.round(base * mult * (1.0D + pct / 100.0D)));
+    }
+
+    /** 把指定附魔/等级的单附魔书放入网络存储。 */
+    private static void beyond$insertBook(AbstractUnorderedStackHandler storage, Holder<Enchantment> holder, int level) {
+        if (storage == null || holder == null || level <= 0) return;
+        ItemStack book = new ItemStack(Items.ENCHANTED_BOOK);
+        ItemEnchantments.Mutable mut = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+        mut.set(holder, level);
+        book.set(DataComponents.STORED_ENCHANTMENTS, mut.toImmutable());
+        storage.insert(new ItemStackKey(book), 1, false);
+    }
 
     // ── BI 公开 API（GUI 使用）──
     public ItemStack getInput() { return beyond$mergeSlots.getItem(0); }
 
     // ── 槽位/布局 ──
-    @Override public int getPanelHeight() { return 150; }
+    /** 面板高度随客户端候选行数对齐（行区起点 35、行高 16、底部 3+12 = 15）。 */
+    @Override public int getPanelHeight() {
+        int rows;
+        try { rows = com.solr98.beyondintegration.ClientConfig.enchantMergeRows(); }
+        catch (Throwable t) { rows = 5; }
+        rows = Math.min(10, Math.max(1, rows));
+        return 30 + rows * 16 + 20;
+    }
+    /** 附魔合并界面移除面板与物品栏之间的连接分隔条。 */
+    @Override public int connectionSeparatorHeight() { return 0; }
 
     @Override public void rebuildSlots() {
         super.rebuildSlots();
@@ -287,7 +322,7 @@ public class DimensionsEnchantMergeMenu extends DimensionsStorageMenu implements
     @Override
     public void slotsChanged(Container inventory) {
         super.slotsChanged(inventory);
-        if (inventory == this.beyond$mergeSlots) beyond$recalc();
+        // 候选与显示由客户端基于装备 + 客户端网络视图构建，服务端只负责执行提交的合并操作
     }
 
     @Override

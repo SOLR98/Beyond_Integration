@@ -14,6 +14,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -29,14 +30,14 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 自动图腾：玩家死亡时自动从网络（仅网络）消耗一个不死图腾救援。
+ * 网络图腾：玩家死亡时自动从网络（仅网络）消耗一个不死图腾。
  * 支持启用开关、冷却时间与伤害黑名单（空列表 = 所有伤害类型均可触发）。
  * 触发后可选恢复被降低的最大生命值上限（restore_max_health）、回满血（heal_to_full），
  * 并施加原版图腾效果。
  */
 public class AutoTotemHandler {
 
-    // 玩家最后使用自动图腾的时间戳（CD 判定）
+    // 玩家最后使用网络图腾的时间戳（CD 判定）
     private static final Map<UUID, Long> lastUse = new ConcurrentHashMap<>();
 
     // 玩家死亡事件：满足条件时从网络提取图腾、取消死亡并应用原版图腾效果
@@ -67,8 +68,9 @@ public class AutoTotemHandler {
         // 消耗提示：本次消耗数量 + 网络剩余
         long remain = net.getUnifiedStorage().getStackByKey(
                 new ItemStackKey(new ItemStack(Items.TOTEM_OF_UNDYING))).amount();
-        player.displayClientMessage(Component.translatable(
-                "message.beyond_integration.totem.consumed", got.amount(), remain), false);
+        PacketDistributor.sendToPlayer(player,
+                new com.solr98.beyondintegration.network.HudHintPayload(
+                        "message.beyond_integration.totem.consumed", got.amount(), remain));
 
         // 对齐原版 checkTotemDeathProtection
         player.awardStat(Stats.ITEM_USED.get(Items.TOTEM_OF_UNDYING));
@@ -89,6 +91,8 @@ public class AutoTotemHandler {
         player.invulnerableTime = 20;
         // 客户端实体事件 35：图腾粒子 + TOTEM_USE 音效 + 图腾弹出动画
         player.level().broadcastEntityEvent(player, (byte) 35);
+        // 图腾爆发：对周围非友方实体造成范围伤害（可配置，默认关闭）
+        TotemBurst.trigger(player);
     }
 
     // 玩家登出：清理该玩家的 CD 记录
