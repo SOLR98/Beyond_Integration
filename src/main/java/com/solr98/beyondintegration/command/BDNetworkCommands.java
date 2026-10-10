@@ -39,6 +39,8 @@ public final class BDNetworkCommands {
                 // OP专用命令：可以打开任何网络
                 .then(NetworkOpenCommand.registerOpenAny())
                 .then(EnchantSeparateCommand.register())
+                // TUD 兼容诊断（OP）：打印本端弹药映射列表
+                .then(TudCommand.register())
         );
     }
 
@@ -65,6 +67,8 @@ public final class BDNetworkCommands {
             .then(NetworkToolsCommand.registerGiveEnchantedBooks())
             // 批量创建网络命令
             .then(NetworkToolsCommand.registerBatchCreate())
+            // 网络灵魂源管理（Goety 联动）
+            .then(NetworkSoulCommand.register())
             // 其他网络命令可以在这里添加...
             ;
     }

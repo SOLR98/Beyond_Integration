@@ -15,12 +15,12 @@ import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,15 +69,15 @@ public abstract class NetHopperBlockEntityTierMixin implements HopperTierAccess 
         return beyond$tierFluid >= 0 ? beyond$tierFluid : MagnetSettings.DEFAULT_INDEX;
     }
 
-    @Overwrite(remap = false)
-    public int getTicksPerWork() {
+    @Inject(method = "getTicksPerWork", at = @At("HEAD"), cancellable = true, remap = false)
+    private void beyond$getTicksPerWork(CallbackInfoReturnable<Integer> cir) {
         NetHopperBlockEntity self = (NetHopperBlockEntity) (Object) this;
-        return HopperTierLogic.ticksPerWork(self.hopperItemMode, self.hopperXpMode, self.hopperFluidMode,
-                beyond$effectiveItem(), beyond$effectiveFluid());
+        cir.setReturnValue(HopperTierLogic.ticksPerWork(self.hopperItemMode, self.hopperXpMode, self.hopperFluidMode,
+                beyond$effectiveItem(), beyond$effectiveFluid()));
     }
 
-    @Overwrite(remap = false)
-    public void workStart() {
+    @Inject(method = "workStart", at = @At("HEAD"), cancellable = true, remap = false)
+    private void beyond$workStart(CallbackInfo ci) {
         NetHopperBlockEntity self = (NetHopperBlockEntity) (Object) this;
         MagnetTier tier = HopperTierLogic.itemTier(beyond$effectiveItem());
         if (HopperTierLogic.itemEnabled(self.hopperItemMode, self.hopperXpMode)
@@ -91,10 +91,11 @@ public abstract class NetHopperBlockEntityTierMixin implements HopperTierAccess 
             beyond$itemCache = new ArrayList<>();
             beyond$xpCache = new ArrayList<>();
         }
+        ci.cancel();
     }
 
-    @Overwrite(remap = false)
-    public void workContent() {
+    @Inject(method = "workContent", at = @At("HEAD"), cancellable = true, remap = false)
+    private void beyond$workContent(CallbackInfo ci) {
         NetHopperBlockEntity self = (NetHopperBlockEntity) (Object) this;
         UnifiedStorage storage = self.getNet().getUnifiedStorage();
 
@@ -112,6 +113,7 @@ public abstract class NetHopperBlockEntityTierMixin implements HopperTierAccess 
             AABB area = HopperTierLogic.searchArea(self.getLevel(), self.getBlockPos(), fluidTier);
             HopperTierLogic.fluidCollect(storage, self.getLevel(), area, self.filterMode, filterSlots);
         }
+        ci.cancel();
     }
 
     @Inject(method = "load", at = @At("TAIL"), remap = false)

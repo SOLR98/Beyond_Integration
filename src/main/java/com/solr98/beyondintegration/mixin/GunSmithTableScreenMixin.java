@@ -197,14 +197,14 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
     @Inject(method = "renderIngredient", at = @At("RETURN"))
     private void onRenderIngredient(GuiGraphics graphics, CallbackInfo ci) {
         if (!com.solr98.beyondintegration.client.GunSmithNetMode.isNetworkMode()) return;
-        if (!NetworkItemCache.hasNetwork()) return;
+        if (!com.solr98.beyondintegration.client.GunSmithNetMode.hasNetwork()) return;
         if (selectedRecipe == null) return;
         var inputs = selectedRecipe.getInputs();
         if (inputs == null || inputs.isEmpty()) return;
 
-        int netVer = NetworkItemCache.getVersion();
+        int netVer = com.solr98.beyondintegration.client.GunSmithNetMode.dataVersion();
         if (beyond$cachedNetworkCounts == null || beyond$netVersion != netVer) {
-            if (NetworkItemCache.isEmpty()) return;
+            if (com.solr98.beyondintegration.client.GunSmithNetMode.isEmpty()) return;
             beyond$netVersion = netVer;
                     beyond$cachedNetworkCounts = com.solr98.beyondintegration.client.GunSmithNetMode.calcNetworkCounts(selectedRecipe);
             beyond$lastRecipeKey = selectedRecipe.getId().toString();
@@ -259,10 +259,10 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
             }
         }
 
-        if (!NetworkItemCache.hasNetwork()) return;
-        if (NetworkItemCache.isEmpty()) return;
+        if (!com.solr98.beyondintegration.client.GunSmithNetMode.hasNetwork()) return;
+        if (com.solr98.beyondintegration.client.GunSmithNetMode.isEmpty()) return;
 
-        int netVer = NetworkItemCache.getVersion();
+        int netVer = com.solr98.beyondintegration.client.GunSmithNetMode.dataVersion();
         String recipeKey = recipe.getId().toString();
         boolean cacheStale = !recipeKey.equals(beyond$lastRecipeKey) || beyond$netVersion != netVer;
 

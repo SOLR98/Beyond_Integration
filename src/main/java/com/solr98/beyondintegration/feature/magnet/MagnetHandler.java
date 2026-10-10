@@ -1,5 +1,6 @@
 package com.solr98.beyondintegration.feature.magnet;
 
+import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.dimensionnet.UnifiedStorage;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
@@ -67,7 +68,8 @@ public final class MagnetHandler {
         MagnetTier itemTier = MagnetTiers.itemByIndex(MagnetSettings.effectiveItemTier(stack));
         MagnetTier fluidTier = MagnetTiers.fluidByIndex(MagnetSettings.effectiveFluidTier(stack));
 
-        UnifiedStorage storage = NetedItem.getNet(stack).getUnifiedStorage();
+        DimensionsNet net = NetedItem.getNet(stack);
+        UnifiedStorage storage = net.getUnifiedStorage();
         Vec3i pos = holder.getOnPos();
         long time = level.getGameTime();
         boolean itemReady = due(itemTier.interval(), time);
@@ -77,7 +79,7 @@ public final class MagnetHandler {
         if (hopperItemMode == HopperItemMode.ALLOW && itemReady) {
             AABB area = getSearchArea(itemTier, level, pos);
             List<ItemEntity> itemEntities = refreshItemEntityCache(hopperNBTMode, level, area);
-            collectItems(storage, filterMode, filterSlots, itemEntities, holder);
+            collectItems(storage, net, level, filterMode, filterSlots, itemEntities, holder);
         }
         // 经验吸取（跟随物品档位）
         if (hopperXpMode == HopperXpMode.ALLOW && itemReady) {
@@ -141,7 +143,8 @@ public final class MagnetHandler {
         return Math.abs(a);
     }
 
-    private static void collectItems(UnifiedStorage storage, FilterMode filterMode, List<KeyAmount> filterSlots,
+    private static void collectItems(UnifiedStorage storage, DimensionsNet net, Level level,
+                                     FilterMode filterMode, List<KeyAmount> filterSlots,
                                      List<ItemEntity> itemEntities, Entity holder) {
         for (ItemEntity itemEntity : itemEntities) {
             if (itemEntity == null || itemEntity.isRemoved()) {
@@ -150,6 +153,11 @@ public final class MagnetHandler {
             ItemStack itemStack = itemEntity.getItem();
             ItemStackKey itemKey = new ItemStackKey(itemStack);
             if (!matchesFilter(filterMode, filterSlots, itemKey)) {
+                continue;
+            }
+            // 吸入物品处理扩展点：命中则由钩子消耗原物，丢弃实体且不把原物入网
+            if (MagnetAbsorbHooks.process(itemStack, level, net, holder)) {
+                itemEntity.discard();
                 continue;
             }
             int count = itemStack.getCount();

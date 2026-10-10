@@ -4,6 +4,9 @@ import net.minecraftforge.common.ForgeConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.solr98.beyondintegration.core.config.ConfigCommentLang;
+import com.solr98.beyondintegration.core.sync.NetDataType;
+import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
+import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 
 import java.util.Arrays;
 import java.util.List;
@@ -88,6 +91,55 @@ public class CommandConfig
         BATCH, DIRECT
     }
 
+    /**
+     * 主网络同步范围：
+     * ITEMS      = 仅物品键（默认，行为同旧版）；
+     * STORAGE    = 所有 storage 键（含能量 / 灵魂）；
+     * STORAGE_EXT= storage 全键 + NetworkAmmoData 扩展（虚拟弹药 / 开关等）。
+     */
+    public enum PrimaryNetSyncScope
+    {
+        ITEMS, STORAGE, STORAGE_EXT;
+
+        /** 服务端过滤：该存储键是否在同步范围内。 */
+        public boolean covers(IStackKey<?> key)
+        {
+            return switch (this)
+            {
+                case ITEMS -> key instanceof ItemStackKey;
+                case STORAGE, STORAGE_EXT -> true;
+            };
+        }
+
+        /** 客户端能力判断：该范围是否覆盖某数据类型。 */
+        public boolean supports(NetDataType type)
+        {
+            return switch (this)
+            {
+                case ITEMS -> type == NetDataType.ITEM;
+                case STORAGE -> type == NetDataType.ITEM || type == NetDataType.ENERGY || type == NetDataType.SOUL;
+                case STORAGE_EXT -> true;
+            };
+        }
+
+        /** 该范围覆盖的类型位掩码（作为同步包 typeMask：声明本范围的可用类型）。 */
+        public int mask()
+        {
+            return switch (this)
+            {
+                case ITEMS -> NetDataType.ITEM.bit();
+                case STORAGE -> NetDataType.ITEM.bit() | NetDataType.ENERGY.bit() | NetDataType.SOUL.bit();
+                case STORAGE_EXT -> NetDataType.allBits();
+            };
+        }
+
+        /** 是否包含扩展类型（虚拟弹药 / 开关等 NetworkAmmoData 数据）。 */
+        public boolean hasExt()
+        {
+            return this == STORAGE_EXT;
+        }
+    }
+
     /** 配置项定义类：在构造器中分区注册全部配置条目 */
     public static class ServerConfig
     {
@@ -148,6 +200,24 @@ public class CommandConfig
         public final ForgeConfigSpec.EnumValue<EnergyChargeMode> ENERGY_AMMO_CHARGE_MODE;
         public final ForgeConfigSpec.DoubleValue ENERGY_AMMO_CHARGE_PERCENTAGE;
 
+        // Networked potion charm
+        public final ForgeConfigSpec.BooleanValue POTION_CHARM_ENABLED;
+        public final ForgeConfigSpec.IntValue POTION_CHARM_INTERVAL;
+        public final ForgeConfigSpec.IntValue POTION_CHARM_REFRESH_LEAD;
+        public final ForgeConfigSpec.DoubleValue POTION_CHARM_MENDING_XP_COST;
+
+        // Goety network soul source（网络灵魂源）
+        public final ForgeConfigSpec.BooleanValue SOUL_ENABLED;
+        public final ForgeConfigSpec.BooleanValue SOUL_REQUIRE_ARK_SACRIFICE;
+        public final ForgeConfigSpec.ConfigValue<String> SOUL_ARK_ITEM;
+        public final ForgeConfigSpec.BooleanValue SOUL_SOURCE_KILL;
+        public final ForgeConfigSpec.DoubleValue SOUL_KILL_RATIO;
+        public final ForgeConfigSpec.BooleanValue SOUL_SOURCE_MANUAL;
+        public final ForgeConfigSpec.BooleanValue SOUL_DIRECT_MAIN_NET;
+        public final ForgeConfigSpec.BooleanValue SOUL_FOLD_INTO_PLAYER;
+        public final ForgeConfigSpec.LongValue SOUL_MAX;
+        public final ForgeConfigSpec.BooleanValue SOUL_DEBUG;
+
         // Anvil workstation
         public final ForgeConfigSpec.EnumValue<AnvilChargeMode> anvilCostMode;
         public final ForgeConfigSpec.IntValue anvilLevelCap;
@@ -205,8 +275,12 @@ public class CommandConfig
         public final ForgeConfigSpec.BooleanValue bucketSeparatorEnabled;
         /** 网络熔炉熔炼速度倍率（1.0=原速；配方耗时按倍率缩放，越大越快） */
         public final ForgeConfigSpec.DoubleValue netFurnaceSmeltSpeed;
-        /** 服务端：会话级主网络物品计数同步（JEI 任意界面显示/取物；关闭则仅 BD 终端界面生效，默认关闭） */
-        public final ForgeConfigSpec.BooleanValue primaryNetJeiSync;
+        /** 服务端：会话级主网络库存/状态同步（供 JEI 角标等多种功能读取；关闭则各自回退独立通道，默认关闭） */
+        public final ForgeConfigSpec.BooleanValue primaryNetSync;
+        /** 主网络同步范围（默认仅物品键；可扩至全部存储键 / 含扩展） */
+        public final ForgeConfigSpec.EnumValue<PrimaryNetSyncScope> primaryNetSyncScope;
+        /** 主网络同步调试日志 / 性能探针开关（默认关闭） */
+        public final ForgeConfigSpec.BooleanValue primaryNetSyncDebug;
         /** 维度网络通道（net_pathway）标记槽行数（1~6，全局；标记槽数 = 行数*9） */
         public final ForgeConfigSpec.IntValue netPathwayFilterRows;
         /** 维度网络方块被破坏时保留配置 NBT（标记槽 + 方块配置；默认开启） */
@@ -442,6 +516,54 @@ public class CommandConfig
                     .define("charge_maid_baubles", true);
             builder.pop();
 
+            builder.comment(ConfigCommentLang.comment("potion_charm")).push("potion_charm");
+            POTION_CHARM_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("potion_charm.enabled"))
+                    .define("enabled", true);
+            POTION_CHARM_INTERVAL = builder
+                    .comment(ConfigCommentLang.comment("potion_charm.interval"))
+                    .defineInRange("interval", 20, 1, 1200);
+            POTION_CHARM_REFRESH_LEAD = builder
+                    .comment(ConfigCommentLang.comment("potion_charm.refresh_lead_ticks"))
+                    .defineInRange("refresh_lead_ticks", 10, 1, 1200);
+            POTION_CHARM_MENDING_XP_COST = builder
+                    .comment(ConfigCommentLang.comment("potion_charm.mending_xp_cost"))
+                    .defineInRange("mending_xp_cost", 1.0, 0.0, 1000000.0);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("goety_soul")).push("goety_soul");
+            SOUL_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.enabled"))
+                    .define("enabled", true);
+            SOUL_REQUIRE_ARK_SACRIFICE = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.require_ark_sacrifice"))
+                    .define("require_ark_sacrifice", true);
+            SOUL_ARK_ITEM = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.ark_item"))
+                    .define("ark_item", "goety:arca");
+            SOUL_SOURCE_KILL = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.source_kill"))
+                    .define("source_kill", false);
+            SOUL_KILL_RATIO = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.kill_ratio"))
+                    .defineInRange("kill_ratio", 0.5, 0.0, 1.0);
+            SOUL_SOURCE_MANUAL = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.source_manual"))
+                    .define("source_manual", true);
+            SOUL_DIRECT_MAIN_NET = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.direct_main_net"))
+                    .define("direct_main_net", false);
+            SOUL_FOLD_INTO_PLAYER = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.fold_into_player"))
+                    .define("fold_into_player", false);
+            SOUL_MAX = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.max_souls"))
+                    .defineInRange("max_souls", Long.MAX_VALUE, 0L, Long.MAX_VALUE);
+            SOUL_DEBUG = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.debug"))
+                    .define("debug", false);
+            builder.pop();
+
             builder.comment(ConfigCommentLang.comment("anvil")).push("anvil");
             anvilCostMode = builder
                     .comment(ConfigCommentLang.comment("anvil.costMode"))
@@ -560,9 +682,15 @@ public class CommandConfig
             netFurnaceSmeltSpeed = builder
                     .comment(ConfigCommentLang.comment("bd_tweaks.net_furnace_smelt_speed"))
                     .defineInRange("net_furnace_smelt_speed", 1.0D, 0.1D, 100.0D);
-            primaryNetJeiSync = builder
-                    .comment(ConfigCommentLang.comment("bd_tweaks.primary_net_jei_sync"))
-                    .define("primary_net_jei_sync", false);
+            primaryNetSync = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.primary_net_sync"))
+                    .define("primary_net_sync", false);
+            primaryNetSyncScope = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.primary_net_sync_scope"))
+                    .defineEnum("primary_net_sync_scope", PrimaryNetSyncScope.ITEMS);
+            primaryNetSyncDebug = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.primary_net_sync_debug"))
+                    .define("primary_net_sync_debug", false);
             netPathwayFilterRows = builder
                     .comment(ConfigCommentLang.comment("bd_tweaks.net_pathway_filter_rows"))
                     .defineInRange("net_pathway_filter_rows", 3, 1, 6);
@@ -793,6 +921,23 @@ public class CommandConfig
     public static EnergyChargeMode energyAmmoChargeMode() { return SERVER.ENERGY_AMMO_CHARGE_MODE.get(); }
     public static double energyAmmoChargePercentage() { return SERVER.ENERGY_AMMO_CHARGE_PERCENTAGE.get(); }
 
+    public static boolean potionCharmEnabled() { return SERVER.POTION_CHARM_ENABLED.get(); }
+    public static int potionCharmInterval() { return SERVER.POTION_CHARM_INTERVAL.get(); }
+    public static int potionCharmRefreshLeadTicks() { return SERVER.POTION_CHARM_REFRESH_LEAD.get(); }
+    public static double potionCharmMendingXpCost() { return SERVER.POTION_CHARM_MENDING_XP_COST.get(); }
+
+    // ── 网络灵魂源（Goety 联动）──
+    public static boolean soulEnabled() { return SERVER.SOUL_ENABLED.get(); }
+    public static boolean soulRequireArkSacrifice() { return SERVER.SOUL_REQUIRE_ARK_SACRIFICE.get(); }
+    public static String soulArkItem() { return SERVER.SOUL_ARK_ITEM.get(); }
+    public static boolean soulSourceKill() { return SERVER.SOUL_SOURCE_KILL.get(); }
+    public static double soulKillRatio() { return SERVER.SOUL_KILL_RATIO.get(); }
+    public static boolean soulSourceManual() { return SERVER.SOUL_SOURCE_MANUAL.get(); }
+    public static boolean soulDirectMainNet() { return SERVER.SOUL_DIRECT_MAIN_NET.get(); }
+    public static boolean soulFoldIntoPlayer() { return SERVER.SOUL_FOLD_INTO_PLAYER.get(); }
+    public static long soulMax() { return SERVER.SOUL_MAX.get(); }
+    public static boolean soulDebug() { return SERVER.SOUL_DEBUG.get(); }
+
     public static AnvilChargeMode anvilCostMode() { return SERVER.anvilCostMode.get(); }
     public static int anvilLevelCap() { return SERVER.anvilLevelCap.get(); }
     public static long anvilPointsCap() { return SERVER.anvilPointsCap.get(); }
@@ -891,8 +1036,14 @@ public class CommandConfig
     /** 网络熔炉熔炼速度倍率（1.0=原速） */
     public static double netFurnaceSmeltSpeed() { return SERVER.netFurnaceSmeltSpeed.get(); }
 
-    /** 服务端：会话级主网络物品计数同步（JEI 任意界面生效；默认关闭 = 仅 BD 终端界面） */
-    public static boolean primaryNetJeiSync() { return SERVER.primaryNetJeiSync.get(); }
+    /** 服务端：会话级主网络库存/状态同步（供 JEI 等多种功能读取；默认关闭 = 各自回退独立通道） */
+    public static boolean primaryNetSync() { return SERVER.primaryNetSync.get(); }
+
+    /** 主网络同步范围（ITEMS / STORAGE / STORAGE_EXT） */
+    public static PrimaryNetSyncScope primaryNetSyncScope() { return SERVER.primaryNetSyncScope.get(); }
+
+    /** 主网络同步调试日志 / 性能探针开关（默认关闭） */
+    public static boolean primaryNetSyncDebug() { return SERVER.primaryNetSyncDebug.get(); }
 
     /** 维度网络通道（net_pathway）标记槽行数（1~6，全局） */
     public static int netPathwayFilterRows() { return SERVER.netPathwayFilterRows.get(); }

@@ -94,6 +94,14 @@ public class BeyondIntegration {
         // 注册充电平台实现（能量 capability / 模组判定 / 属性判定）
         com.solr98.beyondintegration.core.energy.ChargePlatform.set(
                 new com.solr98.beyondintegration.core.energy.ForgeChargePlatform());
+        // 注册网络灵魂能量键（必须在任何网络存储反序列化之前，且幂等）
+        com.solr98.beyondintegration.feature.soul.SoulKeyRegistration.register();
+        // 网络灵魂源：击杀沉淀监听（仅 Goety 加载时）
+        if (ModList.get().isLoaded("goety")) {
+            MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.soul.SoulGainHandler());
+            // HUD：订阅主网络存储增量，仅灵魂变化时增量推送（由 SEUpdatePacketMixin 并入网络魂）
+            MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.handler.SoulHudSyncHandler());
+        }
         registerItemBlacklistHandler();
         registerEnchantmentBookSeparator();
         registerBucketSeparator();
@@ -106,6 +114,19 @@ public class BeyondIntegration {
             com.solr98.beyondintegration.feature.ammo.sw.EnergyAmmoChargeHandler
                     .tick(net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer());
         });
+        // 网络药水护符：按配置间隔对"主网络"玩家施加网络内护符效果（未装神化时内部自动跳过）
+        MinecraftForge.EVENT_BUS.addListener((TickEvent.ServerTickEvent tickEvent) -> {
+            if (tickEvent.phase != TickEvent.Phase.END) return;
+            com.solr98.beyondintegration.feature.charm.NetworkPotionCharmHandler
+                    .tick(net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer());
+        });
+        // 网络药水护符缓存清理（网络销毁 / 服务器停止）
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStoppingEvent stopEvent) ->
+                com.solr98.beyondintegration.feature.charm.NetworkPotionCharmHandler.clearCaches());
+        MinecraftForge.EVENT_BUS.addListener(
+                (com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed destroyedEvent) ->
+                        com.solr98.beyondintegration.feature.charm.NetworkPotionCharmHandler
+                                .onNetDestroyed(destroyedEvent.getDestroyedId()));
         registerVehicleInteractHandler();
         MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.AutoTotemHandler());
         MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.TotemBurstTicker());
@@ -121,6 +142,7 @@ public class BeyondIntegration {
         if (ModList.get().isLoaded("touhou_little_maid")) {
             MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.MaidAutoTotemHandler());
             MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.maid.MaidEnergyChargeHandler());
+            MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.maid.MaidPotionCharmHandler());
             LOGGER.info("Registered MaidAutoTotemHandler");
         }
         com.solr98.beyondintegration.network.PacketHandler.register();
@@ -141,6 +163,14 @@ public class BeyondIntegration {
     /** 配置重载时记录 COMMON/CLIENT 配置实例。 */
     private void onModConfigReloading(net.minecraftforge.fml.event.config.ModConfigEvent.Reloading event) {
         trackConfig(event.getConfig());
+        // 主网络同步配置变更：向在线玩家重推配置，并重置会话基线下一 tick 按新范围全量重推
+        if (MODID.equals(event.getConfig().getModId())) {
+            var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+            if (server != null) {
+                com.solr98.beyondintegration.handler.NetworkSyncConfigPusher.pushAll(server);
+                com.solr98.beyondintegration.network.PrimaryNetSyncManager.onConfigChanged();
+            }
+        }
     }
 
     private void trackConfig(net.minecraftforge.fml.config.ModConfig config) {
@@ -172,6 +202,11 @@ public class BeyondIntegration {
             (net.minecraftforge.event.server.ServerStoppingEvent event) -> {
                 com.solr98.beyondintegration.handler.NetworkDataStore.saveNow();
             }
+        );
+        // 服务器停止：清空主网络同步会话与限流状态
+        MinecraftForge.EVENT_BUS.addListener(
+            (net.minecraftforge.event.server.ServerStoppingEvent event) ->
+                com.solr98.beyondintegration.network.PrimaryNetSyncManager.clear()
         );
         MinecraftForge.EVENT_BUS.addListener(
             (com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed event) -> {

@@ -3,6 +3,9 @@ package com.solr98.beyondintegration.client;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.RequestItemAmmoPacket;
 import com.solr98.beyondintegration.network.RequestSuperbAmmoStatusPacket;
+import com.solr98.beyondintegration.client.mirror.SharedNetData;
+import com.solr98.beyondintegration.core.sync.NetDataType;
+import com.solr98.beyondintegration.core.sync.NetFlag;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -157,13 +160,20 @@ public class SuperbAmmoCache {
     // ═══════════ 玩家侧 API（操作 currentNetId 快照）═══════════
 
     public static boolean hasData() {
+        if (mirrorAmmo()) return true;
         synchronized (LOCK) {
             return snapshots.get(currentNetId) != null;
         }
     }
 
+    /** 主网络镜像是否覆盖 SW 虚拟弹药（条件式取数）。 */
+    private static boolean mirrorAmmo() {
+        return SharedNetData.available(NetDataType.EXT_AMMO);
+    }
+
     /** 获取当前玩家网络的 ID */
     public static int getNetId() {
+        if (mirrorAmmo()) return PrimaryNetClientStorage.INSTANCE.netId();
         synchronized (LOCK) {
             return currentNetId;
         }
@@ -171,6 +181,7 @@ public class SuperbAmmoCache {
 
     /** 获取当前玩家网络名称（无数据时返回空串） */
     public static String getNetworkName() {
+        if (mirrorAmmo()) return PrimaryNetClientStorage.INSTANCE.getNetworkName();
         synchronized (LOCK) {
             NetSnapshot snap = snapshots.get(currentNetId);
             return snap != null ? snap.netName : "";
@@ -179,6 +190,9 @@ public class SuperbAmmoCache {
 
     /** 获取当前玩家网络能量（无数据返回 -1） */
     public static long getNetworkEnergy() {
+        if (SharedNetData.available(NetDataType.ENERGY)) {
+            return PrimaryNetClientStorage.INSTANCE.getAmount(NetDataType.ENERGY).orElse(-1L);
+        }
         synchronized (LOCK) {
             NetSnapshot snap = snapshots.get(currentNetId);
             return snap != null ? snap.energy : -1;
@@ -187,14 +201,18 @@ public class SuperbAmmoCache {
 
     /** 获取当前玩家网络指定弹药计数（缺失返回 0） */
     public static long getCount(String key) {
+        if (mirrorAmmo()) {
+            return PrimaryNetClientStorage.INSTANCE.getExtAmmo().getOrDefault(key, 0L);
+        }
         synchronized (LOCK) {
             NetSnapshot snap = snapshots.get(currentNetId);
             return snap != null ? snap.ammo.getOrDefault(key, 0L) : 0L;
         }
     }
 
-    /** 当前玩家网络数据是否已过期（超过 5s 未更新） */
+    /** 当前玩家网络数据是否已过期（超过 5s 未更新）；镜像可用时永不过期。 */
     public static boolean isStale() {
+        if (mirrorAmmo()) return false;
         synchronized (LOCK) {
             NetSnapshot snap = snapshots.get(currentNetId);
             return snap == null || System.currentTimeMillis() - snap.lastUpdate > UPDATE_INTERVAL;
@@ -224,6 +242,9 @@ public class SuperbAmmoCache {
 
     /** 当前网络是否启用附魔分离（默认启用；读取独立状态，不依赖 SW 快照） */
     public static boolean getEnchantSeparation() {
+        if (SharedNetData.available(NetDataType.EXT_FLAGS)) {
+            return PrimaryNetClientStorage.INSTANCE.getFlag(NetFlag.ENCHANT_SEPARATION);
+        }
         synchronized (LOCK) {
             return EnchantSeparationState.get(currentNetId);
         }
@@ -238,6 +259,9 @@ public class SuperbAmmoCache {
 
     /** 当前网络是否启用自动充电（默认启用；读取独立状态，不依赖 SW 快照） */
     public static boolean getEnergyCharge() {
+        if (SharedNetData.available(NetDataType.EXT_FLAGS)) {
+            return PrimaryNetClientStorage.INSTANCE.getFlag(NetFlag.ENERGY_CHARGE);
+        }
         synchronized (LOCK) {
             return EnergyChargeState.get(currentNetId);
         }
@@ -247,6 +271,34 @@ public class SuperbAmmoCache {
     public static void setEnergyCharge(boolean v) {
         synchronized (LOCK) {
             EnergyChargeState.set(currentNetId, v);
+        }
+    }
+
+    /** 当前网络的网络药水护符生效目标（PotionCharmMode 序号；默认 0=仅玩家） */
+    public static int getPotionCharmMode() {
+        synchronized (LOCK) {
+            return PotionCharmState.getMode(currentNetId);
+        }
+    }
+
+    /** 当前网络的经验修补是否已献祭解锁 */
+    public static boolean getPotionCharmMendingUnlocked() {
+        synchronized (LOCK) {
+            return PotionCharmState.isMendingUnlocked(currentNetId);
+        }
+    }
+
+    /** 写入当前网络的完整网络药水护符状态（生效目标 + 献祭解锁） */
+    public static void setPotionCharmState(int mode, boolean mendingUnlocked) {
+        synchronized (LOCK) {
+            PotionCharmState.set(currentNetId, mode, mendingUnlocked);
+        }
+    }
+
+    /** 仅更新当前网络的生效目标（保留献祭解锁状态；本地乐观切换用） */
+    public static void setPotionCharmMode(int mode) {
+        synchronized (LOCK) {
+            PotionCharmState.setMode(currentNetId, mode);
         }
     }
 

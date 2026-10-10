@@ -80,14 +80,16 @@ public class ClientRegistrar {
         // 主网络镜像：仅在“登录/退出”时清空（换维度/重生不清，避免服务端不重发导致缓存空掉）
         MinecraftForge.EVENT_BUS.addListener(
             (net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingIn ev) ->
-                PrimaryNetClientStorage.clear()
+                PrimaryNetClientStorage.INSTANCE.clear()
         );
         MinecraftForge.EVENT_BUS.addListener(
             (net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut ev) -> {
                 SuperbAmmoCache.clear();
                 NetworkItemCache.clear();
                 WorkstationActivationCache.reset();
-                PrimaryNetClientStorage.clear();
+                PrimaryNetClientStorage.INSTANCE.clear();
+                SyncConfigClient.reset();
+                SoulEnergyState.clear();
             }
         );
         if(ModList.get().isLoaded("tacz")){

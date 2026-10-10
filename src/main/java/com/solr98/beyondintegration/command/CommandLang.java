@@ -922,6 +922,28 @@ public class CommandLang
         register("network.insert.energy.success",
                 CommandConfig.Language.EN_US, "Inserted %s FE of energy into network %s",
                 CommandConfig.Language.ZH_CN, "已向网络 %2$s 插入 %1$s FE 能量");
+
+        register("network.insert.potionCharm.success",
+                CommandConfig.Language.EN_US, "Inserted %s potion charm(s) [%s, %s] into network %s",
+                CommandConfig.Language.ZH_CN, "已向网络 %4$s 插入 %1$s 个药水护符 [%2$s, %3$s]");
+
+        register("network.insert.potionCharm.all.success",
+                CommandConfig.Language.EN_US, "Inserted %s potion charm type(s) [%s], %s total [%s] into network %s",
+                CommandConfig.Language.ZH_CN, "已向网络 %5$s 插入 %1$s 种药水护符 [%2$s]，共 %3$s 个 [%4$s]");
+
+        register("network.insert.potionCharm.category.all",
+                CommandConfig.Language.EN_US, "all effects",
+                CommandConfig.Language.ZH_CN, "全部效果");
+        register("network.insert.potionCharm.category.positive",
+                CommandConfig.Language.EN_US, "positive effects",
+                CommandConfig.Language.ZH_CN, "正面效果");
+        register("network.insert.potionCharm.category.negative",
+                CommandConfig.Language.EN_US, "negative effects",
+                CommandConfig.Language.ZH_CN, "负面效果");
+
+        register("error.apotheosis_required",
+                CommandConfig.Language.EN_US, "Apotheosis is not loaded; cannot create potion charms.",
+                CommandConfig.Language.ZH_CN, "未加载神化（Apotheosis），无法创建药水护符。");
         
         // 网络创建消息
         register("network.create.success",

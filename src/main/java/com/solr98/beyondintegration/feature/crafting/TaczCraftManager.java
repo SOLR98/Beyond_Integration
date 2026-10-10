@@ -65,7 +65,7 @@ public final class TaczCraftManager implements ICraftingIntegration {
         if (inputs == null || inputs.isEmpty())
             return new CraftResult(0, ItemStack.EMPTY, Collections.emptyMap());
 
-        RequestNetworkItemsPacket.ensureIndex(player);
+        com.solr98.beyondintegration.feature.ammo.tacz.TaczRecipeIndex.ensure(player.getServer().getRecipeManager());
 
         // 配方驱动定向扫描：构建材料输入清单（无 NBT → IDENTITY 定向精确键；
         // partial_nbt 候选 → PARTIAL_NBT 先定向、不足时全桶兜底）

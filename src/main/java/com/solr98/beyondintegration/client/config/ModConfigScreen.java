@@ -129,25 +129,6 @@ public class ModConfigScreen {
                 .setSaveConsumer(ClientConfig::setEnchantMergeRows)
                 .build());
 
-        clientCat.addEntry(eb.startBooleanToggle(
-                Component.translatable("beyond_integration.config.client.search_sync_jei"),
-                ClientConfig.CLIENT.searchSyncJei.get())
-                .setDefaultValue(true)
-                .setSaveConsumer(ClientConfig::setSearchSyncJei)
-                .build());
-        clientCat.addEntry(eb.startIntField(
-                Component.translatable("beyond_integration.config.client.search_history_rows"),
-                ClientConfig.CLIENT.searchHistoryRows.get())
-                .setDefaultValue(5).setMin(1).setMax(20)
-                .setSaveConsumer(ClientConfig::setSearchHistoryRows)
-                .build());
-        clientCat.addEntry(eb.startIntField(
-                Component.translatable("beyond_integration.config.client.search_history_max"),
-                ClientConfig.CLIENT.searchHistoryMax.get())
-                .setDefaultValue(20).setMin(1).setMax(100)
-                .setSaveConsumer(ClientConfig::setSearchHistoryMax)
-                .build());
-
         // ========== 3. 工作台（服务端可用列表） ==========
         ConfigCategory workstation = builder.getOrCreateCategory(
                 Component.translatable("beyond_integration.config.workstation"));
@@ -547,6 +528,112 @@ public class ModConfigScreen {
                 .setSaveConsumer(CommandConfig.SERVER.ENERGY_AMMO_CHARGE_MAID_BAUBLES::set)
                 .build());
 
+        // ========== 网络药水护符 ==========
+        ConfigCategory potionCharm = builder.getOrCreateCategory(
+                Component.translatable("beyond_integration.config.potion_charm"));
+        potionCharm.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.potion_charm.enabled"),
+                CommandConfig.SERVER.POTION_CHARM_ENABLED.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.potion_charm.enabled"))
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.POTION_CHARM_ENABLED::set)
+                .build());
+        potionCharm.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.potion_charm.interval"),
+                CommandConfig.SERVER.POTION_CHARM_INTERVAL.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.potion_charm.interval"))
+                .setDefaultValue(20).setMin(1).setMax(1200)
+                .setSaveConsumer(CommandConfig.SERVER.POTION_CHARM_INTERVAL::set)
+                .build());
+        potionCharm.addEntry(eb.startIntField(
+                Component.translatable("beyond_integration.config.potion_charm.refresh_lead_ticks"),
+                CommandConfig.SERVER.POTION_CHARM_REFRESH_LEAD.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.potion_charm.refresh_lead_ticks"))
+                .setDefaultValue(10).setMin(1).setMax(1200)
+                .setSaveConsumer(CommandConfig.SERVER.POTION_CHARM_REFRESH_LEAD::set)
+                .build());
+        potionCharm.addEntry(eb.startDoubleField(
+                Component.translatable("beyond_integration.config.potion_charm.mending_xp_cost"),
+                CommandConfig.SERVER.POTION_CHARM_MENDING_XP_COST.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.potion_charm.mending_xp_cost"))
+                .setDefaultValue(1.0).setMin(0.0).setMax(1000000.0)
+                .setSaveConsumer(CommandConfig.SERVER.POTION_CHARM_MENDING_XP_COST::set)
+                .build());
+
+        // ========== 网络灵魂源（Goety 联动）==========
+        ConfigCategory goetySoul = builder.getOrCreateCategory(
+                Component.translatable("beyond_integration.config.goety_soul"));
+        goetySoul.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.goety_soul.enabled"),
+                CommandConfig.SERVER.SOUL_ENABLED.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.goety_soul.enabled"))
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.SOUL_ENABLED::set)
+                .build());
+        goetySoul.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.goety_soul.require_ark_sacrifice"),
+                CommandConfig.SERVER.SOUL_REQUIRE_ARK_SACRIFICE.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.goety_soul.require_ark_sacrifice"))
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.SOUL_REQUIRE_ARK_SACRIFICE::set)
+                .build());
+        goetySoul.addEntry(eb.startStrField(
+                Component.translatable("beyond_integration.config.goety_soul.ark_item"),
+                CommandConfig.SERVER.SOUL_ARK_ITEM.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.goety_soul.ark_item"))
+                .setDefaultValue("goety:arca")
+                .setSaveConsumer(CommandConfig.SERVER.SOUL_ARK_ITEM::set)
+                .build());
+        goetySoul.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.goety_soul.source_kill"),
+                CommandConfig.SERVER.SOUL_SOURCE_KILL.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.goety_soul.source_kill"))
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.SOUL_SOURCE_KILL::set)
+                .build());
+        goetySoul.addEntry(eb.startDoubleField(
+                Component.translatable("beyond_integration.config.goety_soul.kill_ratio"),
+                CommandConfig.SERVER.SOUL_KILL_RATIO.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.goety_soul.kill_ratio"))
+                .setDefaultValue(0.5).setMin(0.0).setMax(1.0)
+                .setSaveConsumer(CommandConfig.SERVER.SOUL_KILL_RATIO::set)
+                .build());
+        goetySoul.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.goety_soul.source_manual"),
+                CommandConfig.SERVER.SOUL_SOURCE_MANUAL.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.goety_soul.source_manual"))
+                .setDefaultValue(true)
+                .setSaveConsumer(CommandConfig.SERVER.SOUL_SOURCE_MANUAL::set)
+                .build());
+        goetySoul.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.goety_soul.direct_main_net"),
+                CommandConfig.SERVER.SOUL_DIRECT_MAIN_NET.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.goety_soul.direct_main_net"))
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.SOUL_DIRECT_MAIN_NET::set)
+                .build());
+        goetySoul.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.goety_soul.fold_into_player"),
+                CommandConfig.SERVER.SOUL_FOLD_INTO_PLAYER.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.goety_soul.fold_into_player"))
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.SOUL_FOLD_INTO_PLAYER::set)
+                .build());
+        goetySoul.addEntry(eb.startLongField(
+                Component.translatable("beyond_integration.config.goety_soul.max_souls"),
+                CommandConfig.SERVER.SOUL_MAX.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.goety_soul.max_souls"))
+                .setDefaultValue(Long.MAX_VALUE).setMin(0L).setMax(Long.MAX_VALUE)
+                .setSaveConsumer(CommandConfig.SERVER.SOUL_MAX::set)
+                .build());
+        goetySoul.addEntry(eb.startBooleanToggle(
+                Component.translatable("beyond_integration.config.goety_soul.debug"),
+                CommandConfig.SERVER.SOUL_DEBUG.get())
+                .setTooltip(Component.translatable("beyond_integration.config.comment.goety_soul.debug"))
+                .setDefaultValue(false)
+                .setSaveConsumer(CommandConfig.SERVER.SOUL_DEBUG::set)
+                .build());
+
         // ========== 8. 网络图腾 ==========
         ConfigCategory totem = builder.getOrCreateCategory(
                 Component.translatable("beyond_integration.config.totem"));
@@ -707,10 +794,10 @@ public class ModConfigScreen {
                 .setSaveConsumer(CommandConfig.SERVER.netFurnaceSmeltSpeed::set)
                 .build());
         xpRod.addEntry(eb.startBooleanToggle(
-                Component.translatable("beyond_integration.config.bd_tweaks.primary_net_jei_sync"),
-                CommandConfig.SERVER.primaryNetJeiSync.get())
+                Component.translatable("beyond_integration.config.bd_tweaks.primary_net_sync"),
+                CommandConfig.SERVER.primaryNetSync.get())
                 .setDefaultValue(false)
-                .setSaveConsumer(CommandConfig.SERVER.primaryNetJeiSync::set)
+                .setSaveConsumer(CommandConfig.SERVER.primaryNetSync::set)
                 .build());
         xpRod.addEntry(eb.startIntField(
                 Component.translatable("beyond_integration.config.bd_tweaks.net_pathway_filter_rows"),

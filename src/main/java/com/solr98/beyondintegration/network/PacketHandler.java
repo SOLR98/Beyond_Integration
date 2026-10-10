@@ -50,6 +50,11 @@ public class PacketHandler {
                 HudHintPacket::decode,
                 HudHintPacket::handle);
 
+        INSTANCE.registerMessage(id++, SoulEnergySyncPacket.class,
+                SoulEnergySyncPacket::encode,
+                SoulEnergySyncPacket::decode,
+                SoulEnergySyncPacket::handle);
+
         INSTANCE.registerMessage(id++, SetAnvilNamePacket.class,
                 SetAnvilNamePacket::encode,
                 SetAnvilNamePacket::decode,
@@ -94,6 +99,26 @@ public class PacketHandler {
                 RequestEnergyChargePacket::encode,
                 RequestEnergyChargePacket::decode,
                 RequestEnergyChargePacket::handle);
+
+        INSTANCE.registerMessage(id++, CyclePotionCharmModePacket.class,
+                CyclePotionCharmModePacket::encode,
+                CyclePotionCharmModePacket::decode,
+                CyclePotionCharmModePacket::handle);
+
+        INSTANCE.registerMessage(id++, PotionCharmSyncPacket.class,
+                PotionCharmSyncPacket::encode,
+                PotionCharmSyncPacket::decode,
+                PotionCharmSyncPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestPotionCharmPacket.class,
+                RequestPotionCharmPacket::encode,
+                RequestPotionCharmPacket::decode,
+                RequestPotionCharmPacket::handle);
+
+        INSTANCE.registerMessage(id++, SacrificeMendingPacket.class,
+                SacrificeMendingPacket::encode,
+                SacrificeMendingPacket::decode,
+                SacrificeMendingPacket::handle);
 
         INSTANCE.registerMessage(id++, RefreshEnchantPacket.class,
                 RefreshEnchantPacket::encode,
@@ -191,6 +216,21 @@ public class PacketHandler {
                 TaczAmmoPushS2CPacket::encode,
                 TaczAmmoPushS2CPacket::decode,
                 TaczAmmoPushS2CPacket::handle);
+
+        INSTANCE.registerMessage(id++, SyncConfigSyncPacket.class,
+                SyncConfigSyncPacket::encode,
+                SyncConfigSyncPacket::decode,
+                SyncConfigSyncPacket::handle);
+
+        INSTANCE.registerMessage(id++, SyncResyncRequestPacket.class,
+                SyncResyncRequestPacket::encode,
+                SyncResyncRequestPacket::decode,
+                SyncResyncRequestPacket::handle);
+
+        INSTANCE.registerMessage(id++, TudDumpPacket.class,
+                TudDumpPacket::encode,
+                TudDumpPacket::decode,
+                TudDumpPacket::handle);
     }
 
     /** 客户端 → 服务端发送 */

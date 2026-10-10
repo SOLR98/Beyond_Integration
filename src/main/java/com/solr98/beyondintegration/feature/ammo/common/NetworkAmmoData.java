@@ -96,6 +96,30 @@ public class NetworkAmmoData extends SavedData {
             data.computeIfAbsent(netId, k -> new Attachment()).energyCharge = ecTag.getBoolean(key);
         }
 
+        // 2c) potionCharmMode：网络 ID → 网络药水护符生效目标
+        CompoundTag pcTag = tag.getCompound("potionCharmMode");
+        for (String key : pcTag.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            data.computeIfAbsent(netId, k -> new Attachment()).potionCharmMode = pcTag.getInt(key);
+        }
+
+        // 2d) potionCharmMending：网络 ID → 经验修补献祭解锁
+        CompoundTag pcmTag = tag.getCompound("potionCharmMending");
+        for (String key : pcmTag.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            data.computeIfAbsent(netId, k -> new Attachment()).potionCharmMending = pcmTag.getBoolean(key);
+        }
+
+        // 2e) soulArkActivated：网络 ID → 网络方舟献祭激活
+        CompoundTag saTag = tag.getCompound("soulArkActivated");
+        for (String key : saTag.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            data.computeIfAbsent(netId, k -> new Attachment()).soulArkActivated = saTag.getBoolean(key);
+        }
+
         // 3) creativeTypes：网络 ID → {"size": n, "0".."n-1": 弹药类型}
         CompoundTag ctTag = tag.getCompound("creativeTypes");
         for (String key : ctTag.getAllKeys()) {
@@ -198,6 +222,27 @@ public class NetworkAmmoData extends SavedData {
         }
         tag.put("energyCharge", ecTag);
 
+        // 2c) potionCharmMode：网络 ID → 网络药水护符生效目标
+        CompoundTag pcTag = new CompoundTag();
+        for (var entry : data.entrySet()) {
+            pcTag.putInt(String.valueOf(entry.getKey()), entry.getValue().potionCharmMode);
+        }
+        tag.put("potionCharmMode", pcTag);
+
+        // 2d) potionCharmMending：网络 ID → 经验修补献祭解锁
+        CompoundTag pcmTag = new CompoundTag();
+        for (var entry : data.entrySet()) {
+            pcmTag.putBoolean(String.valueOf(entry.getKey()), entry.getValue().potionCharmMending);
+        }
+        tag.put("potionCharmMending", pcmTag);
+
+        // 2e) soulArkActivated：网络 ID → 网络方舟献祭激活
+        CompoundTag saTag = new CompoundTag();
+        for (var entry : data.entrySet()) {
+            saTag.putBoolean(String.valueOf(entry.getKey()), entry.getValue().soulArkActivated);
+        }
+        tag.put("soulArkActivated", saTag);
+
         CompoundTag iesTag = new CompoundTag();
         for (var entry : data.entrySet()) {
         }
@@ -276,6 +321,12 @@ public class NetworkAmmoData extends SavedData {
         private boolean enchantSeparation = false;
         /** 自动充电开关（网络级，默认开启） */
         private boolean energyCharge = true;
+        /** 网络药水护符生效目标（网络级，0=仅玩家/1=仅女仆/2=玩家和女仆/3=关闭；默认仅玩家） */
+        private int potionCharmMode = 0;
+        /** 网络药水护符"经验修补"献祭解锁（网络级，默认未解锁；献祭单附魔经验修补书后置位） */
+        private boolean potionCharmMending = false;
+        /** 网络方舟献祭激活（网络级，默认未激活；献祭后解锁该网络的灵魂源） */
+        private boolean soulArkActivated = false;
         /** 已献祭激活的工作台 ID 集合（网络级，默认空=全部未激活） */
         private final java.util.Set<String> activatedWorkstations = new java.util.HashSet<>();
         /** 附魔物品(装备)分离开关（默认开启） */
@@ -297,6 +348,18 @@ public class NetworkAmmoData extends SavedData {
         public boolean isEnergyCharge() { return energyCharge; }
         /** 设置自动充电开关 */
         public void setEnergyCharge(boolean v) { this.energyCharge = v; }
+        /** 网络药水护符生效目标（见 PotionCharmMode 序号） */
+        public int getPotionCharmMode() { return potionCharmMode; }
+        /** 设置网络药水护符生效目标 */
+        public void setPotionCharmMode(int v) { this.potionCharmMode = v; }
+        /** 网络药水护符"经验修补"是否已献祭解锁 */
+        public boolean isPotionCharmMending() { return potionCharmMending; }
+        /** 设置网络药水护符"经验修补"献祭解锁 */
+        public void setPotionCharmMending(boolean v) { this.potionCharmMending = v; }
+        /** 网络方舟是否已献祭激活 */
+        public boolean isSoulArkActivated() { return soulArkActivated; }
+        /** 设置网络方舟献祭激活 */
+        public void setSoulArkActivated(boolean v) { this.soulArkActivated = v; }
         /** 已献祭激活的工作台 ID 集合 */
         public java.util.Set<String> getActivatedWorkstations() { return activatedWorkstations; }
         /** 是否启用附魔物品(装备)分离 */

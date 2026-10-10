@@ -53,6 +53,9 @@ public class MixinPlugin implements IMixinConfigPlugin {
         if (targetClassName.startsWith("com.atsuishio.superbwarfare.")) {
             return modList.isLoaded("superbwarfare");
         }
+        if (targetClassName.startsWith("com.Polarice3.Goety.")) {
+            return modList.isLoaded("goety");
+        }
         if (targetClassName.startsWith("mezz.jei.")) {
             // JEI 集成（物品数量角标/点击取物品）：仅 JEI 加载时应用；
             // 检测到 rs_integration（RI）时让路禁用，避免与其同类功能冲突

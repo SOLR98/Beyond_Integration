@@ -2,6 +2,8 @@ package com.solr98.beyondintegration.client;
 
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.RequestAmmoCountPacket;
+import com.solr98.beyondintegration.client.mirror.SharedNetData;
+import com.solr98.beyondintegration.core.sync.NetDataType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 
@@ -41,12 +43,22 @@ public class TaczAmmoCache {
 
     /** 该弹药是否有缓存数据（先应用到期暂存） */
     public static boolean hasData(ResourceLocation ammoId) {
+        if (mirrorAvailable()) return true;
         applyIfDue();
         return hasData;
     }
 
+    /** 主网络镜像是否覆盖 TACZ 弹药（ITEM 类型；条件式取数）。 */
+    private static boolean mirrorAvailable() {
+        // TUD 的弹药判定数据由双端各自从本地 config 目录加载（非网络同步），
+        // 客户端与服务端可能不一致；为保证与权威一致，TUD 加载时回退服务端推送通道。
+        if (com.solr98.beyondintegration.compat.tud.TudAmmoCompat.isLoaded()) return false;
+        return SharedNetData.available(NetDataType.ITEM);
+    }
+
     /** 获取指定弹药缓存数量（无限弹药返回 Integer.MAX_VALUE，无数据返回 0） */
     public static int getCount(ResourceLocation ammoId) {
+        if (mirrorAvailable()) return TaczAmmoMirror.getCount(ammoId);
         applyIfDue();
         if (!hasData) return 0;
         Integer allCreative = cache.get("*");
@@ -67,12 +79,14 @@ public class TaczAmmoCache {
 
     /** 获取缓存所属网络 ID */
     public static int getNetId() {
+        if (mirrorAvailable()) return PrimaryNetClientStorage.INSTANCE.netId();
         applyIfDue();
         return netId;
     }
 
     /** 获取缓存所属网络名称 */
     public static String getNetName() {
+        if (mirrorAvailable()) return PrimaryNetClientStorage.INSTANCE.getNetworkName();
         applyIfDue();
         return netName;
     }

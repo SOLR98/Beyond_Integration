@@ -2,6 +2,9 @@ package com.solr98.beyondintegration.network;
 
 import com.solr98.beyondintegration.BeyondIntegration;
 import com.solr98.beyondintegration.CommandConfig;
+import com.solr98.beyondintegration.core.sync.NetDataType;
+import com.solr98.beyondintegration.core.sync.NetSyncDebug;
+import com.solr98.beyondintegration.handler.NetworkSyncConfigPusher;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.handler.impl.AbstractUnorderedStackHandler;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
@@ -46,12 +49,17 @@ public final class PrimaryNetSyncManager {
         final Map<IStackKey<?>, Long> pending = new HashMap<>();
         final Map<IStackKey<?>, Long> lastSent = new HashMap<>();
         boolean dirtyFull = false;
+        // EXT（NetworkAmmoData）快照：无 storage delta 事件，靠 per-tick 比较
+        Map<String, Long> lastExtAmmo = null;
+        long lastExtFlags = 0L;
+        String lastExtName = null;
+        boolean extDirty = false;
     }
 
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        if (!CommandConfig.primaryNetJeiSync()) {
+        if (!CommandConfig.primaryNetSync()) {
             sendClear(player);
             return;
         }
@@ -79,7 +87,7 @@ public final class PrimaryNetSyncManager {
     }
 
     private static void tick(ServerPlayer player) {
-        boolean enabled = CommandConfig.primaryNetJeiSync();
+        boolean enabled = CommandConfig.primaryNetSync();
         Session session = SESSIONS.get(player.getUUID());
 
         if (!enabled) {
@@ -118,7 +126,58 @@ public final class PrimaryNetSyncManager {
             }
             return;
         }
+        if (net != null && CommandConfig.primaryNetSyncScope().hasExt()) {
+            detectExtChange(net, session);
+        }
         flush(player, session);
+    }
+
+    /** EXT 变化检测：虚拟弹药 / 开关 / 网络名（无事件源，per-tick 快照比较）。 */
+    private static void detectExtChange(DimensionsNet net, Session session) {
+        Map<String, Long> ammo = readExtAmmo(net);
+        long flags = readFlags(net);
+        String name = readName(net);
+        if (session.lastExtAmmo == null
+                || !session.lastExtAmmo.equals(ammo)
+                || session.lastExtFlags != flags
+                || !java.util.Objects.equals(session.lastExtName, name)) {
+            session.extDirty = true;
+            NetSyncDebug.log("ext change net={} ammo={} flags={} name={}",
+                    session.netId, ammo.size(), flags, name);
+        }
+    }
+
+    private static Map<String, Long> readExtAmmo(DimensionsNet net) {
+        Map<String, Long> map = new HashMap<>();
+        if (net instanceof com.solr98.beyondintegration.handler.SuperbAmmoAccessor acc) {
+            map.putAll(acc.getSuperbAmmo());
+        }
+        // TACZ 创造箱虚拟计数（前缀 tacz:，避免与 SW 键空间冲突）
+        if (net instanceof com.solr98.beyondintegration.handler.TaczCreativeAccessor tacz) {
+            for (Map.Entry<String, Integer> e : tacz.getTaczCreativeCounts().entrySet()) {
+                if (e.getValue() != null && e.getValue() > 0) {
+                    map.put("tacz:" + e.getKey(), (long) e.getValue());
+                }
+            }
+        }
+        return map;
+    }
+
+    private static long readFlags(DimensionsNet net) {
+        long flags = 0L;
+        if (net instanceof com.solr98.beyondintegration.handler.EnchantSeparationAccessor ea
+                && ea.beyond$isEnchantSeparationEnabled()) {
+            flags |= 1L << com.solr98.beyondintegration.core.sync.NetFlag.ENCHANT_SEPARATION.ordinal();
+        }
+        if (net instanceof com.solr98.beyondintegration.handler.EnergyChargeAccessor ec
+                && ec.beyond$isEnergyChargeEnabled()) {
+            flags |= 1L << com.solr98.beyondintegration.core.sync.NetFlag.ENERGY_CHARGE.ordinal();
+        }
+        return flags;
+    }
+
+    private static String readName(DimensionsNet net) {
+        return net instanceof com.solr98.beyondintegration.handler.NetworkNameProvider nnp ? nnp.getCustomName() : "";
     }
 
     private static void bind(ServerPlayer player, DimensionsNet net) {
@@ -127,12 +186,14 @@ public final class PrimaryNetSyncManager {
         session.storage = net.getUnifiedStorage();
         session.anySub = session.storage.subscribeAny(session, () -> session.dirtyFull = true);
         session.deltaSub = session.storage.subscribeDelta(session, (key, size, insert) -> {
-            if (key instanceof ItemStackKey) {
+            if (key != null) {
                 session.pending.put(key, session.storage.getStackByKey(key).amount());
             }
         });
         session.dirtyFull = true;
+        session.extDirty = CommandConfig.primaryNetSyncScope().hasExt();
         SESSIONS.put(player.getUUID(), session);
+        NetSyncDebug.log("bind player={} net={} scope={}", player.getUUID(), session.netId, CommandConfig.primaryNetSyncScope());
     }
 
     private static void close(UUID id) {
@@ -151,56 +212,135 @@ public final class PrimaryNetSyncManager {
                 new PrimaryNetSyncPacket(true, false, -1, List.of(), List.of()));
     }
 
-    /** 每 tick 合并 pending / 全量差异，分包发送并推进基线。 */
+    /** 每 tick 合并 pending / 全量差异 + EXT 快照，分包发送并推进基线。 */
     private static void flush(ServerPlayer player, Session session) {
-        if (!session.dirtyFull && session.pending.isEmpty()) return;
+        com.solr98.beyondintegration.CommandConfig.PrimaryNetSyncScope scope =
+                CommandConfig.primaryNetSyncScope();
+        boolean sendStorage = session.dirtyFull || !session.pending.isEmpty();
+        boolean sendExt = session.extDirty && scope.hasExt();
+        if (!sendStorage && !sendExt) return;
+        long t0 = NetSyncDebug.start();
 
-        Map<IStackKey<?>, Long> toSend = new LinkedHashMap<>();
+        if (sendStorage) {
+            Map<IStackKey<?>, Long> toSend = new LinkedHashMap<>();
+            if (session.dirtyFull) {
+                Map<IStackKey<?>, Long> now = new HashMap<>();
+                for (KeyAmount ka : session.storage.getStorage()) {
+                    if (ka == null || ka.isEmpty()) continue;
+                    IStackKey<?> key = ka.key();
+                    if (!scope.covers(key)) continue;
+                    now.merge(key, ka.amount(), Long::sum);
+                }
+                Set<IStackKey<?>> all = new HashSet<>(session.lastSent.keySet());
+                all.addAll(now.keySet());
+                for (IStackKey<?> key : all) {
+                    long oldCount = session.lastSent.getOrDefault(key, 0L);
+                    long newCount = now.getOrDefault(key, 0L);
+                    if (newCount != oldCount) toSend.put(key, newCount);
+                }
+                session.pending.clear();
+                session.dirtyFull = false;
+            } else {
+                for (Map.Entry<IStackKey<?>, Long> e : session.pending.entrySet()) {
+                    if (scope.covers(e.getKey())) toSend.put(e.getKey(), e.getValue());
+                }
+                session.pending.clear();
+            }
 
-        if (session.dirtyFull) {
-            Map<IStackKey<?>, Long> now = new HashMap<>();
-            for (KeyAmount ka : session.storage.getStorage()) {
-                if (ka == null || ka.isEmpty() || !(ka.key() instanceof ItemStackKey)) continue;
-                now.merge(ka.key(), ka.amount(), Long::sum);
+            if (!toSend.isEmpty()) {
+                for (Map.Entry<IStackKey<?>, Long> e : toSend.entrySet()) {
+                    if (e.getValue() <= 0L) session.lastSent.remove(e.getKey());
+                    else session.lastSent.put(e.getKey(), e.getValue());
+                }
+                List<IStackKey<?>> batchKeys = new ArrayList<>();
+                List<Long> batchCounts = new ArrayList<>();
+                for (Map.Entry<IStackKey<?>, Long> e : toSend.entrySet()) {
+                    batchKeys.add(e.getKey());
+                    batchCounts.add(e.getValue());
+                    if (batchKeys.size() >= MAX_BATCH) {
+                        sendBatch(player, session, batchKeys, batchCounts);
+                        batchKeys = new ArrayList<>();
+                        batchCounts = new ArrayList<>();
+                    }
+                }
+                if (!batchKeys.isEmpty()) sendBatch(player, session, batchKeys, batchCounts);
             }
-            Set<IStackKey<?>> all = new HashSet<>(session.lastSent.keySet());
-            all.addAll(now.keySet());
-            for (IStackKey<?> key : all) {
-                long oldCount = session.lastSent.getOrDefault(key, 0L);
-                long newCount = now.getOrDefault(key, 0L);
-                if (newCount != oldCount) toSend.put(key, newCount);
-            }
-            session.pending.clear();
-            session.dirtyFull = false;
-        } else {
-            toSend.putAll(session.pending);
-            session.pending.clear();
         }
 
-        if (toSend.isEmpty()) return;
-
-        for (Map.Entry<IStackKey<?>, Long> e : toSend.entrySet()) {
-            if (e.getValue() <= 0L) session.lastSent.remove(e.getKey());
-            else session.lastSent.put(e.getKey(), e.getValue());
-        }
-
-        List<IStackKey<?>> batchKeys = new ArrayList<>();
-        List<Long> batchCounts = new ArrayList<>();
-        for (Map.Entry<IStackKey<?>, Long> e : toSend.entrySet()) {
-            batchKeys.add(e.getKey());
-            batchCounts.add(e.getValue());
-            if (batchKeys.size() >= MAX_BATCH) {
-                sendBatch(player, session, batchKeys, batchCounts);
-                batchKeys = new ArrayList<>();
-                batchCounts = new ArrayList<>();
+        if (sendExt) {
+            DimensionsNet net = DimensionsNet.getNetFromId(session.netId);
+            if (net != null) {
+                Map<String, Long> ammo = readExtAmmo(net);
+                long flags = readFlags(net);
+                String name = readName(net);
+                PacketHandler.sendToPlayer(player, new PrimaryNetSyncPacket(
+                        false, true, session.netId, scope.mask(), List.of(), List.of(), ammo, name, flags));
+                session.lastExtAmmo = ammo;
+                session.lastExtFlags = flags;
+                session.lastExtName = name;
             }
+            session.extDirty = false;
         }
-        if (!batchKeys.isEmpty()) sendBatch(player, session, batchKeys, batchCounts);
+        NetSyncDebug.perf("flush", t0, "net", session.netId, "storage", sendStorage, "ext", sendExt);
     }
 
     private static void sendBatch(ServerPlayer player, Session session,
                                   List<IStackKey<?>> keys, List<Long> counts) {
+        int mask = CommandConfig.primaryNetSyncScope().mask();
         PacketHandler.sendToPlayer(player,
-                new PrimaryNetSyncPacket(false, true, session.netId, keys, counts));
+                new PrimaryNetSyncPacket(false, true, session.netId, mask, keys, counts));
+    }
+
+    // ───────────────── 异常重同步 / 配置变更 ─────────────────
+
+    /** 最近一次 resync 的 tick（服务端防刷） */
+    private static final Map<UUID, Long> LAST_RESYNC = new HashMap<>();
+    private static final long RESYNC_COOLDOWN = 100L;
+
+    /** 客户端请求重新同步：幂等重置该玩家会话基线，全量重推；顺带重推配置。 */
+    public static void requestResync(ServerPlayer player, int reason) {
+        if (player == null || player.getServer() == null) return;
+        long now = player.getServer().getTickCount();
+        Long last = LAST_RESYNC.get(player.getUUID());
+        if (last != null && now - last < RESYNC_COOLDOWN) {
+            NetSyncDebug.log("resync throttled player={} reason={}", player.getUUID(), reason);
+            return;
+        }
+        LAST_RESYNC.put(player.getUUID(), now);
+        NetSyncDebug.log("resync player={} reason={}", player.getUUID(), reason);
+
+        Session session = SESSIONS.get(player.getUUID());
+        if (session != null) {
+            session.dirtyFull = true;
+            session.pending.clear();
+            session.lastSent.clear();
+            session.lastExtAmmo = null;
+            session.extDirty = CommandConfig.primaryNetSyncScope().hasExt();
+        } else {
+            PENDING.remove(player.getUUID());
+        }
+        NetworkSyncConfigPusher.push(player);
+    }
+
+    /** 配置变更（范围 / 开关）：重置全部会话基线，下一 tick 按新范围全量重推。 */
+    public static void onConfigChanged() {
+        NetSyncDebug.log("config changed: reset {} sessions scope={}", SESSIONS.size(), CommandConfig.primaryNetSyncScope());
+        for (Session session : SESSIONS.values()) {
+            session.dirtyFull = true;
+            session.pending.clear();
+            session.lastSent.clear();
+            session.lastExtAmmo = null;
+            session.extDirty = CommandConfig.primaryNetSyncScope().hasExt();
+        }
+    }
+
+    /** 服务器停止：清空全部会话与限流状态。 */
+    public static void clear() {
+        for (UUID id : new ArrayList<>(SESSIONS.keySet())) {
+            close(id);
+        }
+        SESSIONS.clear();
+        PENDING.clear();
+        LAST_RESYNC.clear();
     }
 }

@@ -16,6 +16,11 @@
     "GunDataCountMixin",
     "AmmoConsumerMixin",
     "DimensionsNetMixin",
+    "CursedCageBlockEntityMixin",
+    "CursedCageBlockMixin",
+    "DarkAltarBlockEntityMixin",
+    "SEHelperMixin",
+    "SEUpdatePacketMixin",
     "BdBucketFluidSlotMixin",
     "BdBucketCraftTransferMixin",
     "BdBucketAutoRefillMixin",
@@ -69,6 +74,9 @@
     "RsIntegrationMachineHubMixin",
     "RsIntegrationAutoEatReturnMixin",
     "RsAutoEatButtonGuardMixin",
+    "RsIntegrationContainerTransferFixMixin",
+    "RsIntegrationSidePanelFixMixin",
+    "RsIntegrationSidePanelModuleFixMixin",
     "DimensionsCraftGUIMixin",
     "DimensionsTerminalCraftGUIMixin",
     "VehicleHudNetworkMixin",
@@ -78,6 +86,7 @@
     "VehicleClientInteractMixin",
     "XpExchangeGUIMixin",
     "FeederThirstGUIMixin",
-    "NetHopperGUITierMixin"
+    "NetHopperGUITierMixin",
+    "SoulEnergyGuiMixin"
   ]
 }

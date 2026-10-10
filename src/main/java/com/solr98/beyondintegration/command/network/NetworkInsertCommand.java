@@ -15,11 +15,18 @@ import net.minecraft.commands.arguments.ResourceArgument;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraftforge.fluids.FluidStack;
 import com.solr98.beyondintegration.command.CommandLang;
@@ -48,12 +55,242 @@ public class NetworkInsertCommand {
             .then(buildItemInsertCommand(context))
             // 物品标签批量插入命令
             .then(buildTagInsertCommand(context))
+            // 药水护符批量插入命令
+            .then(buildPotionCharmInsertCommand(context))
             // 流体插入命令
             .then(buildFluidInsertCommand(context))
             // 能量插入命令
             .then(buildEnergyInsertCommand());
     }
-    
+
+    /**
+     * 构建药水护符批量插入命令（需加载神化 Apotheosis）。
+     * <p>用法：{@code insert potionCharm <potion|all> [count] [plain|mending|unbreakable] [netId]}。
+     * 默认：数量 1、plain、当前玩家主网络。生成的护符默认 {@code charm_enabled=true}。
+     * {@code all} 表示对全部"合法药水"（单条非即时效果）各插入一批。
+     */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> buildPotionCharmInsertCommand(
+            net.minecraft.commands.CommandBuildContext context) {
+        return Commands.literal("potionCharm")
+            .then(Commands.argument("potion", ResourceArgument.resource(context, Registries.POTION))
+                .executes(ctx -> executeInsertPotionCharm(ctx, getPotion(ctx), 1, "plain", -1))
+                .then(Commands.argument("count", IntegerArgumentType.integer(1))
+                    .executes(ctx -> executeInsertPotionCharm(ctx, getPotion(ctx),
+                            IntegerArgumentType.getInteger(ctx, "count"), "plain", -1))
+                    .then(Commands.literal("plain")
+                        .executes(ctx -> executeInsertPotionCharm(ctx, getPotion(ctx),
+                                IntegerArgumentType.getInteger(ctx, "count"), "plain", -1))
+                        .then(buildNetIdArg(ctx -> executeInsertPotionCharm(ctx, getPotion(ctx),
+                                IntegerArgumentType.getInteger(ctx, "count"), "plain",
+                                IntegerArgumentType.getInteger(ctx, "netId")))))
+                    .then(Commands.literal("mending")
+                        .executes(ctx -> executeInsertPotionCharm(ctx, getPotion(ctx),
+                                IntegerArgumentType.getInteger(ctx, "count"), "mending", -1))
+                        .then(buildNetIdArg(ctx -> executeInsertPotionCharm(ctx, getPotion(ctx),
+                                IntegerArgumentType.getInteger(ctx, "count"), "mending",
+                                IntegerArgumentType.getInteger(ctx, "netId")))))
+                    .then(Commands.literal("unbreakable")
+                        .executes(ctx -> executeInsertPotionCharm(ctx, getPotion(ctx),
+                                IntegerArgumentType.getInteger(ctx, "count"), "unbreakable", -1))
+                        .then(buildNetIdArg(ctx -> executeInsertPotionCharm(ctx, getPotion(ctx),
+                                IntegerArgumentType.getInteger(ctx, "count"), "unbreakable",
+                                IntegerArgumentType.getInteger(ctx, "netId")))))))
+            // all / positive / negative：对相应合法药水各插入一批（按效果类别区分正面/负面）
+            .then(buildPotionCharmAllBranch("all", "all"))
+            .then(buildPotionCharmAllBranch("positive", "positive"))
+            .then(buildPotionCharmAllBranch("negative", "negative"));
+    }
+
+    /** 构建 all/positive/negative 分支（同一套 count → plain|mending|unbreakable → netId 结构）。 */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> buildPotionCharmAllBranch(
+            String literal, String category) {
+        return Commands.literal(literal)
+            .executes(ctx -> executeInsertAllPotionCharms(ctx, 1, "plain", -1, category))
+            .then(Commands.argument("count", IntegerArgumentType.integer(1))
+                .executes(ctx -> executeInsertAllPotionCharms(ctx,
+                        IntegerArgumentType.getInteger(ctx, "count"), "plain", -1, category))
+                .then(Commands.literal("plain")
+                    .executes(ctx -> executeInsertAllPotionCharms(ctx,
+                            IntegerArgumentType.getInteger(ctx, "count"), "plain", -1, category))
+                    .then(buildNetIdArg(ctx -> executeInsertAllPotionCharms(ctx,
+                            IntegerArgumentType.getInteger(ctx, "count"), "plain",
+                            IntegerArgumentType.getInteger(ctx, "netId"), category))))
+                .then(Commands.literal("mending")
+                    .executes(ctx -> executeInsertAllPotionCharms(ctx,
+                            IntegerArgumentType.getInteger(ctx, "count"), "mending", -1, category))
+                    .then(buildNetIdArg(ctx -> executeInsertAllPotionCharms(ctx,
+                            IntegerArgumentType.getInteger(ctx, "count"), "mending",
+                            IntegerArgumentType.getInteger(ctx, "netId"), category))))
+                .then(Commands.literal("unbreakable")
+                    .executes(ctx -> executeInsertAllPotionCharms(ctx,
+                            IntegerArgumentType.getInteger(ctx, "count"), "unbreakable", -1, category))
+                    .then(buildNetIdArg(ctx -> executeInsertAllPotionCharms(ctx,
+                            IntegerArgumentType.getInteger(ctx, "count"), "unbreakable",
+                            IntegerArgumentType.getInteger(ctx, "netId"), category)))));
+    }
+
+    /** 可选 netId 参数（0..9999） */
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, Integer> buildNetIdArg(
+            com.mojang.brigadier.Command<CommandSourceStack> command) {
+        return Commands.argument("netId", IntegerArgumentType.integer(0, 9999)).executes(command);
+    }
+
+    /** 从命令上下文解析药水 */
+    private static Potion getPotion(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        return ResourceArgument.getResource(ctx, "potion", Registries.POTION).value();
+    }
+
+    /** 执行药水护符批量插入 */
+    private static int executeInsertPotionCharm(CommandContext<CommandSourceStack> ctx, Potion potion,
+                                                int count, String mode, int netId) {
+        CommandSourceStack source = ctx.getSource();
+        if (!PermissionChecker.checkOpPermission(source)) return 0;
+
+        // 解析目标网络：netId<0 时使用执行者主网络
+        DimensionsNet net;
+        int actualNetId;
+        if (netId < 0) {
+            ServerPlayer executor = source.getPlayer();
+            if (executor == null) {
+                source.sendFailure(OutputFormatter.createError("error.player_required"));
+                return 0;
+            }
+            net = DimensionsNet.getPrimaryNetFromPlayer(executor);
+            if (net == null) {
+                source.sendFailure(OutputFormatter.createError("error.not_in_network"));
+                return 0;
+            }
+            actualNetId = net.getId();
+        } else {
+            net = PermissionChecker.checkNetworkExists(source, netId);
+            if (net == null) return 0;
+            actualNetId = netId;
+        }
+
+        // 神化药水护符物品
+        Item charmItem = BuiltInRegistries.ITEM.get(new ResourceLocation("apotheosis", "potion_charm"));
+        if (charmItem == Items.AIR) {
+            source.sendFailure(OutputFormatter.createError("error.apotheosis_required"));
+            return 0;
+        }
+
+        ItemStack prototype = buildPotionCharmStack(charmItem, potion, mode);
+        ItemStackKey key = new ItemStackKey(prototype.copyWithCount(1));
+        if (!NetworkUtils.hasEnoughStorageForItem(net, key, count)) {
+            source.sendFailure(OutputFormatter.createError("error.insufficient_storage"));
+            return 0;
+        }
+        KeyAmount remaining = net.getUnifiedStorage().insert(key, count, false);
+        long inserted = count - remaining.amount();
+        if (inserted <= 0) {
+            source.sendFailure(OutputFormatter.createError("error.insert_failed", remaining.amount()));
+            return 0;
+        }
+        net.setDirty();
+
+        String potionName = BuiltInRegistries.POTION.getKey(potion).toString();
+        final int finalNetId = actualNetId;
+        source.sendSuccess(() -> Component.literal(
+            CommandLang.get("network.insert.potionCharm.success", inserted, potionName, mode, finalNetId)
+        ), false);
+        return 1;
+    }
+
+    /** 构造带指定药水与模式的药水护符（charm_enabled=true；mending 写入 Mending 附魔；unbreakable 写入 Unbreakable） */
+    private static ItemStack buildPotionCharmStack(Item charmItem, Potion potion, String mode) {
+        ItemStack stack = new ItemStack(charmItem);
+        PotionUtils.setPotion(stack, potion);
+        CompoundTag tag = stack.getOrCreateTag();
+        tag.putBoolean("charm_enabled", true);
+        if ("unbreakable".equals(mode)) {
+            tag.putBoolean("Unbreakable", true);
+        } else if ("mending".equals(mode)) {
+            CompoundTag ench = new CompoundTag();
+            ench.putString("id", BuiltInRegistries.ENCHANTMENT.getKey(Enchantments.MENDING).toString());
+            ench.putShort("lvl", (short) 1);
+            ListTag list = new ListTag();
+            list.add(ench);
+            tag.put("Enchantments", list);
+        }
+        return stack;
+    }
+
+    /** 执行"批量插入合法药水护符"：按类别（all/positive/negative）筛选后，每个药水各插入 count 个；空间不足的种类跳过。 */
+    private static int executeInsertAllPotionCharms(CommandContext<CommandSourceStack> ctx, int count, String mode, int netId,
+                                                    String category) {
+        CommandSourceStack source = ctx.getSource();
+        if (!PermissionChecker.checkOpPermission(source)) return 0;
+
+        DimensionsNet net;
+        int actualNetId;
+        if (netId < 0) {
+            ServerPlayer executor = source.getPlayer();
+            if (executor == null) {
+                source.sendFailure(OutputFormatter.createError("error.player_required"));
+                return 0;
+            }
+            net = DimensionsNet.getPrimaryNetFromPlayer(executor);
+            if (net == null) {
+                source.sendFailure(OutputFormatter.createError("error.not_in_network"));
+                return 0;
+            }
+            actualNetId = net.getId();
+        } else {
+            net = PermissionChecker.checkNetworkExists(source, netId);
+            if (net == null) return 0;
+            actualNetId = netId;
+        }
+
+        Item charmItem = BuiltInRegistries.ITEM.get(new ResourceLocation("apotheosis", "potion_charm"));
+        if (charmItem == Items.AIR) {
+            source.sendFailure(OutputFormatter.createError("error.apotheosis_required"));
+            return 0;
+        }
+
+        int types = 0;
+        long total = 0;
+        for (Potion potion : BuiltInRegistries.POTION.stream().toList()) {
+            if (!isValidCharmPotion(potion) || !matchesCategory(potion, category)) continue;
+            ItemStackKey key = new ItemStackKey(buildPotionCharmStack(charmItem, potion, mode).copyWithCount(1));
+            if (!NetworkUtils.hasEnoughStorageForItem(net, key, count)) continue;
+            KeyAmount remaining = net.getUnifiedStorage().insert(key, count, false);
+            long inserted = count - remaining.amount();
+            if (inserted > 0) {
+                types++;
+                total += inserted;
+            }
+        }
+        if (total <= 0) {
+            source.sendFailure(OutputFormatter.createError("error.insufficient_storage"));
+            return 0;
+        }
+        net.setDirty();
+
+        final int fTypes = types;
+        final long fTotal = total;
+        final int fNetId = actualNetId;
+        source.sendSuccess(() -> Component.literal(
+            CommandLang.get("network.insert.potionCharm.all.success", fTypes, fTotal, mode, fNetId,
+                    CommandLang.get("network.insert.potionCharm.category." + category))
+        ), false);
+        return 1;
+    }
+
+    /** 是否为可做成护符的"合法药水"：恰好一条非即时效果（与神化 PotionCharmItem.isValidPotion 核心一致）。 */
+    private static boolean isValidCharmPotion(Potion potion) {
+        var effects = potion.getEffects();
+        return effects.size() == 1 && !effects.get(0).getEffect().isInstantenous();
+    }
+
+    /** 按效果类别筛选：all=全部；positive=正面(BENEFICIAL)；negative=负面(HARMFUL)；NEUTRAL 仅归入 all。 */
+    private static boolean matchesCategory(Potion potion, String category) {
+        if (category == null || "all".equals(category)) return true;
+        var effectCategory = potion.getEffects().get(0).getEffect().getCategory();
+        if ("positive".equals(category)) return effectCategory == net.minecraft.world.effect.MobEffectCategory.BENEFICIAL;
+        if ("negative".equals(category)) return effectCategory == net.minecraft.world.effect.MobEffectCategory.HARMFUL;
+        return true;
+    }
+
     /**
      * 构建物品插入命令
      */

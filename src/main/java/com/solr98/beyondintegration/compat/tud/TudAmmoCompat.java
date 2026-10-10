@@ -12,7 +12,9 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -84,6 +86,20 @@ public final class TudAmmoCompat {
     }
 
     /**
+     * 读取<b>本端</b>（执行侧：服务端或客户端）TUD 解析出的弹药映射列表。
+     * <p>每行形如：
+     * <ul>
+     *   <li>{@code ammo <ammoId> isItem=<bool>}（来自 ammo_data）</li>
+     *   <li>{@code gun <gunId> -> [ammoId, ...]}（来自 gun_data）</li>
+     * </ul>
+     * 用于对比双端一致性、反馈 TUD 作者。TUD 未加载时返回空列表。
+     */
+    public static List<String> dumpAmmoMapping() {
+        if (!ENABLED) return java.util.Collections.emptyList();
+        return TudBridge.dump();
+    }
+
+    /**
      * 该弹药 ID 是否属于 TUD 物品弹药：
      * ① TOML 类型映射的 "$" 前缀条目（默认配置，不产生 AmmoData 注册）；
      * ② gun_data JSON 注册的 AmmoData（isItem=true）。
@@ -151,6 +167,29 @@ public final class TudAmmoCompat {
                 return null;
             }
             return ids;
+        }
+
+        /** 读取本端 TUD 解析出的弹药映射：ammoId→isItem；gun→可用弹药列表。 */
+        static List<String> dump() {
+            List<String> out = new ArrayList<>();
+            try {
+                for (com.scarasol.tud.data.AmmoData d
+                        : com.scarasol.tud.util.data.DataManager.getModDataRegisterData(com.scarasol.tud.data.AmmoData.class)) {
+                    out.add("ammo " + d.getAmmoId() + " isItem=" + d.isItem());
+                }
+                for (com.scarasol.tud.data.GunData g
+                        : com.scarasol.tud.util.data.DataManager.getModDataRegisterData(com.scarasol.tud.data.GunData.class)) {
+                    List<String> ammos = new ArrayList<>();
+                    if (g.availableAmmo() != null) {
+                        for (com.scarasol.tud.data.MagData m : g.availableAmmo()) {
+                            ammos.add(String.valueOf(m.ammoId()));
+                        }
+                    }
+                    out.add("gun " + g.gunId() + " -> " + ammos);
+                }
+            } catch (Throwable ignored) {
+            }
+            return out;
         }
     }
 }

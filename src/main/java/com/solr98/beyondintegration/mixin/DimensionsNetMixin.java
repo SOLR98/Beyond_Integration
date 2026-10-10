@@ -3,6 +3,7 @@ package com.solr98.beyondintegration.mixin;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.solr98.beyondintegration.handler.EnergyChargeAccessor;
 import com.solr98.beyondintegration.handler.NetworkNameProvider;
+import com.solr98.beyondintegration.handler.PotionCharmAccessor;
 import com.solr98.beyondintegration.handler.WorkstationActivationAccessor;
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
@@ -29,11 +30,12 @@ import java.util.Map;
  * 注入 BeyondDimensions 的 {@link DimensionsNet}，为其实现四个本模组扩展接口：
  * SuperbAmmoAccessor（SW 网络弹药存取）、NetworkNameProvider（网络名称）、
  * EnchantSeparationAccessor（附魔分离开关）、TaczCreativeAccessor（TACZ 创造弹药计数）、
- * EnergyChargeAccessor（自动充电开关）、WorkstationActivationAccessor（工作台献祭激活），
+ * EnergyChargeAccessor（自动充电开关）、PotionCharmAccessor（网络药水护符开关）、
+ * WorkstationActivationAccessor（工作台献祭激活），
  * 数据统一挂在 NetworkAmmoData 上，并订阅存储变化以同步创造模式弹药。
  */
 @Mixin(targets = "com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet", remap = false)
-public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvider, EnchantSeparationAccessor, TaczCreativeAccessor, EnergyChargeAccessor, WorkstationActivationAccessor {
+public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvider, EnchantSeparationAccessor, TaczCreativeAccessor, EnergyChargeAccessor, PotionCharmAccessor, WorkstationActivationAccessor {
 
     /** 增量钩子是否已初始化成功的标记（只初始化一次；订阅成功后才置位，失败可重试） */
     @Unique
@@ -161,6 +163,17 @@ public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvid
     @Override
     public void beyond$setEnergyChargeEnabled(boolean v) {
         NetworkAmmoData.getOrCreate(self().getId()).setEnergyCharge(v);
+        NetworkAmmoData.markDirty();
+    }
+
+    @Override
+    public int beyond$getPotionCharmMode() {
+        return NetworkAmmoData.getOrCreate(self().getId()).getPotionCharmMode();
+    }
+
+    @Override
+    public void beyond$setPotionCharmMode(int mode) {
+        NetworkAmmoData.getOrCreate(self().getId()).setPotionCharmMode(mode);
         NetworkAmmoData.markDirty();
     }
 
