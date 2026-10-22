@@ -4,9 +4,14 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.solr98.beyondintegration.core.config.ConfigCommentLang;
+import com.solr98.beyondintegration.core.sync.NetDataType;
+import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
+import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 模组服务端配置文件定义：集中管理所有 COMMON 类型配置项，
@@ -39,6 +44,47 @@ public class CommandConfig {
     public enum AnvilChargeMode { LEVEL, POINTS }
     /** 物品装备位网络充电模式：固定值 / 缺失能量百分比 / 百分比 + 固定值。 */
     public enum EnergyChargeMode { RATE, PERCENTAGE, PERCENTAGE_PLUS_RATE }
+
+    /**
+     * 主网络同步范围：
+     * ITEMS      = 仅物品键（默认，行为同旧版）；
+     * STORAGE    = 所有 storage 键（含能量 / 灵魂）；
+     * STORAGE_EXT= storage 全键 + NetworkAmmoData 扩展（虚拟弹药 / 开关等）。
+     */
+    public enum PrimaryNetSyncScope {
+        ITEMS, STORAGE, STORAGE_EXT;
+
+        /** 服务端过滤：该存储键是否在同步范围内。 */
+        public boolean covers(IStackKey<?> key) {
+            return switch (this) {
+                case ITEMS -> key instanceof ItemStackKey;
+                case STORAGE, STORAGE_EXT -> true;
+            };
+        }
+
+        /** 客户端能力判断：该范围是否覆盖某数据类型。 */
+        public boolean supports(NetDataType type) {
+            return switch (this) {
+                case ITEMS -> type == NetDataType.ITEM;
+                case STORAGE -> type == NetDataType.ITEM || type == NetDataType.ENERGY || type == NetDataType.SOUL;
+                case STORAGE_EXT -> true;
+            };
+        }
+
+        /** 该范围覆盖的类型位掩码（作为同步包 typeMask：声明本范围的可用类型）。 */
+        public int mask() {
+            return switch (this) {
+                case ITEMS -> NetDataType.ITEM.bit();
+                case STORAGE -> NetDataType.ITEM.bit() | NetDataType.ENERGY.bit() | NetDataType.SOUL.bit();
+                case STORAGE_EXT -> NetDataType.allBits();
+            };
+        }
+
+        /** 是否包含扩展类型（虚拟弹药 / 开关等 NetworkAmmoData 数据）。 */
+        public boolean hasExt() {
+            return this == STORAGE_EXT;
+        }
+    }
     /**
      * 附魔台（网络化）附魔功率来源：
      * FIXED       = 固定功率（enchantFixedPower）；
@@ -182,8 +228,12 @@ public class CommandConfig {
         public final ModConfigSpec.BooleanValue bucketSeparatorEnabled;
         /** 网络熔炉熔炼速度倍率（1.0=原速；配方耗时按倍率缩放，越大越快） */
         public final ModConfigSpec.DoubleValue netFurnaceSmeltSpeed;
-        /** 服务端：会话级主网络物品计数同步（JEI 任意界面显示/取物；关闭则仅 BD 终端界面生效，默认关闭） */
-        public final ModConfigSpec.BooleanValue primaryNetJeiSync;
+        /** 服务端：会话级主网络数据同步总开关（关闭则仅 BD 终端界面生效，默认关闭） */
+        public final ModConfigSpec.BooleanValue primaryNetSync;
+        /** 主网络同步范围（物品 / 存储全键 / 全键+扩展） */
+        public final ModConfigSpec.EnumValue<PrimaryNetSyncScope> primaryNetSyncScope;
+        /** 主网络同步调试日志与性能探针 */
+        public final ModConfigSpec.BooleanValue primaryNetSyncDebug;
         /** 维度网络通道（net_pathway）标记槽行数（1~6，全局；标记槽数 = 行数*9） */
         public final ModConfigSpec.IntValue netPathwayFilterRows;
         /** 维度网络方块被破坏时保留配置 NBT（标记槽 + 方块配置；默认开启） */
@@ -237,6 +287,40 @@ public class CommandConfig {
         public final ModConfigSpec.BooleanValue REVIVE_EXTRA_TOTEM_ON_SET_HEALTH_DEATH;
         public final ModConfigSpec.IntValue REVIVE_EXTRA_TOTEM_COUNT;
         public final ModConfigSpec.BooleanValue REVIVE_RESET_DEATH_TIME;
+
+        // Iron's Spells network mana source（网络魔力源）
+        public final ModConfigSpec.BooleanValue IRONS_MANA_ENABLED;
+        public final ModConfigSpec.BooleanValue IRONS_MANA_PAY_CONSUMPTION;
+        public final ModConfigSpec.DoubleValue IRONS_MANA_SINK_RATIO;
+        public final ModConfigSpec.BooleanValue IRONS_MANA_SINK_ON_FULL;
+        public final ModConfigSpec.BooleanValue IRONS_MANA_SINK_ON_INSTANT;
+        public final ModConfigSpec.BooleanValue IRONS_MANA_FIXED_REGEN;
+        public final ModConfigSpec.LongValue IRONS_MANA_FIXED_REGEN_AMOUNT;
+        public final ModConfigSpec.BooleanValue IRONS_MANA_REGEN_WHEN_NOT_FULL;
+        public final ModConfigSpec.BooleanValue IRONS_MANA_INDEPENDENT_REGEN;
+        public final ModConfigSpec.LongValue IRONS_MANA_MAX;
+
+        // Goety network soul source（网络灵魂源）
+        public final ModConfigSpec.BooleanValue SOUL_ENABLED;
+        public final ModConfigSpec.BooleanValue SOUL_REQUIRE_ACTIVATION;
+        public final ModConfigSpec.BooleanValue SOUL_SOURCE_KILL;
+        public final ModConfigSpec.DoubleValue SOUL_KILL_RATIO;
+        public final ModConfigSpec.BooleanValue SOUL_SOURCE_MANUAL;
+        public final ModConfigSpec.BooleanValue SOUL_DIRECT_MAIN_NET;
+        public final ModConfigSpec.LongValue SOUL_MAX;
+        public final ModConfigSpec.BooleanValue SOUL_NETWORK_DISCOUNT;
+        public final ModConfigSpec.BooleanValue SOUL_NETWORK_REVIVE;
+        public final ModConfigSpec.BooleanValue SOUL_NETWORK_REVIVE_TO_ARCA;
+        public final ModConfigSpec.BooleanValue SOUL_DEBUG;
+        public final ModConfigSpec.BooleanValue SOUL_USE_RI_KEY;
+
+        // Goety ritual environment bypass（仪式环境绕过）
+        public final ModConfigSpec.BooleanValue RITUAL_ENV_BYPASS;
+        public final ModConfigSpec.LongValue RITUAL_ENV_SOUL_COST;
+        public final ModConfigSpec.IntValue RITUAL_ENV_PATHWAY_COUNT;
+        public final ModConfigSpec.IntValue RITUAL_ENV_CONNECT_COUNT;
+        public final ModConfigSpec.IntValue RITUAL_ENV_RADIUS;
+        public final ModConfigSpec.BooleanValue RITUAL_PATHWAY_CAGE;
 
         /**
          * ServerConfig 构造函数：按功能分区定义全部配置项及其默认值、校验范围。
@@ -450,9 +534,15 @@ public class CommandConfig {
             netFurnaceSmeltSpeed = builder
                     .comment(ConfigCommentLang.comment("bd_tweaks.net_furnace_smelt_speed"))
                     .defineInRange("net_furnace_smelt_speed", 1.0D, 0.1D, 100.0D);
-            primaryNetJeiSync = builder
-                    .comment(ConfigCommentLang.comment("bd_tweaks.primary_net_jei_sync"))
-                    .define("primary_net_jei_sync", false);
+            primaryNetSync = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.primary_net_sync"))
+                    .define("primary_net_sync", false);
+            primaryNetSyncScope = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.primary_net_sync_scope"))
+                    .defineEnum("primary_net_sync_scope", PrimaryNetSyncScope.ITEMS);
+            primaryNetSyncDebug = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.primary_net_sync_debug"))
+                    .define("primary_net_sync_debug", false);
             netPathwayFilterRows = builder
                     .comment(ConfigCommentLang.comment("bd_tweaks.net_pathway_filter_rows"))
                     .defineInRange("net_pathway_filter_rows", 3, 1, 6);
@@ -641,6 +731,99 @@ public class CommandConfig {
                     .comment(ConfigCommentLang.comment("energy_ammo.charge_maid_baubles"))
                     .define("charge_maid_baubles", true);
             builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("irons_mana")).push("irons_mana");
+            IRONS_MANA_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.enabled"))
+                    .define("enabled", true);
+            IRONS_MANA_PAY_CONSUMPTION = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.pay_consumption"))
+                    .define("pay_consumption", true);
+            IRONS_MANA_SINK_RATIO = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.sink_ratio"))
+                    .defineInRange("sink_ratio", 1.0, 0.0, 1.0);
+            IRONS_MANA_SINK_ON_FULL = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.sink_on_full"))
+                    .define("sink_on_full", true);
+            IRONS_MANA_SINK_ON_INSTANT = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.sink_on_instant"))
+                    .define("sink_on_instant", true);
+            IRONS_MANA_FIXED_REGEN = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.fixed_regen"))
+                    .define("fixed_regen", false);
+            IRONS_MANA_FIXED_REGEN_AMOUNT = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.fixed_regen_amount"))
+                    .defineInRange("fixed_regen_amount", 1L, 0L, Long.MAX_VALUE);
+            IRONS_MANA_REGEN_WHEN_NOT_FULL = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.regen_when_not_full"))
+                    .define("regen_when_not_full", false);
+            IRONS_MANA_INDEPENDENT_REGEN = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.independent_regen"))
+                    .define("independent_regen", false);
+            IRONS_MANA_MAX = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.max_mana"))
+                    .defineInRange("max_mana", 10000L, 0L, Long.MAX_VALUE);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("goety_soul")).push("goety_soul");
+            SOUL_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.enabled"))
+                    .define("enabled", true);
+            SOUL_REQUIRE_ACTIVATION = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.require_activation"))
+                    .define("require_activation", false);
+            SOUL_SOURCE_KILL = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.source_kill"))
+                    .define("source_kill", true);
+            SOUL_KILL_RATIO = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.kill_ratio"))
+                    .defineInRange("kill_ratio", 1.0, 0.0, 1.0);
+            SOUL_SOURCE_MANUAL = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.source_manual"))
+                    .define("source_manual", false);
+            SOUL_DIRECT_MAIN_NET = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.direct_main_net"))
+                    .define("direct_main_net", true);
+            SOUL_MAX = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.max_souls"))
+                    .defineInRange("max_souls", 0L, 0L, Long.MAX_VALUE);
+            SOUL_NETWORK_DISCOUNT = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.network_discount"))
+                    .define("network_discount", false);
+            SOUL_NETWORK_REVIVE = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.network_revive"))
+                    .define("network_revive", true);
+            SOUL_NETWORK_REVIVE_TO_ARCA = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.network_revive_to_arca"))
+                    .define("network_revive_to_arca", true);
+            SOUL_DEBUG = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.debug"))
+                    .define("debug", false);
+            SOUL_USE_RI_KEY = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.use_ri_key"))
+                    .define("use_ri_key", false);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("goety_ritual")).push("goety_ritual");
+            RITUAL_ENV_BYPASS = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.env_bypass"))
+                    .define("env_bypass", true);
+            RITUAL_ENV_SOUL_COST = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.env_bypass_soul_cost"))
+                    .defineInRange("env_bypass_soul_cost", 100L, 0L, Long.MAX_VALUE);
+            RITUAL_ENV_PATHWAY_COUNT = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.pathway_count"))
+                    .defineInRange("pathway_count", 5, 0, 64);
+            RITUAL_ENV_CONNECT_COUNT = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.connect_count"))
+                    .defineInRange("connect_count", 16, 0, 64);
+            RITUAL_ENV_RADIUS = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.radius"))
+                    .defineInRange("radius", 8, 1, 32);
+            RITUAL_PATHWAY_CAGE = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.pathway_cage"))
+                    .define("pathway_cage", true);
+            builder.pop();
         }
     }
 
@@ -808,8 +991,27 @@ public class CommandConfig {
     /** 网络熔炉熔炼速度倍率（1.0=原速） */
     public static double netFurnaceSmeltSpeed() { return SERVER.netFurnaceSmeltSpeed.get(); }
 
-    /** 服务端：会话级主网络物品计数同步（JEI 任意界面生效；默认关闭 = 仅 BD 终端界面） */
-    public static boolean primaryNetJeiSync() { return SERVER.primaryNetJeiSync.get(); }
+    /** 服务端：会话级主网络数据同步总开关（默认关闭 = 仅 BD 终端界面） */
+    public static boolean primaryNetSync() { return SERVER.primaryNetSync.get(); }
+
+    /** 主网络同步范围（物品 / 存储全键 / 全键+扩展） */
+    public static PrimaryNetSyncScope primaryNetSyncScope() { return SERVER.primaryNetSyncScope.get(); }
+
+    /** 主网络同步调试日志与性能探针开关 */
+    public static boolean primaryNetSyncDebug() { return SERVER.primaryNetSyncDebug.get(); }
+
+    /**
+     * 采集全部服务端配置项的快照（路径 → 字符串值），用于整包下发客户端。
+     * <p>使用 NeoForge 配置项列表 {@code SERVER_SPEC.getValues().valueMap()}；跳过取值为 null 的项。
+     */
+    public static Map<String, String> snapshotAll() {
+        Map<String, String> out = new LinkedHashMap<>();
+        for (Object raw : SERVER_SPEC.getValues().valueMap().values()) {
+            if (!(raw instanceof ModConfigSpec.ConfigValue<?> value) || value.get() == null) continue;
+            out.put(String.join(".", value.getPath()), String.valueOf(value.get()));
+        }
+        return out;
+    }
 
     /** 维度网络通道（net_pathway）标记槽行数（1~6，全局） */
     public static int netPathwayFilterRows() { return SERVER.netPathwayFilterRows.get(); }
@@ -880,5 +1082,39 @@ public class CommandConfig {
     public static boolean energyAmmoChargeMaidBaublesEnabled() { return SERVER.ENERGY_AMMO_CHARGE_MAID_BAUBLES.get(); }
     public static EnergyChargeMode energyAmmoChargeMode() { return SERVER.ENERGY_AMMO_CHARGE_MODE.get(); }
     public static double energyAmmoChargePercentage() { return SERVER.ENERGY_AMMO_CHARGE_PERCENTAGE.get(); }
+
+    // ── 网络魔力源（铁魔法联动）──
+    public static boolean ironsManaEnabled() { return SERVER.IRONS_MANA_ENABLED.get(); }
+    public static boolean ironsManaPayConsumption() { return SERVER.IRONS_MANA_PAY_CONSUMPTION.get(); }
+    public static double ironsManaSinkRatio() { return SERVER.IRONS_MANA_SINK_RATIO.get(); }
+    public static boolean ironsManaSinkOnFull() { return SERVER.IRONS_MANA_SINK_ON_FULL.get(); }
+    public static boolean ironsManaSinkOnInstant() { return SERVER.IRONS_MANA_SINK_ON_INSTANT.get(); }
+    public static boolean ironsManaFixedRegen() { return SERVER.IRONS_MANA_FIXED_REGEN.get(); }
+    public static long ironsManaFixedRegenAmount() { return SERVER.IRONS_MANA_FIXED_REGEN_AMOUNT.get(); }
+    public static boolean ironsManaRegenWhenNotFull() { return SERVER.IRONS_MANA_REGEN_WHEN_NOT_FULL.get(); }
+    public static boolean ironsManaIndependentRegen() { return SERVER.IRONS_MANA_INDEPENDENT_REGEN.get(); }
+    public static long ironsManaMax() { return SERVER.IRONS_MANA_MAX.get(); }
+
+    // ── 网络灵魂源（Goety 联动）──
+    public static boolean soulEnabled() { return SERVER.SOUL_ENABLED.get(); }
+    public static boolean soulRequireActivation() { return SERVER.SOUL_REQUIRE_ACTIVATION.get(); }
+    public static boolean soulSourceKill() { return SERVER.SOUL_SOURCE_KILL.get(); }
+    public static double soulKillRatio() { return SERVER.SOUL_KILL_RATIO.get(); }
+    public static boolean soulSourceManual() { return SERVER.SOUL_SOURCE_MANUAL.get(); }
+    public static boolean soulDirectMainNet() { return SERVER.SOUL_DIRECT_MAIN_NET.get(); }
+    public static long soulMax() { return SERVER.SOUL_MAX.get(); }
+    public static boolean soulNetworkDiscount() { return SERVER.SOUL_NETWORK_DISCOUNT.get(); }
+    public static boolean soulNetworkRevive() { return SERVER.SOUL_NETWORK_REVIVE.get(); }
+    public static boolean soulNetworkReviveToArca() { return SERVER.SOUL_NETWORK_REVIVE_TO_ARCA.get(); }
+    public static boolean soulDebug() { return SERVER.SOUL_DEBUG.get(); }
+    public static boolean soulUseRiKey() { return SERVER.SOUL_USE_RI_KEY.get(); }
+
+    // ── 仪式环境绕过（Goety 原版仪式）──
+    public static boolean ritualEnvBypass() { return SERVER.RITUAL_ENV_BYPASS.get(); }
+    public static long ritualEnvBypassSoulCost() { return SERVER.RITUAL_ENV_SOUL_COST.get(); }
+    public static int ritualEnvPathwayCount() { return SERVER.RITUAL_ENV_PATHWAY_COUNT.get(); }
+    public static int ritualEnvConnectCount() { return SERVER.RITUAL_ENV_CONNECT_COUNT.get(); }
+    public static int ritualEnvRadius() { return SERVER.RITUAL_ENV_RADIUS.get(); }
+    public static boolean ritualPathwayCage() { return SERVER.RITUAL_PATHWAY_CAGE.get(); }
 }
 

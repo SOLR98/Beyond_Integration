@@ -76,6 +76,11 @@ public class PacketHandler {
         registrar.playToServer(SubmitEnchantMergePayload.TYPE, SubmitEnchantMergePayload.STREAM_CODEC, SubmitEnchantMergePayload::handle);
         registrar.playToServer(RequestWorkstationResyncPayload.TYPE, RequestWorkstationResyncPayload.STREAM_CODEC, RequestWorkstationResyncPayload::handle);
         registrar.playToServer(EmiBdActionPayload.TYPE, EmiBdActionPayload.STREAM_CODEC, EmiBdActionPayload::handle);
+        registrar.playToClient(ManaSyncPacket.TYPE, ManaSyncPacket.STREAM_CODEC, ManaSyncPacket::handle);
+        registrar.playToClient(SoulEnergySyncPacket.TYPE, SoulEnergySyncPacket.STREAM_CODEC, SoulEnergySyncPacket::handle);
+        registrar.playToClient(SoulBeamPacket.TYPE, SoulBeamPacket.STREAM_CODEC, SoulBeamPacket::handle);
+        registrar.playToClient(SyncConfigSyncPayload.TYPE, SyncConfigSyncPayload.STREAM_CODEC, SyncConfigSyncPayload::handle);
+        registrar.playToServer(SyncResyncRequestPayload.TYPE, SyncResyncRequestPayload.STREAM_CODEC, SyncResyncRequestPayload::handle);
     }
 
     /** 向服务端发送任意自定义 payload */

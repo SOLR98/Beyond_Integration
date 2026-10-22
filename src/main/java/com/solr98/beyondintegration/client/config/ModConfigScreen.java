@@ -107,6 +107,18 @@ public class ModConfigScreen {
                 com.solr98.beyondintegration.ClientConfig.CLIENT.searchHistoryMax.get())
                 .setDefaultValue(20).setMin(1).setMax(100)
                 .setSaveConsumer(v -> com.solr98.beyondintegration.ClientConfig.setSearchHistoryMax(v)).build());
+        clientCat.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.client.irons_mana_hud"),
+                com.solr98.beyondintegration.ClientConfig.CLIENT.ironsManaHud.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(v -> com.solr98.beyondintegration.ClientConfig.setIronsManaHud(v)).build());
+        clientCat.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.client.show_net_sync_status"),
+                com.solr98.beyondintegration.ClientConfig.CLIENT.showNetSyncStatus.get())
+                .setDefaultValue(false)
+                .setSaveConsumer(v -> com.solr98.beyondintegration.ClientConfig.setShowNetSyncStatus(v)).build());
+        clientCat.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.client.hud_visual_edit"),
+                com.solr98.beyondintegration.ClientConfig.CLIENT.hudVisualEdit.get())
+                .setDefaultValue(true)
+                .setSaveConsumer(v -> com.solr98.beyondintegration.ClientConfig.setHudVisualEdit(v)).build());
 
         // ── 3. Workstations（服务端可用列表） ──
         var workstation = builder.getOrCreateCategory(Component.translatable("beyond_integration.config.workstation"));
@@ -387,8 +399,14 @@ public class ModConfigScreen {
                 .setDefaultValue(false).setSaveConsumer(cfg.furnaceTerminalSmeltAllEnabled::set).build());
         xpRod.addEntry(eb.startDoubleField(Component.translatable("beyond_integration.config.bd_tweaks.net_furnace_smelt_speed"), cfg.netFurnaceSmeltSpeed.get())
                 .setDefaultValue(1.0D).setMin(0.1D).setMax(100.0D).setSaveConsumer(cfg.netFurnaceSmeltSpeed::set).build());
-        xpRod.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.bd_tweaks.primary_net_jei_sync"), cfg.primaryNetJeiSync.get())
-                .setDefaultValue(false).setSaveConsumer(cfg.primaryNetJeiSync::set).build());
+            xpRod.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.bd_tweaks.primary_net_sync"), cfg.primaryNetSync.get())
+                    .setDefaultValue(false).setSaveConsumer(cfg.primaryNetSync::set).build());
+            xpRod.addEntry(eb.startEnumSelector(Component.translatable("beyond_integration.config.bd_tweaks.primary_net_sync_scope"),
+                            CommandConfig.PrimaryNetSyncScope.class, cfg.primaryNetSyncScope.get())
+                    .setDefaultValue(CommandConfig.PrimaryNetSyncScope.ITEMS)
+                    .setSaveConsumer(cfg.primaryNetSyncScope::set).build());
+            xpRod.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.bd_tweaks.primary_net_sync_debug"), cfg.primaryNetSyncDebug.get())
+                    .setDefaultValue(false).setSaveConsumer(cfg.primaryNetSyncDebug::set).build());
         xpRod.addEntry(eb.startIntField(Component.translatable("beyond_integration.config.bd_tweaks.net_pathway_filter_rows"), cfg.netPathwayFilterRows.get())
                 .setDefaultValue(3).setMin(1).setMax(6).setSaveConsumer(cfg.netPathwayFilterRows::set).build());
         xpRod.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.bd_tweaks.neted_block_keep_nbt"), cfg.netedBlockKeepNbt.get())
@@ -469,6 +487,70 @@ public class ModConfigScreen {
                 .setDefaultValue(Arrays.asList("minecraft:mending:3.0", "minecraft:frost_walker:3.0",
                         "minecraft:sharpness:1.2", "minecraft:protection:1.2"))
                 .setSaveConsumer(list -> cfg.enchantHighCostList.set(new ArrayList<>(list))).build());
+
+        // ── 13. 网络灵魂源（Goety 联动） ──
+        var goetySoul = builder.getOrCreateCategory(Component.translatable("beyond_integration.config.goety_soul"));
+        goetySoul.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_soul.enabled"), cfg.SOUL_ENABLED.get())
+                .setDefaultValue(true).setSaveConsumer(cfg.SOUL_ENABLED::set).build());
+        goetySoul.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_soul.require_activation"), cfg.SOUL_REQUIRE_ACTIVATION.get())
+                .setDefaultValue(false).setSaveConsumer(cfg.SOUL_REQUIRE_ACTIVATION::set).build());
+        goetySoul.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_soul.source_kill"), cfg.SOUL_SOURCE_KILL.get())
+                .setDefaultValue(true).setSaveConsumer(cfg.SOUL_SOURCE_KILL::set).build());
+        goetySoul.addEntry(eb.startDoubleField(Component.translatable("beyond_integration.config.goety_soul.kill_ratio"), cfg.SOUL_KILL_RATIO.get())
+                .setDefaultValue(1.0).setMin(0.0).setMax(1.0).setSaveConsumer(cfg.SOUL_KILL_RATIO::set).build());
+        goetySoul.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_soul.source_manual"), cfg.SOUL_SOURCE_MANUAL.get())
+                .setDefaultValue(false).setSaveConsumer(cfg.SOUL_SOURCE_MANUAL::set).build());
+        goetySoul.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_soul.direct_main_net"), cfg.SOUL_DIRECT_MAIN_NET.get())
+                .setDefaultValue(true).setSaveConsumer(cfg.SOUL_DIRECT_MAIN_NET::set).build());
+        goetySoul.addEntry(eb.startLongField(Component.translatable("beyond_integration.config.goety_soul.max_souls"), cfg.SOUL_MAX.get())
+                .setDefaultValue(0L).setMin(0L).setMax(Long.MAX_VALUE).setSaveConsumer(cfg.SOUL_MAX::set).build());
+        goetySoul.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_soul.network_discount"), cfg.SOUL_NETWORK_DISCOUNT.get())
+                .setDefaultValue(false).setSaveConsumer(cfg.SOUL_NETWORK_DISCOUNT::set).build());
+        goetySoul.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_soul.network_revive"), cfg.SOUL_NETWORK_REVIVE.get())
+                .setDefaultValue(true).setSaveConsumer(cfg.SOUL_NETWORK_REVIVE::set).build());
+        goetySoul.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_soul.network_revive_to_arca"), cfg.SOUL_NETWORK_REVIVE_TO_ARCA.get())
+                .setDefaultValue(true).setSaveConsumer(cfg.SOUL_NETWORK_REVIVE_TO_ARCA::set).build());
+        goetySoul.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_soul.debug"), cfg.SOUL_DEBUG.get())
+                .setDefaultValue(false).setSaveConsumer(cfg.SOUL_DEBUG::set).build());
+        goetySoul.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_soul.use_ri_key"), cfg.SOUL_USE_RI_KEY.get())
+                .setDefaultValue(false).setSaveConsumer(cfg.SOUL_USE_RI_KEY::set).build());
+
+        // ── 14. Goety 仪式环境绕过 ──
+        var goetyRitual = builder.getOrCreateCategory(Component.translatable("beyond_integration.config.goety_ritual"));
+        goetyRitual.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_ritual.env_bypass"), cfg.RITUAL_ENV_BYPASS.get())
+                .setDefaultValue(true).setSaveConsumer(cfg.RITUAL_ENV_BYPASS::set).build());
+        goetyRitual.addEntry(eb.startLongField(Component.translatable("beyond_integration.config.goety_ritual.env_bypass_soul_cost"), cfg.RITUAL_ENV_SOUL_COST.get())
+                .setDefaultValue(100L).setMin(0L).setMax(Long.MAX_VALUE).setSaveConsumer(cfg.RITUAL_ENV_SOUL_COST::set).build());
+        goetyRitual.addEntry(eb.startIntField(Component.translatable("beyond_integration.config.goety_ritual.pathway_count"), cfg.RITUAL_ENV_PATHWAY_COUNT.get())
+                .setDefaultValue(5).setMin(0).setMax(64).setSaveConsumer(cfg.RITUAL_ENV_PATHWAY_COUNT::set).build());
+        goetyRitual.addEntry(eb.startIntField(Component.translatable("beyond_integration.config.goety_ritual.connect_count"), cfg.RITUAL_ENV_CONNECT_COUNT.get())
+                .setDefaultValue(16).setMin(0).setMax(64).setSaveConsumer(cfg.RITUAL_ENV_CONNECT_COUNT::set).build());
+        goetyRitual.addEntry(eb.startIntField(Component.translatable("beyond_integration.config.goety_ritual.radius"), cfg.RITUAL_ENV_RADIUS.get())
+                .setDefaultValue(8).setMin(1).setMax(32).setSaveConsumer(cfg.RITUAL_ENV_RADIUS::set).build());
+        goetyRitual.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.goety_ritual.pathway_cage"), cfg.RITUAL_PATHWAY_CAGE.get())
+                .setDefaultValue(true).setSaveConsumer(cfg.RITUAL_PATHWAY_CAGE::set).build());
+        // ── 13. 网络魔力源（铁魔法联动） ──
+        var ironsMana = builder.getOrCreateCategory(Component.translatable("beyond_integration.config.irons_mana"));
+        ironsMana.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.irons_mana.enabled"), cfg.IRONS_MANA_ENABLED.get())
+                .setDefaultValue(true).setSaveConsumer(cfg.IRONS_MANA_ENABLED::set).build());
+        ironsMana.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.irons_mana.pay_consumption"), cfg.IRONS_MANA_PAY_CONSUMPTION.get())
+                .setDefaultValue(true).setSaveConsumer(cfg.IRONS_MANA_PAY_CONSUMPTION::set).build());
+        ironsMana.addEntry(eb.startDoubleField(Component.translatable("beyond_integration.config.irons_mana.sink_ratio"), cfg.IRONS_MANA_SINK_RATIO.get())
+                .setDefaultValue(1.0).setMin(0.0).setMax(1.0).setSaveConsumer(cfg.IRONS_MANA_SINK_RATIO::set).build());
+        ironsMana.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.irons_mana.sink_on_full"), cfg.IRONS_MANA_SINK_ON_FULL.get())
+                .setDefaultValue(true).setSaveConsumer(cfg.IRONS_MANA_SINK_ON_FULL::set).build());
+        ironsMana.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.irons_mana.sink_on_instant"), cfg.IRONS_MANA_SINK_ON_INSTANT.get())
+                .setDefaultValue(true).setSaveConsumer(cfg.IRONS_MANA_SINK_ON_INSTANT::set).build());
+        ironsMana.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.irons_mana.fixed_regen"), cfg.IRONS_MANA_FIXED_REGEN.get())
+                .setDefaultValue(false).setSaveConsumer(cfg.IRONS_MANA_FIXED_REGEN::set).build());
+        ironsMana.addEntry(eb.startLongField(Component.translatable("beyond_integration.config.irons_mana.fixed_regen_amount"), cfg.IRONS_MANA_FIXED_REGEN_AMOUNT.get())
+                .setDefaultValue(1L).setMin(0L).setMax(Long.MAX_VALUE).setSaveConsumer(cfg.IRONS_MANA_FIXED_REGEN_AMOUNT::set).build());
+        ironsMana.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.irons_mana.regen_when_not_full"), cfg.IRONS_MANA_REGEN_WHEN_NOT_FULL.get())
+                .setDefaultValue(false).setSaveConsumer(cfg.IRONS_MANA_REGEN_WHEN_NOT_FULL::set).build());
+        ironsMana.addEntry(eb.startBooleanToggle(Component.translatable("beyond_integration.config.irons_mana.independent_regen"), cfg.IRONS_MANA_INDEPENDENT_REGEN.get())
+                .setDefaultValue(false).setSaveConsumer(cfg.IRONS_MANA_INDEPENDENT_REGEN::set).build());
+        ironsMana.addEntry(eb.startLongField(Component.translatable("beyond_integration.config.irons_mana.max_mana"), cfg.IRONS_MANA_MAX.get())
+                .setDefaultValue(10000L).setMin(0L).setMax(Long.MAX_VALUE).setSaveConsumer(cfg.IRONS_MANA_MAX::set).build());
 
         return builder.build();
     }

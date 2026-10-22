@@ -49,9 +49,10 @@ public class ClientEventHandler {
         JeiExtractInputHandler.register();
         // 工作台状态缓存：进服/登出时重置（服务端启用列表与激活状态由同步包重新下发）
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn.class,
-                e -> { WorkstationActivationCache.reset(); PrimaryNetClientStorage.clear(); });
+                e -> { WorkstationActivationCache.reset(); PrimaryNetClientStorage.INSTANCE.clear(); });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class,
-                e -> { WorkstationActivationCache.reset(); PrimaryNetClientStorage.clear(); });
+                e -> { WorkstationActivationCache.reset(); PrimaryNetClientStorage.INSTANCE.clear();
+                    com.solr98.beyondintegration.client.ManaState.clear(); });
         // 悬停可存入网络的槽位左上角 "+" 角标（客户端渲染）
         NeoForge.EVENT_BUS.addListener(HoverStoreOverlay::onScreenRender);
         EmiBdShortcuts.register();
@@ -74,6 +75,10 @@ public class ClientEventHandler {
     /** 注册 HUD 叠加层：快捷栏上方“复制配置”提示 */
     public static void onRegisterGuiLayers(net.neoforged.neoforge.client.event.RegisterGuiLayersEvent event) {
         event.registerAboveAll(net.minecraft.resources.ResourceLocation.tryBuild(BeyondIntegration.MODID, "net_hint"), new NetHintOverlay());
+        event.registerAboveAll(net.minecraft.resources.ResourceLocation.tryBuild(BeyondIntegration.MODID, "net_mana"),
+                com.solr98.beyondintegration.client.hud.NetManaHudOverlay.INSTANCE);
+        event.registerAboveAll(net.minecraft.resources.ResourceLocation.tryBuild(BeyondIntegration.MODID, "net_sync"),
+                new NetSyncStatusOverlay());
     }
 
     @SubscribeEvent
@@ -100,6 +105,7 @@ public class ClientEventHandler {
         event.register(BDKeyBindings.OPEN_ANVIL);
         event.register(BDKeyBindings.OPEN_ENCHANT);
         event.register(BDKeyBindings.OPEN_ENCHANT_MERGE);
+        event.register(BDKeyBindings.OPEN_HUD_EDITOR);
     }
 
     // ── SW：换枪现查 ITEM 弹药 / 下车清除载具缓存 ──

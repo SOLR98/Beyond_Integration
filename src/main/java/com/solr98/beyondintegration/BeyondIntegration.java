@@ -45,6 +45,11 @@ public class BeyondIntegration {
         // 净化水系列流体（脏水/微脏水/可接受水/纯净水）
         com.solr98.beyondintegration.init.ModFluids.register(modEventBus);
 
+        // Goety 仪式工厂（网络灵魂源激活仪式）：仅 Goety 加载时向 goety:ritual_factory 注册
+        if (ModList.get().isLoaded("goety")) {
+            com.solr98.beyondintegration.feature.soul.ModRitualFactories.RITUALS.register(modEventBus);
+        }
+
         NeoForge.EVENT_BUS.addListener(RegisterCommandsEvent.class, this::onRegisterCommands);
         NeoForge.EVENT_BUS.register(this);
 
@@ -65,6 +70,10 @@ public class BeyondIntegration {
         // 注册充电平台实现（能量 capability / 模组判定 / 属性判定）
         com.solr98.beyondintegration.core.energy.ChargePlatform.set(
                 new com.solr98.beyondintegration.core.energy.NeoChargePlatform());
+        // 注册网络魔力键（需在任何网络存储反序列化之前；同时注册旧 mana 键用于迁移）
+        com.solr98.beyondintegration.feature.mana.ManaKeyRegistration.register();
+        // 注册网络灵魂键（必须先于网络存储反序列化）
+        com.solr98.beyondintegration.feature.soul.SoulKeyRegistration.register();
         // 注册维度网络存储插入前拦截器：禁止黑名单物品进入网络
         com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
                 .addHandler(new com.solr98.beyondintegration.handler.ItemBlacklistHandler());
@@ -168,6 +177,9 @@ public class BeyondIntegration {
         // 服务器停止时显式落盘 beyond_integration_data.dat（NetworkAmmoData 持久化）
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppingEvent.class,
                 e -> com.solr98.beyondintegration.handler.NetworkDataStore.saveNow());
+        // 服务器停止：清空主网络同步会话与限流状态
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppingEvent.class,
+                e -> com.solr98.beyondintegration.network.PrimaryNetSyncManager.clear());
         NeoForge.EVENT_BUS.addListener(com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed.class,
                 e -> com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub.onNetDestroyed(e.getDestroyedId()));
         LOGGER.info("Registered BdSubscriptionHub cleanup");
@@ -175,6 +187,21 @@ public class BeyondIntegration {
         // 熔炉烧终端：取出终端产物时触发网络批量烧炼
         NeoForge.EVENT_BUS.addListener(
                 com.solr98.beyondintegration.handler.FurnaceTerminalEventHandler::onItemSmelted);
+
+        // Goety 网络灵魂源：按模组加载门控注册
+        if (ModList.get().isLoaded("goety")) {
+            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.soul.SoulGainHandler());
+            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.handler.SoulHudSyncHandler());
+            NeoForge.EVENT_BUS.addListener(com.solr98.beyondintegration.feature.soul.SoulRitualAnimation::onServerTick);
+        }
+
+        // 网络魔力源（铁魔法联动）：按模组加载门控注册
+        if (ModList.get().isLoaded("irons_spellbooks")) {
+            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.mana.IronsManaHandler());
+            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.mana.ManaHudSyncHandler());
+            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.mana.ManaNetRegenHandler());
+            LOGGER.info("Registered IronsMana handlers (network mana source)");
+        }
 
         // 通用装备位网络充电（可充电盔甲 + 主副手工具/武器），独立于 SW 轮询按配置间隔执行
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
@@ -195,6 +222,14 @@ public class BeyondIntegration {
     /** 配置重载时记录 COMMON/CLIENT 配置实例。 */
     private void onModConfigReloading(net.neoforged.fml.event.config.ModConfigEvent.Reloading event) {
         trackConfig(event.getConfig());
+        // 主网络同步配置变更：向在线玩家重推配置，并重置会话基线下一 tick 按新范围全量重推
+        if (MODID.equals(event.getConfig().getModId())) {
+            var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            if (server != null) {
+                com.solr98.beyondintegration.handler.NetworkSyncConfigPusher.pushAll(server);
+                com.solr98.beyondintegration.network.PrimaryNetSyncManager.onConfigChanged();
+            }
+        }
     }
 
     private void trackConfig(ModConfig config) {
@@ -212,6 +247,7 @@ public class BeyondIntegration {
     private void onLoadComplete(net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent event) {
         com.solr98.beyondintegration.core.config.ConfigCommentLang.saveIfLanguageChanged(this.commonConfig);
         com.solr98.beyondintegration.core.config.ConfigCommentLang.saveIfLanguageChanged(this.clientConfig);
+        com.solr98.beyondintegration.feature.soul.SoulKeyRegistration.ensureRiKeyFallback();
     }
 
     /**
@@ -225,6 +261,8 @@ public class BeyondIntegration {
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("Beyond Integration server starting");
+        com.solr98.beyondintegration.feature.mana.ManaKeyMigration.migrate(event.getServer());
+        com.solr98.beyondintegration.feature.soul.SoulKeyMigration.migrateIfEnabled(event.getServer());
     }
 }
 

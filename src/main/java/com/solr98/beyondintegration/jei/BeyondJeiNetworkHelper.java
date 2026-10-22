@@ -67,14 +67,14 @@ public final class BeyondJeiNetworkHelper {
 
     /** 计数/取物是否可用：服务端已同步主网络，或已打开 BD 终端（回退） */
     public static boolean isActive() {
-        return com.solr98.beyondintegration.client.PrimaryNetClientStorage.hasNetwork()
+        return com.solr98.beyondintegration.client.PrimaryNetClientStorage.INSTANCE.hasNetwork()
                 || currentNetMenu() != null;
     }
 
     /** 实际查询网络库存：优先主网络镜像；未同步时回退到已打开的 BD 终端菜单（未打开/异常返回 0） */
     private static long queryNetworkCount(ItemStackKey key) {
-        if (com.solr98.beyondintegration.client.PrimaryNetClientStorage.hasNetwork()) {
-            return com.solr98.beyondintegration.client.PrimaryNetClientStorage.getCount(key);
+        if (com.solr98.beyondintegration.client.PrimaryNetClientStorage.INSTANCE.hasNetwork()) {
+            return com.solr98.beyondintegration.client.PrimaryNetClientStorage.INSTANCE.getCount(key);
         }
         DimensionsNetMenu menu = currentNetMenu();
         if (menu == null || menu.clientNetStorage == null) return 0;
