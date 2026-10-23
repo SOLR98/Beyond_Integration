@@ -227,10 +227,20 @@ public class PacketHandler {
                 SyncResyncRequestPacket::decode,
                 SyncResyncRequestPacket::handle);
 
-        INSTANCE.registerMessage(id++, TudDumpPacket.class,
-                TudDumpPacket::encode,
-                TudDumpPacket::decode,
-                TudDumpPacket::handle);
+        INSTANCE.registerMessage(id++, SoulBeamPacket.class,
+                SoulBeamPacket::encode,
+                SoulBeamPacket::decode,
+                SoulBeamPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestWorkstationResyncPacket.class,
+                RequestWorkstationResyncPacket::encode,
+                RequestWorkstationResyncPacket::decode,
+                RequestWorkstationResyncPacket::handle);
+
+        INSTANCE.registerMessage(id++, ManaSyncPacket.class,
+                ManaSyncPacket::encode,
+                ManaSyncPacket::decode,
+                ManaSyncPacket::handle);
     }
 
     /** 客户端 → 服务端发送 */
@@ -238,8 +248,9 @@ public class PacketHandler {
         INSTANCE.sendToServer(msg);
     }
 
-    /** 服务端 → 指定玩家发送 */
+    /** 服务端 → 指定玩家发送（假玩家 / 未连接玩家：静默跳过，避免 connection 为 null 崩溃） */
     public static void sendToPlayer(ServerPlayer player, Object msg) {
+        if (player == null || player.connection == null) return;
         INSTANCE.sendTo(msg, player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
     }
 }

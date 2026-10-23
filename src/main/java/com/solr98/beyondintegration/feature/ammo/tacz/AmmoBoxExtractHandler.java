@@ -34,6 +34,22 @@ public class AmmoBoxExtractHandler implements UnifiedStorageBeforeInsertHandler.
             @NotNull KeyAmount tryInsert,
             DimensionsNet net) {
 
+        if (!com.solr98.beyondintegration.handler.ReentrancyGuard.enter(
+                "tacz_ammobox", com.solr98.beyondintegration.CommandConfig.handlerMaxReentrancy())) {
+            return new UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo(tryInsert, false);
+        }
+        try {
+            return beyond$extract(originalInsert, tryInsert, net);
+        } finally {
+            com.solr98.beyondintegration.handler.ReentrancyGuard.exit("tacz_ammobox");
+        }
+    }
+
+    private @NotNull UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo beyond$extract(
+            @NotNull KeyAmount originalInsert,
+            @NotNull KeyAmount tryInsert,
+            DimensionsNet net) {
+
         if (!(tryInsert.key() instanceof ItemStackKey itemStackKey)) {
             return new UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo(tryInsert, false);
         }

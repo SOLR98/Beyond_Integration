@@ -22,6 +22,8 @@ public final class SoulManualConvert {
     public static long convert(ServerPlayer player, DimensionsNet net, int amount) {
         if (player == null || net == null || amount <= 0) return 0L;
         if (!CommandConfig.soulEnabled() || !CommandConfig.soulSourceManual()) return 0L;
+        // 只转化原版魂（不含网络魂），避免把网络魂"自身转化"回网络
+        if (SoulVanillaSource.nativeSouls(player) < amount) return 0L;
         if (!com.Polarice3.Goety.utils.SEHelper.getSoulsAmount(player, amount)) return 0L;
         com.Polarice3.Goety.utils.SEHelper.decreaseSouls(player, amount);
         return SoulEnergyAccess.insertSouls(net, amount);

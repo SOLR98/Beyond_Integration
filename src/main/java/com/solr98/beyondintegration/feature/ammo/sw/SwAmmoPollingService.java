@@ -74,6 +74,7 @@ public class SwAmmoPollingService {
     public void onPlayerTick(TickEvent.PlayerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         if (!(event.player instanceof ServerPlayer sp)) return;
+        if (sp.connection == null) return; // 假玩家（无客户端连接）：跳过
         if (sp.isDeadOrDying()) return;
 
         handCheckCounter++;

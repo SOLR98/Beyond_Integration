@@ -4,21 +4,15 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.solr98.beyondintegration.feature.soul.SoulEnergyStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackRender;
-import com.wintercogs.beyonddimensions.util.IngredientRenderer;
 import com.wintercogs.beyonddimensions.util.StringFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.material.Fluids;
-import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -26,33 +20,30 @@ import java.util.Optional;
 
 /**
  * 网络灵魂能量键的客户端渲染器。
- * <p>图标：沿用水的静态贴图 + 灵魂青色 tint（避免依赖特定物品）；数量格式复用 BD {@link StringFormat}。
+ * <p>图标：原版 soul 粒子贴图逐帧播放（{@code minecraft:textures/particle/soul_0..10.png}，共 11 帧，每帧 16×16）；数量格式复用 BD {@link StringFormat}。
  * <p>仅在客户端调用（{@link IStackKey#getRender()}）。
  */
 public class SoulEnergyStackKeyRender implements IStackRender {
 
     public static final SoulEnergyStackKeyRender INSTANCE = new SoulEnergyStackKeyRender();
 
-    /** 灵魂青色 */
-    private static final int SOUL_TINT = 0x8AD8FF;
+    /** 原版 soul 粒子贴图（soul_0 ~ soul_10 共 11 帧，每帧 16×16；soul_11 未被 vanilla 使用） */
+    private static final ResourceLocation[] SOUL_FRAMES = new ResourceLocation[11];
+    static {
+        for (int i = 0; i < SOUL_FRAMES.length; i++) {
+            SOUL_FRAMES[i] = ResourceLocation.tryParse("minecraft:textures/particle/soul_" + i + ".png");
+        }
+    }
+    /** 每帧持续毫秒（≈12.5 fps，整循环约 1s） */
+    private static final long FRAME_MS = 80L;
 
     private SoulEnergyStackKeyRender() {
     }
 
     @Override
     public void render(GuiGraphics gui, IStackKey<?> key, int x, int y) {
-        var pose = gui.pose();
-        pose.pushPose();
-
-        ResourceLocation still = IClientFluidTypeExtensions.of(Fluids.WATER).getStillTexture();
-        TextureAtlasSprite sprite = still == null ? null
-                : Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(still);
-
-        if (sprite != null && sprite.atlasLocation() != MissingTextureAtlasSprite.getLocation()) {
-            IngredientRenderer.drawTiledSprite(gui, 16, 16, SOUL_TINT, 16, sprite, x, y);
-        }
-
-        pose.popPose();
+        int frame = (int) ((net.minecraft.Util.getMillis() / FRAME_MS) % SOUL_FRAMES.length);
+        gui.blit(SOUL_FRAMES[frame], x, y, 0, 0, 16, 16, 16, 16);
     }
 
     @Override

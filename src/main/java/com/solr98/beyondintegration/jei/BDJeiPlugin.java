@@ -7,12 +7,9 @@ import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
-import mezz.jei.api.registration.IRecipeCategoryRegistration;
-import mezz.jei.api.registration.IRecipeRegistration;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.ResourceLocation;
-
 /**
  * JEI 集成插件：注册本模组工作台菜单的配方转移处理器（合成台 / 切石机），
  * 并为 BD 终端 GUI 注册避让区域（模式按钮列 / 弹药面板 / 左侧溢出列）。

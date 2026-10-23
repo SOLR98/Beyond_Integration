@@ -5,11 +5,12 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import com.solr98.beyondintegration.core.config.ConfigCommentLang;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
  * 模组客户端配置（ForgeConfigSpec，CLIENT 类型，仅客户端生效）。
- * 记录客户端 UI 偏好：TACZ 枪械工作台的"网络模式/原版模式"等开关。
+ * 记录客户端 UI 偏好：TACZ 枪械工作台的“网络模式/原版模式”、HUD 位置布局等。
  */
 public class ClientConfig {
 
@@ -36,6 +37,14 @@ public class ClientConfig {
         public final ForgeConfigSpec.IntValue enchantMergeRows;
         /** 右侧工作站切换按钮的顺序/可见集（有序枚举名列表；可隐藏或重排） */
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> workstationOrder;
+        /** 快捷栏上方显示主网络同步状态 HUD（客户端偏好；仅同步启用时显示） */
+        public final ForgeConfigSpec.BooleanValue showNetSyncStatus;
+        /** HUD 位置布局：每项 {@code <id>=RELATIVE:dx:dy} 或 {@code <id>=ABSOLUTE:x:y}；无项=默认位置 */
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> hudLayout;
+        /** 是否允许用快捷键打开 HUD 位置可视化编辑器 */
+        public final ForgeConfigSpec.BooleanValue hudVisualEdit;
+        /** 网络魔力 HUD（铁魔法联动）：法力条徽标 + 独立 HUD（客户端偏好） */
+        public final ForgeConfigSpec.BooleanValue ironsManaHud;
 
         ClientValues(ForgeConfigSpec.Builder builder) {
             taczSmithUseNetwork = builder
@@ -58,6 +67,18 @@ public class ClientConfig {
                     .defineList("workstation_order",
                             java.util.Arrays.asList("ANVIL", "CUT", "GRIND", "SMITH", "CRAFT", "ENCHANT", "ENCHANT_MERGE"),
                             obj -> obj instanceof String);
+            showNetSyncStatus = builder
+                    .comment(ConfigCommentLang.comment("show_net_sync_status"))
+                    .define("show_net_sync_status", false);
+            hudLayout = builder
+                    .comment(ConfigCommentLang.comment("hud_layout"))
+                    .defineList("hud_layout", Collections.emptyList(), obj -> obj instanceof String);
+            hudVisualEdit = builder
+                    .comment(ConfigCommentLang.comment("hud_visual_edit"))
+                    .define("hud_visual_edit", true);
+            ironsManaHud = builder
+                    .comment(ConfigCommentLang.comment("irons_mana_hud"))
+                    .define("irons_mana_hud", true);
         }
     }
 
@@ -82,7 +103,7 @@ public class ClientConfig {
     /** 读取工作站归还方向（客户端 UI 偏好） */
     public static boolean workstationReturnToStorage() { return CLIENT.workstationReturnToStorage.get(); }
 
-    /** 写入工作站归还方向并保存客户端配置 */
+    /** 读取附魔台悬停预览（客户端偏好） */
     public static boolean enchantPreviewOn() { return CLIENT.enchantPreviewOn.get(); }
 
     public static void setEnchantPreviewOn(boolean v) {
@@ -107,9 +128,42 @@ public class ClientConfig {
     /** 读取附魔合并每页候选行数（1-10，默认 5） */
     public static int enchantMergeRows() { return CLIENT.enchantMergeRows.get(); }
 
+    /** 是否显示主网络同步状态 HUD（客户端偏好；默认关闭） */
+    public static boolean showNetSyncStatus() { return CLIENT.showNetSyncStatus.get(); }
+
+    /** 写入主网络同步状态 HUD 开关并保存 */
+    public static void setShowNetSyncStatus(boolean v) {
+        CLIENT.showNetSyncStatus.set(v);
+        CLIENT_SPEC.save();
+    }
+
     /** 写入附魔合并每页候选行数并保存客户端配置 */
     public static void setEnchantMergeRows(int v) {
         CLIENT.enchantMergeRows.set(v);
+        CLIENT_SPEC.save();
+    }
+
+    // ── HUD 位置布局（客户端，统一）──
+    public static List<? extends String> hudLayout() { return CLIENT.hudLayout.get(); }
+
+    public static void setHudLayout(List<? extends String> v) {
+        CLIENT.hudLayout.set(v);
+        CLIENT_SPEC.save();
+    }
+
+    public static boolean hudVisualEdit() { return CLIENT.hudVisualEdit.get(); }
+
+    /** 是否显示网络魔力 HUD（客户端偏好）。 */
+    public static boolean ironsManaHud() { return CLIENT.ironsManaHud.get(); }
+
+    /** 写入网络魔力 HUD 开关并保存 */
+    public static void setIronsManaHud(boolean v) {
+        CLIENT.ironsManaHud.set(v);
+        CLIENT_SPEC.save();
+    }
+
+    public static void setHudVisualEdit(boolean v) {
+        CLIENT.hudVisualEdit.set(v);
         CLIENT_SPEC.save();
     }
 

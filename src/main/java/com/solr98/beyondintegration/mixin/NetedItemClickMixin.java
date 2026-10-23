@@ -34,7 +34,7 @@ public class NetedItemClickMixin {
                                                      SlotAccess carriedAccess, CallbackInfoReturnable<Boolean> cir) {
         if (action != ClickAction.PRIMARY) return;
         if (carried.isEmpty()) return;
-        if (!((Object) this instanceof NetedItem)) return;
+        if (!((Object) this instanceof com.wintercogs.beyonddimensions.common.item.NetTerminalItem)) return;
         if (player.level().isClientSide()) return;
         if (HoverInsertHandler.tryInsert(player, slotStack, carried, null)) {
             cir.setReturnValue(true);
@@ -46,7 +46,7 @@ public class NetedItemClickMixin {
     private void beyondintegration$quickStoreSlot(ItemStack carriedStack, Slot slot, ClickAction action,
                                                   Player player, CallbackInfoReturnable<Boolean> cir) {
         if (action != ClickAction.PRIMARY) return;
-        if (!((Object) this instanceof NetedItem)) return;
+        if (!((Object) this instanceof com.wintercogs.beyonddimensions.common.item.NetTerminalItem)) return;
         if (player.level().isClientSide()) return;
 
         ItemStack slotStack = slot.getItem();

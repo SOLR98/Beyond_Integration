@@ -38,7 +38,9 @@ public class BDSidebarGuiHandler implements IGuiContainerHandler<DimensionsNetGU
         int modeCount = WorkstationModeConstants.availableModes().size();
         if (modeCount > 0) {
             int gy = gui.getGuiTop() + 24 + 18 + (menuLines(gui) - 2) * 18 + 26;
-            int bx = gui.getGuiLeft() + WorkstationModeConstants.xFor(0);
+            int shift = (gui instanceof com.solr98.beyondintegration.client.gui.DimensionsEnchantGUI g)
+                    ? g.beyond$previewShift() : 0;
+            int bx = gui.getGuiLeft() + WorkstationModeConstants.xFor(0) + shift;
             int bottom = gy + WorkstationModeConstants.yFor(modeCount - 1) + 16;
             areas.add(new Rect2i(bx, gy, 16, bottom - gy));
         }

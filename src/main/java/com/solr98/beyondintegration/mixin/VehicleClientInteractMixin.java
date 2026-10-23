@@ -27,7 +27,7 @@ public class VehicleClientInteractMixin {
     private void beyond$onInteract(Player player, InteractionHand hand,
                                    CallbackInfoReturnable<InteractionResult> cir) {
         ItemStack stack = player.getItemInHand(hand);
-        if (stack.isEmpty()) return;
+        if (!(stack.getItem() instanceof com.wintercogs.beyonddimensions.common.item.NetTerminalItem)) return; // 仅便携网络终端
         if (NetedItem.getNetId(stack) < 0) return;
 
         cir.setReturnValue(InteractionResult.SUCCESS);

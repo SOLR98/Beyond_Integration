@@ -1,6 +1,7 @@
 package com.solr98.beyondintegration.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.solr98.beyondintegration.ClientConfig;
 import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.client.gui.WorkstationModeConstants;
 import com.solr98.beyondintegration.client.gui.WorkstationTransferHelper;
@@ -30,6 +31,8 @@ public final class BDKeyBindings {
     public static final KeyMapping OPEN_ANVIL = new KeyMapping("key.beyond_integration.open_anvil", InputConstants.UNKNOWN.getValue(), CATEGORY);
     public static final KeyMapping OPEN_ENCHANT = new KeyMapping("key.beyond_integration.open_enchant", InputConstants.UNKNOWN.getValue(), CATEGORY);
     public static final KeyMapping OPEN_ENCHANT_MERGE = new KeyMapping("key.beyond_integration.open_enchant_merge", InputConstants.UNKNOWN.getValue(), CATEGORY);
+    /** 打开网络灵魂条位置可视化调整界面（初始未绑定） */
+    public static final KeyMapping OPEN_SOUL_HUD_EDITOR = new KeyMapping("key.beyond_integration.open_soul_hud_editor", InputConstants.UNKNOWN.getValue(), CATEGORY);
 
     private BDKeyBindings() {}
 
@@ -42,6 +45,20 @@ public final class BDKeyBindings {
         check(OPEN_ANVIL, OpenStorageMenuPacket.Type.ANVIL);
         check(OPEN_ENCHANT, OpenStorageMenuPacket.Type.ENCHANT);
         check(OPEN_ENCHANT_MERGE, OpenStorageMenuPacket.Type.ENCHANT_MERGE);
+        openSoulHudEditorIfPressed();
+    }
+
+    /** 按下快捷键打开 HUD 位置可视化调整界面（受客户端配置 {@code hud_visual_edit} 控制）。 */
+    private static void openSoulHudEditorIfPressed() {
+        if (!OPEN_SOUL_HUD_EDITOR.consumeClick()) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen != null || mc.player == null) return;
+        if (ClientConfig.hudVisualEdit()) {
+            mc.setScreen(new com.solr98.beyondintegration.client.gui.HudPositionScreen());
+        } else {
+            mc.player.displayClientMessage(
+                    Component.translatable("message.beyond_integration.hud_pos.disabled"), true);
+        }
     }
 
     /** 单个按键检查：按下时若处于 BD 网络界面先保存切换上下文，再发打开请求 */

@@ -224,10 +224,15 @@ dependencies {
     implementation fg.deobf("curse.maven:quark-243121:6427817")
     implementation fg.deobf("curse.maven:zeta-968868:7335229")
     implementation fg.deobf("curse.maven:mouse-tweaks-60089:5338457")
-    implementation fg.deobf("curse.maven:rs-integration-1630184:9065984")
-
-
-
+    implementation fg.deobf("curse.maven:rs-integration-1630184:9115092")
+    implementation fg.deobf("curse.maven:inventory-hud-forge-357540:5639966")
+    implementation fg.deobf("curse.maven:goety-586095:8951387")
+    implementation fg.deobf("curse.maven:goety-revelation-1236817:9077060")
+    implementation fg.deobf("curse.maven:endinglibrary-1471165:9038151")
+    implementation fg.deobf("curse.maven:kaleidoscope-tavern-1475175:8350841")
+    implementation fg.deobf("curse.maven:ae2-lightning-tech-1527395:9132014")
+    implementation fg.deobf("curse.maven:thunderbolt-core-1631756:9131969")
+    implementation fg.deobf("maven.modrinth:vtvveeqA:E4ejDjYy")
 
     implementation fg.deobf("curse.maven:tacz-unidict-1305429:8147682")
     implementation fg.deobf("curse.maven:appleskin-248787:4770828")

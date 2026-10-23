@@ -594,7 +594,7 @@ public class DimensionsEnchantMergeGUI extends DimensionsStorageGUI<DimensionsEn
     /** 悬浮附魔条目：以网络内最高等级附魔书物品的 tooltip 为本体，后接库存数字（横向）。 */
     private void renderEntryTooltip(GuiGraphics g, int mx, int my) {
         int gy = getGapY();
-        if (mx < this.leftPos + 3 || mx >= this.leftPos + PANEL_W - 3) return;
+        if (mx < this.leftPos + 3 || mx >= this.leftPos + COL_SLIDER) return;
         if (my < gy + ROW_Y0 || my >= gy + ROW_Y0 + pageSize() * ROW_H) return;
         int i = (int) ((my - (gy + ROW_Y0)) / ROW_H);
         int idx = page * pageSize() + i;

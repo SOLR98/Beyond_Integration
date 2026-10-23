@@ -11,6 +11,7 @@ import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import com.solr98.beyondintegration.compat.tud.TudAmmoCompat;
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
+import com.solr98.beyondintegration.handler.NetTerminalHelper;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import net.minecraft.resources.ResourceLocation;
@@ -184,6 +185,7 @@ public class TaczAmmoExtractor {
         for (int i = 0; i < inv.getSlots(); i++) {
             ItemStack stack = inv.getStackInSlot(i);
             if (!stack.isEmpty()) {
+                if (!NetTerminalHelper.isTerminal(stack)) continue;
                 int netId = NetedItem.getNetId(stack);
                 if (netId >= 0) {
                     DimensionsNet found = DimensionsNet.getNetFromId(netId);
@@ -206,6 +208,7 @@ public class TaczAmmoExtractor {
         for (int i = 0; i < inv.getSlots(); i++) {
             ItemStack stack = inv.getStackInSlot(i);
             if (!stack.isEmpty()) {
+                if (!NetTerminalHelper.isTerminal(stack)) continue;
                 int netId = NetedItem.getNetId(stack);
                 if (netId >= 0 && !seen.contains(netId)) {
                     seen.add(netId);

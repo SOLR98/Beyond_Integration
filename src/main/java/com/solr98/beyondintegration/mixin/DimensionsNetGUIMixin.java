@@ -355,7 +355,7 @@ public class DimensionsNetGUIMixin implements BeyondSidebarAccess {
         var cfgModes = WorkstationModeConstants.availableModes();
         for (int i = 0; i < cfgModes.size(); i++) {
             var mode = cfgModes.get(i);
-            int bx = lx + WorkstationModeConstants.xFor(i), by = gy + WorkstationModeConstants.yFor(i);
+            int bx = lx + WorkstationModeConstants.xFor(i) + beyond$modeShift(), by = gy + WorkstationModeConstants.yFor(i);
             boolean on = beyond$isCurrentMode(menu.getClass(), mode);
             boolean h = mx >= bx && mx < bx + 16 && my >= by && my < by + 16;
             // 未献祭激活的工作台：禁用纹理 + 锁定 tooltip（点击将尝试献祭激活而非打开）
@@ -463,7 +463,7 @@ public class DimensionsNetGUIMixin implements BeyondSidebarAccess {
         // 顺序/可见集 = 客户端配置顺序 ∩ 服务端可用列表（服务端禁用项已隐藏，服务端仍会兜底校验）
         var clickModes = WorkstationModeConstants.availableModes();
         for (int i = 0; i < clickModes.size(); i++) {
-            int bx = lx + WorkstationModeConstants.xFor(i), by = gy + WorkstationModeConstants.yFor(i);
+            int bx = lx + WorkstationModeConstants.xFor(i) + beyond$modeShift(), by = gy + WorkstationModeConstants.yFor(i);
             if (mx >= bx && mx < bx + 16 && my >= by && my < by + 16) {
                 Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 if (WorkstationActivationCache.isLocked(clickModes.get(i).id())) {
@@ -528,5 +528,15 @@ public class DimensionsNetGUIMixin implements BeyondSidebarAccess {
             case ENCHANT_MERGE -> menuClass == com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMergeMenu.class;
             default -> false;
         };
+    }
+
+    /** 附魔台预览侧栏可见时的模式按钮列右移量（其它界面为 0；按提示框实际右缘动态计算） */
+    @Unique
+    private int beyond$modeShift() {
+        var self = (DimensionsNetGUI<?>) (Object) this;
+        if (self instanceof com.solr98.beyondintegration.client.gui.DimensionsEnchantGUI g) {
+            return g.beyond$previewShift();
+        }
+        return 0;
     }
 }

@@ -45,10 +45,10 @@ public final class HoverStoreOverlay {
         g.drawString(font, "+", x + 1, y, 0xFF55FF55, true);
     }
 
-    /** 读取物品绑定的网络 ID（NetedItem/NBT），未绑定返回 -1 */
+    /** 读取"便携网络终端"绑定的网络 ID；非终端或未绑定返回 -1 */
     private static int netIdOf(ItemStack stack) {
-        if (stack.isEmpty()) return -1;
         try {
+            if (!com.solr98.beyondintegration.handler.NetTerminalHelper.isTerminal(stack)) return -1;
             return NetedItem.getNetId(stack);
         } catch (Throwable ignored) {
             return -1;

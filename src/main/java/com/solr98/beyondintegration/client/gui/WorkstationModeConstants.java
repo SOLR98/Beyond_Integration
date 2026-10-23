@@ -30,7 +30,7 @@ public class WorkstationModeConstants {
         OpenStorageMenuPacket.Type.CRAFT, OpenStorageMenuPacket.Type.ENCHANT,
         OpenStorageMenuPacket.Type.ENCHANT_MERGE
     };
-    /** 图标按钮 X 坐标（统一为 177） */
+    /** 图标按钮 X 坐标（统一为 177；附魔台预览可见时由渲染方动态右移） */
     public static final int[] MX = {177, 177, 177, 177, 177, 177, 177};
     /** 图标按钮 Y 坐标（自上而下：0,16,31,46,61,76,91；重排/隐藏后仍按索引取值保持紧凑） */
     public static final int[] MY = {0, 16, 31, 46, 61, 76, 91};

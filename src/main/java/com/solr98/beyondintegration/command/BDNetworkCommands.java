@@ -39,8 +39,6 @@ public final class BDNetworkCommands {
                 // OP专用命令：可以打开任何网络
                 .then(NetworkOpenCommand.registerOpenAny())
                 .then(EnchantSeparateCommand.register())
-                // TUD 兼容诊断（OP）：打印本端弹药映射列表
-                .then(TudCommand.register())
         );
     }
 
@@ -57,8 +55,8 @@ public final class BDNetworkCommands {
             .then(NetworkInfoCommand.register())
             // 网络插入命令
             .then(NetworkInsertCommand.register(context))
-            // 工作台献祭激活管理命令（重置/查询）
-            .then(NetworkWorkstationCommand.register())
+            // 功能激活管理（灵魂源 / 工作台献祭激活统一分支）
+            .then(NetworkActivationCommand.register())
             // 资源生成命令
             .then(NetworkGenerateResourcesCommand.register())
             // 给予终端命令
@@ -67,8 +65,6 @@ public final class BDNetworkCommands {
             .then(NetworkToolsCommand.registerGiveEnchantedBooks())
             // 批量创建网络命令
             .then(NetworkToolsCommand.registerBatchCreate())
-            // 网络灵魂源管理（Goety 联动）
-            .then(NetworkSoulCommand.register())
             // 其他网络命令可以在这里添加...
             ;
     }

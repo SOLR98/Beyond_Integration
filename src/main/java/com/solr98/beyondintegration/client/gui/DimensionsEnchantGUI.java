@@ -77,6 +77,94 @@ public class DimensionsEnchantGUI extends DimensionsStorageGUI<DimensionsEnchant
 
     private List<EnchantmentInstance> previewList(int slot) { return previewCache.getOrDefault(slot, List.of()); }
 
+    /**
+     * 预览开启时在工作台面板右侧用提示框样式分别显示三个候选将获得的附魔列表（每项一行、互不遮挡）。
+     * 预览区左缘紧贴面板右缘（leftPos+177），纵向从面板顶 getGapY() 起按内容高度依次堆叠。
+     */
+    /** 预览区左缘相对 leftPos 的偏移；整组再右下/右移 NUDGE px */
+    private static final int PREVIEW_X = 177;
+    private static final int PREVIEW_NUDGE = 1;
+
+    /** 预览侧栏是否可见：预览开关开启 + 输入槽有可附魔物品 + 至少一个候选有将获得附魔 */
+    public boolean beyond$previewActive() {
+        if (!(this.menu.serverPreviewEnabled && ClientConfig.enchantPreviewOn())) return false;
+        ItemStack input = this.menu.getItemInput();
+        if (input.isEmpty() || !(input.getItem().isEnchantable(input) || input.isEnchanted())) return false;
+        for (int l = 0; l < 3; l++) if (!previewList(l).isEmpty()) return true;
+        return false;
+    }
+
+    /** 单槽预览行：将获得的附魔（空则占位）+ 消耗等级 */
+    private List<Component> previewLines(int slot) {
+        List<Component> lines = new ArrayList<>();
+        List<EnchantmentInstance> pv = previewList(slot);
+        if (pv.isEmpty()) {
+            lines.add(Component.literal("—").withStyle(ChatFormatting.DARK_GRAY));
+        } else {
+            for (EnchantmentInstance inst : pv) lines.add(stylePreviewEntry(inst));
+        }
+        int cost = slot >= 0 && slot < this.menu.costs.length ? this.menu.costs[slot] : 0;
+        lines.add(Component.translatable("gui.beyond_integration.enchant.preview.cost", cost).withStyle(ChatFormatting.GRAY));
+        return lines;
+    }
+
+    /** 预览框内容最大宽度（供动态避让） */
+    private int previewContentWidth() {
+        var font = Minecraft.getInstance().font;
+        int w = 0;
+        for (int l = 0; l < 3; l++) {
+            for (Component c : previewLines(l)) w = Math.max(w, font.width(c));
+        }
+        return w;
+    }
+
+    /**
+     * 模式按钮列右移量（动态）：让按钮左缘正好落在提示框右侧边框外 1px。
+     * 提示框右缘 = (leftPos + PREVIEW_X + PREVIEW_NUDGE) + 内容宽 + 3（右边框）。
+     */
+    public int beyond$previewShift() {
+        if (!beyond$previewActive()) return 0;
+        int boxRight = (this.leftPos + PREVIEW_X + PREVIEW_NUDGE) + previewContentWidth() + 3;
+        return (boxRight + 1) - (this.leftPos + PREVIEW_X);
+    }
+
+    private void renderPreviewSidebar(GuiGraphics g) {
+        if (!beyond$previewActive()) return;
+        int x = this.leftPos + PREVIEW_X + PREVIEW_NUDGE;
+        int y = getGapY() + PREVIEW_NUDGE;
+        for (int l = 0; l < 3; l++) {
+            y += drawTooltipBox(g, previewLines(l), x, y) + 3;
+        }
+    }
+
+    /** 在固定坐标绘制原版样式提示框（背景+边框+文本），返回占用高度 */
+    private int drawTooltipBox(GuiGraphics g, List<Component> lines, int x, int y) {
+        var font = Minecraft.getInstance().font;
+        if (lines.isEmpty()) return 0;
+        int w = 0;
+        for (Component c : lines) w = Math.max(w, font.width(c));
+        int textH = lines.size() * 10;
+        int bg = 0xF0100010;
+        int b1 = 0x505000FF;
+        int b2 = 0x5028007F;
+        int left = x - 3, top = y - 4, right = x + w + 3, bottom = y + textH + 2;
+        var pose = g.pose();
+        pose.pushPose();
+        pose.translate(0.0F, 0.0F, 400.0F);
+        g.fillGradient(left, top, right, bottom, bg, bg);
+        g.fillGradient(left, top, right, top + 1, b1, b2);
+        g.fillGradient(left, bottom - 1, right, bottom, b2, b1);
+        g.fillGradient(left, top + 1, left + 1, bottom - 1, b1, b2);
+        g.fillGradient(right - 1, top + 1, right, bottom - 1, b2, b1);
+        int ty = y;
+        for (Component c : lines) {
+            g.drawString(font, c, x, ty, 0xFFFFFF, false);
+            ty += 10;
+        }
+        pose.popPose();
+        return bottom - y;
+    }
+
     @Override protected int getPanelHeight() { return 76; }
 
     // 按钮区（与 1.21.1 校准一致：getGapY + 10 + 19k）
@@ -224,6 +312,7 @@ public class DimensionsEnchantGUI extends DimensionsStorageGUI<DimensionsEnchant
                 g.drawString(font, s, x1 + 86 - font.width(s), btnY(l) + 7, color);
             }
         }
+        renderPreviewSidebar(g);
     }
 
     @Override public boolean mouseClicked(double mx, double my, int button) {

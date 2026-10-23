@@ -1,6 +1,7 @@
 package com.solr98.beyondintegration.feature.ammo.tacz;
 
 import com.solr98.beyondintegration.maid.MaidNetworkHelper;
+import com.solr98.beyondintegration.handler.NetTerminalHelper;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.resources.ResourceLocation;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
@@ -92,6 +93,7 @@ public class NetworkAmmoHandler {
         for (int i = 0; i < inv.getSlots(); i++) {
             ItemStack stack = inv.getStackInSlot(i);
             if (stack.isEmpty()) continue;
+            if (!NetTerminalHelper.isTerminal(stack)) continue;
             int netId = NetedItem.getNetId(stack);
             if (netId >= 0) {
                 DimensionsNet net = DimensionsNet.getNetFromId(netId);
@@ -109,6 +111,7 @@ public class NetworkAmmoHandler {
         for (int i = 0; i < inv.getSlots(); i++) {
             ItemStack stack = inv.getStackInSlot(i);
             if (stack.isEmpty()) continue;
+            if (!NetTerminalHelper.isTerminal(stack)) continue;
             int netId = NetedItem.getNetId(stack);
             if (netId >= 0) {
                 DimensionsNet net = DimensionsNet.getNetFromId(netId);

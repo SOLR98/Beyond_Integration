@@ -35,6 +35,11 @@ public class NetworkIdTooltipHandler {
         if (netId >= 0) {
             event.getToolTip().add(Component.translatable("tooltip.beyond_integration.net_id", netId)
                     .withStyle(ChatFormatting.GRAY));
+            // 便携网络终端可充当诅咒牢笼的灵魂符（代表网络供给灵魂）
+            if (NetTerminalHelper.isTerminal(stack)) {
+                event.getToolTip().add(Component.translatable("tooltip.beyond_integration.soul_talisman")
+                        .withStyle(ChatFormatting.DARK_PURPLE));
+            }
         }
 
         // 悬停物品可左键快速存入网络时提示（正向：悬停网络物品+光标持物；反向：光标网络物品+悬停物品）
@@ -115,8 +120,10 @@ public class NetworkIdTooltipHandler {
         Slot hovered = screen.getSlotUnderMouse();
         if (hovered == null || hovered.getItem() != stack) return false;
         ItemStack carried = screen.getMenu().getCarried();
-        return (!carried.isEmpty() && getNetId(stack) >= 0)
-                || (!stack.isEmpty() && getNetId(carried) >= 0);
+        boolean stackTerminal = NetTerminalHelper.isTerminal(stack) && getNetId(stack) >= 0;
+        boolean carriedTerminal = NetTerminalHelper.isTerminal(carried) && getNetId(carried) >= 0;
+        return (!carried.isEmpty() && stackTerminal)
+                || (!stack.isEmpty() && carriedTerminal);
     }
 
     /** 尝试从物品栈中解析网络 ID：优先用 NetedItem，缺失时回退读取 NBT 的 "NetId"，失败返回 -1。 */

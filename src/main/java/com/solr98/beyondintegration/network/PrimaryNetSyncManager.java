@@ -79,6 +79,7 @@ public final class PrimaryNetSyncManager {
     public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         if (!(event.player instanceof ServerPlayer player)) return;
+        if (player.connection == null) return; // 假玩家（无客户端连接）：跳过
         tick(player);
     }
 

@@ -907,6 +907,34 @@ public class CommandLang
                 CommandConfig.Language.EN_US, "No workstations are activated on network %s",
                 CommandConfig.Language.ZH_CN, "网络 %s 没有已激活的工作台");
 
+        register("network.activation.soul.reset",
+                CommandConfig.Language.EN_US, "Deactivated the soul source for network %s",
+                CommandConfig.Language.ZH_CN, "已重置网络 %s 的灵魂源激活");
+        register("network.activation.soul.not_activated",
+                CommandConfig.Language.EN_US, "The soul source is not activated on network %s",
+                CommandConfig.Language.ZH_CN, "网络 %s 的灵魂源当前未激活");
+        register("network.activation.workstation.activate.one",
+                CommandConfig.Language.EN_US, "Activated workstation %2$s on network %1$s",
+                CommandConfig.Language.ZH_CN, "已激活网络 %1$s 的 %2$s 工作台");
+        register("network.activation.workstation.activate.all",
+                CommandConfig.Language.EN_US, "Activated %2$s workstation(s) on network %1$s",
+                CommandConfig.Language.ZH_CN, "已激活网络 %1$s 的 %2$s 个工作台");
+        register("network.activation.workstation.activate.none",
+                CommandConfig.Language.EN_US, "No workstation was activated on network %s",
+                CommandConfig.Language.ZH_CN, "网络 %s 没有工作台被激活");
+        register("network.activation.workstation.activate.already",
+                CommandConfig.Language.EN_US, "Workstation %2$s is already activated on network %1$s",
+                CommandConfig.Language.ZH_CN, "网络 %1$s 的 %2$s 工作台已激活");
+        register("network.activation.workstation.disabled",
+                CommandConfig.Language.EN_US, "Workstation sacrifice activation is disabled",
+                CommandConfig.Language.ZH_CN, "工作台献祭激活未启用");
+        register("network.activation.workstation.invalid",
+                CommandConfig.Language.EN_US, "Invalid workstation id: %s",
+                CommandConfig.Language.ZH_CN, "无效的工作台 ID：%s");
+        register("network.activation.workstation.no_item",
+                CommandConfig.Language.EN_US, "Insufficient sacrifice item on network %1$s for workstation %2$s",
+                CommandConfig.Language.ZH_CN, "网络 %1$s 缺少 %2$s 工作台所需的献祭物品");
+
         register("network.info.workstation",
                 CommandConfig.Language.EN_US, "Activated workstations: %s",
                 CommandConfig.Language.ZH_CN, "已激活工作台：%s");
@@ -922,6 +950,18 @@ public class CommandLang
         register("network.insert.energy.success",
                 CommandConfig.Language.EN_US, "Inserted %s FE of energy into network %s",
                 CommandConfig.Language.ZH_CN, "已向网络 %2$s 插入 %1$s FE 能量");
+
+        register("network.insert.energy.key.success",
+                CommandConfig.Language.EN_US, "Inserted %s of %s into network %s",
+                CommandConfig.Language.ZH_CN, "已向网络 %3$s 插入 %1$s 的 %2$s");
+
+        register("error.key_not_registered",
+                CommandConfig.Language.EN_US, "Storage key '%s' is not registered in Beyond Dimensions",
+                CommandConfig.Language.ZH_CN, "存储键 '%s' 未在超越维度注册");
+
+        register("error.energy_key_required",
+                CommandConfig.Language.EN_US, "This command only accepts energy-type storage keys (energy / lightning / soul / mana ...)",
+                CommandConfig.Language.ZH_CN, "该命令仅支持能量类存储键（能量 / 闪电 / 灵魂 / 魔源 等）");
 
         register("network.insert.potionCharm.success",
                 CommandConfig.Language.EN_US, "Inserted %s potion charm(s) [%s, %s] into network %s",

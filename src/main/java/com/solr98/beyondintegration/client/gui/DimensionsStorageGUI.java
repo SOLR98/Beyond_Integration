@@ -41,6 +41,9 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
     @Override protected void init() {
         super.init();
         addWorkstationActionButtons();
+        // 网络存储视图重同步：BD 首次全量同步若早于客户端菜单就绪到达会被丢弃且不重发（基线已推进），
+        // 在界面初始化后主动请求一次全量重发，避免工作站网络存储内容为空。
+        PacketHandler.sendToServer(new com.solr98.beyondintegration.network.RequestWorkstationResyncPacket());
         var soundManager = net.minecraft.client.Minecraft.getInstance().getSoundManager();
         if (this instanceof com.solr98.beyondintegration.client.gui.DimensionsAnvilGUI) {
             soundManager.play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.ANVIL_USE, 1.0F));
@@ -50,6 +53,22 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
         } else if (this instanceof com.solr98.beyondintegration.client.gui.DimensionsCraftGUI
                 || this instanceof com.solr98.beyondintegration.client.gui.DimensionsSmithGUI) {
             soundManager.play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+        }
+    }
+
+    // 存储视图重同步重试：首次请求若仍早于服务端菜单就绪，则在视图为空时按节流最多重试 5 次
+    private int beyond$resyncTries = 0;
+    private int beyond$resyncCooldown = 20;
+
+    @Override public void containerTick() {
+        super.containerTick();
+        if (this.menu != null && this.menu.clientNetStorage != null
+                && this.menu.clientNetStorage.getStorage().isEmpty() && this.beyond$resyncTries < 5) {
+            if (--this.beyond$resyncCooldown <= 0) {
+                this.beyond$resyncTries++;
+                this.beyond$resyncCooldown = 20;
+                PacketHandler.sendToServer(new com.solr98.beyondintegration.network.RequestWorkstationResyncPacket());
+            }
         }
     }
 

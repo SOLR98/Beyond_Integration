@@ -10,6 +10,7 @@ import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.ResourceOrTagKeyArgument;
+import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.commands.arguments.item.ItemArgument;
 import net.minecraft.commands.arguments.ResourceArgument;
 import net.minecraft.core.Holder;
@@ -32,10 +33,12 @@ import net.minecraftforge.fluids.FluidStack;
 import com.solr98.beyondintegration.command.CommandLang;
 import com.solr98.beyondintegration.command.util.*;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
+import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
+import com.wintercogs.beyonddimensions.api.storage.key.StackKeyRegistry;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.FluidStackKey;
-import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
+import com.wintercogs.beyonddimensions.api.storage.key.impl.LongStackKey;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,7 +62,7 @@ public class NetworkInsertCommand {
             .then(buildPotionCharmInsertCommand(context))
             // 流体插入命令
             .then(buildFluidInsertCommand(context))
-            // 能量插入命令
+            // 能量插入命令（键来自 BD 注册表）
             .then(buildEnergyInsertCommand());
     }
 
@@ -432,20 +435,70 @@ public class NetworkInsertCommand {
     }
     
     /**
-     * 构建能量插入命令
-     * 用法：energy [fe数量] [netId]（数量在前，网络 ID 在后；省略则数量 1000、主要网络）
+     * 构建能量插入命令（仅能量键形态）。
+     * 用法：{@code energy <注册键> [数量] [netId]}
+     * <p>注册键取自 Beyond Dimensions 注册表（{@link StackKeyRegistry}），形如 {@code beyonddimensions:stack_type/energy}；
+     * 以注册表中登记的存储键实例插入。省略数量为 1000、网络为执行者主网络。
      */
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> buildEnergyInsertCommand() {
         return Commands.literal("energy")
-            // 默认：插入到当前玩家的主要网络，数量为1000FE
-            .executes(ctx -> executeInsertEnergyDefault(ctx, 1000L))
-            // 指定数量，默认网络
-            .then(Commands.argument("amount", LongArgumentType.longArg(1, Long.MAX_VALUE))
-                .executes(ctx -> executeInsertEnergyDefault(ctx, LongArgumentType.getLong(ctx, "amount")))
-                // 指定数量和网络
-                .then(Commands.argument("netId", IntegerArgumentType.integer(0, 9999))
-                    .executes(ctx -> executeInsertEnergy(ctx, IntegerArgumentType.getInteger(ctx, "netId"),
-                            LongArgumentType.getLong(ctx, "amount")))));
+            .then(Commands.argument("key", ResourceLocationArgument.id())
+                .suggests((ctx, builder) -> suggestEnergyKeys(builder))
+                .executes(ctx -> executeInsertEnergyKey(ctx,
+                        ResourceLocationArgument.getId(ctx, "key"), 1000L, -1))
+                .then(Commands.argument("amount", LongArgumentType.longArg(1, Long.MAX_VALUE))
+                    .executes(ctx -> executeInsertEnergyKey(ctx,
+                            ResourceLocationArgument.getId(ctx, "key"),
+                            LongArgumentType.getLong(ctx, "amount"), -1))
+                    .then(Commands.argument("netId", IntegerArgumentType.integer(0, 9999))
+                        .executes(ctx -> executeInsertEnergyKey(ctx,
+                                ResourceLocationArgument.getId(ctx, "key"),
+                                LongArgumentType.getLong(ctx, "amount"),
+                                IntegerArgumentType.getInteger(ctx, "netId"))))));
+    }
+
+    /**
+     * 能量键补全：显示为对管理人员友好的 {@code 模组id:键名}（去掉内部的 {@code stack_type/} 前缀），
+     * tooltip 给出注册表中的完整键 ID。输入同时兼容短名与完整 ID。
+     */
+    private static java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> suggestEnergyKeys(
+            com.mojang.brigadier.suggestion.SuggestionsBuilder builder) {
+        String remaining = builder.getRemainingLowerCase();
+        for (IStackKey<?> type : StackKeyRegistry.getAllTypes()) {
+            // 仅限能量类键（LongStackKey 派生：能量 / 闪电 / 灵魂 / 魔源 / 魔力），排除物品 / 流体 / 化学品等
+            if (!(type instanceof LongStackKey)) continue;
+            ResourceLocation id = type.getTypeId();
+            String shortId = shortKeyId(id);
+            if (shortId.toLowerCase().startsWith(remaining) || id.toString().toLowerCase().startsWith(remaining)) {
+                builder.suggest(shortId, Component.literal(id.toString()));
+            }
+        }
+        return builder.buildFuture();
+    }
+
+    /** 短键名：{@code namespace:path}，去掉 path 中的 {@code stack_type/} 前缀。 */
+    private static String shortKeyId(ResourceLocation id) {
+        String path = id.getPath();
+        if (path.startsWith("stack_type/")) {
+            path = path.substring("stack_type/".length());
+        }
+        return id.getNamespace() + ":" + path;
+    }
+
+    /** 解析键 ID：先按原样查表；失败则补 {@code stack_type/} 前缀再查（兼容短名）。 */
+    private static IStackKey<?> resolveKeyId(ResourceLocation id) {
+        try {
+            return StackKeyRegistry.getType(id);
+        } catch (IllegalArgumentException first) {
+            ResourceLocation full = ResourceLocation.tryBuild(id.getNamespace(), "stack_type/" + id.getPath());
+            if (full != null) {
+                try {
+                    return StackKeyRegistry.getType(full);
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+            throw first;
+        }
     }
     
     // ========== 物品插入方法 ==========
@@ -769,86 +822,80 @@ public class NetworkInsertCommand {
     // ========== 能量插入方法 ==========
     
     /**
-     * 执行插入能量到默认网络（当前玩家的主要网络）
+     * 执行"能量键插入"：从 BD 注册表按类型 ID 解析存储键并插入指定数量。
+     * netId&lt;0 时使用执行者主网络；键未注册时提示错误。
      */
-    private static int executeInsertEnergyDefault(CommandContext<CommandSourceStack> ctx, long amount) {
+    private static int executeInsertEnergyKey(CommandContext<CommandSourceStack> ctx,
+                                              ResourceLocation keyId, long amount, int netId) {
         CommandSourceStack source = ctx.getSource();
-        
+
         // 检查OP权限
         if (!PermissionChecker.checkOpPermission(source)) {
             return 0;
         }
-        
-        // 获取执行者玩家
-        ServerPlayer executor = source.getPlayer();
-        if (executor == null) {
-            source.sendFailure(OutputFormatter.createError("error.player_required"));
+
+        // 解析目标网络
+        DimensionsNet net;
+        int actualNetId;
+        if (netId < 0) {
+            ServerPlayer executor = source.getPlayer();
+            if (executor == null) {
+                source.sendFailure(OutputFormatter.createError("error.player_required"));
+                return 0;
+            }
+            net = DimensionsNet.getPrimaryNetFromPlayer(executor);
+            if (net == null) {
+                source.sendFailure(OutputFormatter.createError("error.not_in_network"));
+                return 0;
+            }
+            actualNetId = net.getId();
+        } else {
+            net = PermissionChecker.checkNetworkExists(source, netId);
+            if (net == null) return 0;
+            actualNetId = netId;
+        }
+
+        // 从 Beyond Dimensions 注册表解析存储键（未注册 -> 报错）
+        IStackKey<?> key;
+        try {
+            key = resolveKeyId(keyId);
+        } catch (IllegalArgumentException e) {
+            source.sendFailure(OutputFormatter.createError("error.key_not_registered", keyId.toString()));
             return 0;
         }
-        
-        // 获取当前玩家的主要网络
-        DimensionsNet primaryNet = DimensionsNet.getPrimaryNetFromPlayer(executor);
-        if (primaryNet == null) {
-            source.sendFailure(OutputFormatter.createError("error.not_in_network"));
+        // 仅限能量类键（LongStackKey 派生）
+        if (!(key instanceof LongStackKey)) {
+            source.sendFailure(OutputFormatter.createError("error.energy_key_required"));
             return 0;
         }
-        
-        int netId = primaryNet.getId();
-        return executeInsertEnergyInternal(source, primaryNet, netId, amount);
-    }
-    
-    /**
-     * 执行插入能量命令
-     */
-    private static int executeInsertEnergy(CommandContext<CommandSourceStack> ctx, int netId, long amount) {
-        CommandSourceStack source = ctx.getSource();
-        
-        // 检查OP权限
-        if (!PermissionChecker.checkOpPermission(source)) {
-            return 0;
-        }
-        
-        // 检查网络是否存在
-        DimensionsNet net = PermissionChecker.checkNetworkExists(source, netId);
-        if (net == null) {
-            return 0;
-        }
-        
-        return executeInsertEnergyInternal(source, net, netId, amount);
-    }
-    
-    /**
-     * 内部：执行能量插入
-     */
-    private static int executeInsertEnergyInternal(CommandSourceStack source, DimensionsNet net, 
-                                                  int netId, long amount) {
+
         // 检查数量是否为正数
         if (!PermissionChecker.checkAmountPositive(source, amount)) {
             return 0;
         }
-        
+
         // 检查存储空间
-        if (!NetworkUtils.hasEnoughStorageForEnergy(net, EnergyStackKey.INSTANCE, amount)) {
+        if (!NetworkUtils.hasEnoughStorageForKey(net, key, amount)) {
             source.sendFailure(OutputFormatter.createError("error.insufficient_storage"));
             return 0;
         }
-        
-        // 插入能量
-        KeyAmount remaining = net.getUnifiedStorage().insert(EnergyStackKey.INSTANCE, amount, false);
-        
+
+        // 插入
+        KeyAmount remaining = net.getUnifiedStorage().insert(key, amount, false);
         if (remaining.amount() > 0) {
             source.sendFailure(OutputFormatter.createError("error.insert_failed", remaining.amount()));
             return 0;
         }
-        
+
         // 标记网络为脏数据
         net.setDirty();
-        
-        // 发送成功消息
+
+        final int fNetId = actualNetId;
+        final String keyName = key.getTypeId().toString();
         source.sendSuccess(() -> Component.literal(
-            CommandLang.get("network.insert.energy.success", amount, netId)
+            CommandLang.get("network.insert.energy.key.success", amount, keyName, fNetId)
         ), false);
-        
+
         return 1;
     }
 }

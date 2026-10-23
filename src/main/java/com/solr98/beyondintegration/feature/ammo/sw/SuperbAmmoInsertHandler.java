@@ -42,6 +42,22 @@ public class SuperbAmmoInsertHandler implements UnifiedStorageBeforeInsertHandle
             @NotNull KeyAmount tryInsert,
             DimensionsNet net) {
 
+        if (!com.solr98.beyondintegration.handler.ReentrancyGuard.enter(
+                "sw_ammo", com.solr98.beyondintegration.CommandConfig.handlerMaxReentrancy())) {
+            return pass(tryInsert);
+        }
+        try {
+            return beyond$convert(originalInsert, tryInsert, net);
+        } finally {
+            com.solr98.beyondintegration.handler.ReentrancyGuard.exit("sw_ammo");
+        }
+    }
+
+    private @NotNull UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo beyond$convert(
+            @NotNull KeyAmount originalInsert,
+            @NotNull KeyAmount tryInsert,
+            DimensionsNet net) {
+
         if (!(tryInsert.key() instanceof ItemStackKey itemKey)) return pass(tryInsert);
         if (net == null) return pass(tryInsert);
         if (!(net instanceof SuperbAmmoAccessor acc)) return pass(tryInsert);

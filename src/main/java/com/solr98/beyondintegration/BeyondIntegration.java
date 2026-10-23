@@ -2,7 +2,6 @@ package com.solr98.beyondintegration;
 
 import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService;
-import com.solr98.beyondintegration.feature.vehicle.VehicleInteractHandler;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import org.slf4j.Logger;
 import net.minecraft.core.BlockPos;
@@ -72,6 +71,11 @@ public class BeyondIntegration {
         // Register purified water fluids (dirty/slightly_dirty/acceptable/purified)
         com.solr98.beyondintegration.init.ModFluids.register(modEventBus);
 
+        // Goety 仪式工厂（网络灵魂源激活仪式）：仅 Goety 加载时向 goety:ritual_factory 注册
+        if (ModList.get().isLoaded("goety")) {
+            com.solr98.beyondintegration.feature.soul.ModRitualFactories.RITUALS.register(modEventBus);
+        }
+
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
 
@@ -89,6 +93,16 @@ public class BeyondIntegration {
         modEventBus.addListener(this::onLoadComplete);
     }
 
+    /** Goety 类是否存在（避免直接引用导致版本不匹配时 NoClassDefFoundError）。 */
+    private static boolean goetyClassAvailable(String name) {
+        try {
+            Class.forName(name, false, BeyondIntegration.class.getClassLoader());
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     /** common 阶段初始化：按依赖条件注册全部功能处理器与网络包 */
     private void commonSetup(final FMLCommonSetupEvent event) {
         // 注册充电平台实现（能量 capability / 模组判定 / 属性判定）
@@ -96,11 +110,32 @@ public class BeyondIntegration {
                 new com.solr98.beyondintegration.core.energy.ForgeChargePlatform());
         // 注册网络灵魂能量键（必须在任何网络存储反序列化之前，且幂等）
         com.solr98.beyondintegration.feature.soul.SoulKeyRegistration.register();
-        // 网络灵魂源：击杀沉淀监听（仅 Goety 加载时）
+        // 注册网络魔力键（Iron's Spells 联动；同样必须在任何网络存储反序列化之前，且幂等）
+        com.solr98.beyondintegration.feature.mana.ManaKeyRegistration.register();
+        // 网络魔力源：施法消耗（优先玩家、缺口网络）+ 回复沉淀（仅 irons_spellbooks 加载时注册）
+        if (ModList.get().isLoaded("irons_spellbooks")) {
+            MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.mana.IronsManaHandler());
+            MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.mana.ManaHudSyncHandler());
+            MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.mana.ManaNetRegenHandler());
+            LOGGER.info("Registered IronsManaHandler (Iron's Spells network mana source)");
+        }
+        // 网络灵魂源：击杀沉淀监听（仅 Goety 加载且提供对应 API 时）
         if (ModList.get().isLoaded("goety")) {
-            MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.soul.SoulGainHandler());
-            // HUD：订阅主网络存储增量，仅灵魂变化时增量推送（由 SEUpdatePacketMixin 并入网络魂）
-            MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.handler.SoulHudSyncHandler());
+            // Goety 版本差异保护：注册前按“类是否存在”门控，避免 EventBus 反射方法签名时
+            // 因缺失的 Goety 类抛 NoClassDefFoundError，使本模组进入 Forge broken state。
+            if (goetyClassAvailable("com.Polarice3.Goety.common.events.spell.ChangeSoulEnergyEvent$Gain")) {
+                MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.soul.SoulGainHandler());
+            } else {
+                LOGGER.warn("[BI] Goety ChangeSoulEnergyEvent$Gain not found; soul-gain sync disabled (Goety version mismatch?)");
+            }
+            if (goetyClassAvailable("com.Polarice3.Goety.utils.SEHelper")) {
+                // HUD：订阅主网络存储增量，仅灵魂变化时增量推送（由 SEUpdatePacketMixin 把网络魂并入原版条）
+                MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.handler.SoulHudSyncHandler());
+            } else {
+                LOGGER.warn("[BI] Goety SEHelper not found; soul HUD sync disabled (Goety version mismatch?)");
+            }
+            // 灵魂源激活仪式的收尾动画调度（动画结束后才正式激活）
+            MinecraftForge.EVENT_BUS.addListener(com.solr98.beyondintegration.feature.soul.SoulRitualAnimation::onServerTick);
         }
         registerItemBlacklistHandler();
         registerEnchantmentBookSeparator();
@@ -127,7 +162,13 @@ public class BeyondIntegration {
                 (com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed destroyedEvent) ->
                         com.solr98.beyondintegration.feature.charm.NetworkPotionCharmHandler
                                 .onNetDestroyed(destroyedEvent.getDestroyedId()));
-        registerVehicleInteractHandler();
+        // 终端绑定统一分发：方块=左键（哨戒炮等）、实体=右键（sbw 载具等）
+        com.solr98.beyondintegration.feature.terminal.TerminalBindingHub.registerBlock(
+                new com.solr98.beyondintegration.feature.terminal.SentryBindTarget());
+        if (ModList.get().isLoaded("superbwarfare")) {
+            com.solr98.beyondintegration.feature.terminal.TerminalBindingHub.registerEntity(
+                    new com.solr98.beyondintegration.feature.terminal.VehicleBindTarget());
+        }
         MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.AutoTotemHandler());
         MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.TotemBurstTicker());
         // setHealth 复活实现（事件版 + Mixin 版）：配置关闭时不注册处理器（类不加载，零事件开销）
@@ -171,6 +212,23 @@ public class BeyondIntegration {
                 com.solr98.beyondintegration.network.PrimaryNetSyncManager.onConfigChanged();
             }
         }
+        // 灵魂改用 RI 键：配置重载时迁移旧数据（所有 BD 网络，服务端线程执行，幂等）
+        if (MODID.equals(event.getConfig().getModId())
+                && event.getConfig().getType() == net.minecraftforge.fml.config.ModConfig.Type.COMMON
+                && com.solr98.beyondintegration.CommandConfig.soulUseRiKey()) {
+            var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+            if (server != null) {
+                server.execute(() -> com.solr98.beyondintegration.feature.soul.SoulKeyMigration
+                        .migrateIfEnabled(server));
+            }
+        }
+    }
+
+    /** 服务器启动后：若灵魂已配置为 RI 键，执行一次幂等迁移；魔力旧键也在此迁移。 */
+    @net.minecraftforge.eventbus.api.SubscribeEvent
+    public void onServerStarted(net.minecraftforge.event.server.ServerStartedEvent event) {
+        com.solr98.beyondintegration.feature.soul.SoulKeyMigration.migrateIfEnabled(event.getServer());
+        com.solr98.beyondintegration.feature.mana.ManaKeyMigration.migrate(event.getServer());
     }
 
     private void trackConfig(net.minecraftforge.fml.config.ModConfig config) {
@@ -186,6 +244,8 @@ public class BeyondIntegration {
 
     /** 模组加载完成后：COMMON/CLIENT 配置注释语言与 command_language 不一致时重写（值保持不变）。 */
     private void onLoadComplete(net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent event) {
+        // RI 缺席时补注册灵魂兜底键（同 RI ID），保证已迁移数据可反序列化
+        com.solr98.beyondintegration.feature.soul.SoulKeyRegistration.ensureRiKeyFallback();
         com.solr98.beyondintegration.core.config.ConfigCommentLang.saveIfLanguageChanged(this.commonConfig);
         com.solr98.beyondintegration.core.config.ConfigCommentLang.saveIfLanguageChanged(this.clientConfig);
     }
@@ -284,14 +344,6 @@ public class BeyondIntegration {
         }
     }
 
-    /** 注册载具右键绑定处理器（仅在 superbwarfare 加载时） */
-    private void registerVehicleInteractHandler() {
-        if (ModList.get().isLoaded("superbwarfare")) {
-            MinecraftForge.EVENT_BUS.register(new VehicleInteractHandler());
-            LOGGER.info("Registered VehicleInteractHandler");
-        }
-    }
-
     /**
      * 注册 TACZ 弹药追踪服务：周期性扫描网络弹药并推送，
      * 并在服务器停止 / 网络销毁 / 玩家登出时清理对应追踪数据。
@@ -321,56 +373,6 @@ public class BeyondIntegration {
             );
             LOGGER.info("Registered TaczAmmoPollingService");
         }
-    }
-
-    /**
-     * 左键点击哨戒机械臂（sentrymechanicalarm）事件：
-     * 手持已接入网络的物品时，将网络 ID 绑定到哨戒炮
-     * （反射调用其 getHeldItem / addAmmoBox），成功后扣除玩家物品。
-     */
-    @SubscribeEvent
-    public void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
-        Level level = event.getLevel();
-        BlockPos pos = event.getPos();
-        BlockState state = level.getBlockState(pos);
-        ResourceLocation blockId = ForgeRegistries.BLOCKS.getKey(state.getBlock());
-        if (blockId == null || !"sentrymechanicalarm".equals(blockId.getNamespace())) return;
-
-        Player player = event.getEntity();
-        ItemStack stack = player.getItemInHand(event.getHand());
-        if (stack.isEmpty() || NetedItem.getNetId(stack) < 0) return;
-
-        event.setCanceled(true);
-
-        if (event.getSide().isClient()) return;
-
-        BlockEntity be = level.getBlockEntity(pos);
-        if (be == null) return;
-
-        if (be instanceof SentryNetIdAccessor accessor) {
-            accessor.setSentryNetId(NetedItem.getNetId(stack));
-        }
-
-        try {
-            Method getHeld = be.getClass().getMethod("getHeldItem");
-            ItemStack held = (ItemStack) getHeld.invoke(be);
-            if (held.isEmpty()) {
-                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.beyond_integration.sentry_no_gun"), true);
-                return;
-            }
-
-            Method addBox = be.getClass().getMethod("addAmmoBox", ItemStack.class);
-            boolean ok = (boolean) addBox.invoke(be, stack);
-            if (ok) {
-                if (!player.isCreative()) stack.shrink(1);
-                int boundNetId = NetedItem.getNetId(stack);
-                player.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable("message.beyond_integration.sentry_net_bound", boundNetId),
-                        true);
-            } else {
-                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("sentry.tooltip.ammobox_1"), true);
-            }
-        } catch (Exception ignored) {}
     }
 
     /** 主世界加载时初始化网络弹药持久化数据（先兼容迁移旧存档，再按统一键名加载） */

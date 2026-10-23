@@ -36,7 +36,8 @@ public final class NetworkSyncConfigPusher {
                 player.getUUID(), CommandConfig.primaryNetSync(), CommandConfig.primaryNetSyncScope());
         PacketHandler.sendToPlayer(player, new SyncConfigSyncPacket(
                 CommandConfig.primaryNetSync(),
-                CommandConfig.primaryNetSyncScope().ordinal()));
+                CommandConfig.primaryNetSyncScope().ordinal(),
+                CommandConfig.snapshotAll()));
     }
 
     /** 向全部在线玩家推送（配置重载时调用）。 */

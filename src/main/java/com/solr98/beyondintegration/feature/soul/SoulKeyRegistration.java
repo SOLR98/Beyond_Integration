@@ -19,4 +19,27 @@ public final class SoulKeyRegistration {
         StackKeyRegistry.registerType(SoulEnergyStackKey.INSTANCE);
         SoulDebug.log("registered soul_energy key: {}", SoulEnergyStackKey.ID);
     }
+
+    /**
+     * 确保 RI 灵魂键 ID 已注册：RI 已注册则跳过；否则注册 BI 的兜底键（同 ID，
+     * {@link SoulEnergyStackKey#RI_FALLBACK}），使 RI 被移除后已迁移到该 ID 的既有数据仍可读取。
+     * <p>必须在所有模组 commonSetup 结束后调用（{@code FMLLoadCompleteEvent}），
+     * 避免与 RI 自身的注册重复。
+     */
+    public static synchronized void ensureRiKeyFallback() {
+        try {
+            StackKeyRegistry.getType(SoulEnergyStackKey.RI_FALLBACK_ID);
+            return; // RI 已注册
+        } catch (IllegalArgumentException absent) {
+            // 继续注册兜底键
+        } catch (LinkageError unavailable) {
+            return;
+        }
+        try {
+            StackKeyRegistry.registerType(SoulEnergyStackKey.RI_FALLBACK);
+            SoulDebug.log("registered RI soul fallback key: {}", SoulEnergyStackKey.RI_FALLBACK_ID);
+        } catch (IllegalStateException alreadyRegistered) {
+            // 竞态下已被注册，忽略
+        }
+    }
 }

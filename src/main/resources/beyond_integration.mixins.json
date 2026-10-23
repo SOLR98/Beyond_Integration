@@ -6,6 +6,7 @@
   "refmap": "beyond_integration.refmap.json",
   "plugin": "com.solr98.beyondintegration.mixin.MixinPlugin",
   "mixins": [
+    "NetTerminalItemMixin",
     "AbstractGunItemMixin",
     "BDMenuAccessor",
     "ModernKineticGunScriptAPIMixin",
@@ -20,7 +21,8 @@
     "CursedCageBlockMixin",
     "DarkAltarBlockEntityMixin",
     "SEHelperMixin",
-    "SEUpdatePacketMixin",
+    "SoulReviveMixin",
+    "RitualRequirementsMixin",
     "BdBucketFluidSlotMixin",
     "BdBucketCraftTransferMixin",
     "BdBucketAutoRefillMixin",
@@ -54,7 +56,10 @@
     "NetMagnetItemMixin",
     "NetMagnetItemOpenMixin",
     "NetHopperBlockEntityTierMixin",
-    "NetHopperMenuTierMixin"
+    "NetHopperMenuTierMixin",
+    "AbstractSpellManaMixin",
+    "MagicManagerManaMixin",
+    "MagicDataManaMixin"
   ],
   "client": [
     "GunAnimationStateContextMixin",

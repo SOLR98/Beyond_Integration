@@ -5,6 +5,7 @@ import com.solr98.beyondintegration.feature.soul.SoulDebug;
 import com.solr98.beyondintegration.feature.soul.SoulEnergyAccess;
 import com.solr98.beyondintegration.handler.SoulCageContext;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
+import com.solr98.beyondintegration.handler.NetTerminalHelper;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -21,7 +22,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * <ul>
  *   <li>网络来源优先级：① 笼内携带 {@code NetId} 的"灵魂符"（BD 终端等）→ 该网络；
  *       ② 施法者上下文（{@link SoulCageContext}，由祭坛注入）或绑定玩家 → 主网络。</li>
- *   <li>{@code getSouls()}：原生魂 + 网络魂；{@code decreaseSouls(int)}：<b>先扣网络</b>，余量走原生。</li>
+ *   <li>{@code getSouls()}：原生魂 + 网络魂；{@code decreaseSouls(int)}：<b>原版优先</b>——
+ *       原生魂够则不碰网络，不足时先扣光原生、余量由网络补。</li>
  * </ul>
  * 仅 1.20.1（Goety 仅此分支）；{@code MixinPlugin} 按 {@code goety} 门控。默认配置下行为不变。
  */
@@ -41,7 +43,7 @@ public abstract class CursedCageBlockEntityMixin implements SoulCageContext {
         var cage = (com.Polarice3.Goety.common.blocks.entities.CursedCageBlockEntity) (Object) this;
         // ① 笼内灵魂符（携带 NetId 的 BD 物品）
         ItemStack item = cage.getItem();
-        if (item != null && !item.isEmpty()) {
+        if (NetTerminalHelper.isTerminal(item)) { // 仅便携网络终端可作灵魂符
             int netId = NetedItem.getNetId(item);
             if (netId >= 0) {
                 DimensionsNet net = DimensionsNet.getNetFromId(netId);
@@ -65,19 +67,42 @@ public abstract class CursedCageBlockEntityMixin implements SoulCageContext {
         cir.setReturnValue(SoulEnergyAccess.safeLongToInt(total));
     }
 
+    /** 该牢笼的<b>原生</b>魂量（不含网络魂，口径与原版 {@code getSouls} 一致）。 */
+    @Unique
+    private int beyond$nativeCageSouls() {
+        var cage = (com.Polarice3.Goety.common.blocks.entities.CursedCageBlockEntity) (Object) this;
+        if (cage.getLevel() == null) return 0;
+        Player owner = cage.getOwner();
+        if (owner != null && com.Polarice3.Goety.utils.SEHelper.getSEActive(owner)) {
+            int souls = com.Polarice3.Goety.utils.SEHelper.getSESouls(owner);
+            if (souls > 0) return souls;
+        }
+        ItemStack item = cage.getItem();
+        if (item != null && !item.isEmpty()
+                && item.getItem() instanceof com.Polarice3.Goety.api.items.magic.ITotem) {
+            var tag = item.getTag();
+            if (tag != null) {
+                return tag.getInt(com.Polarice3.Goety.api.items.magic.ITotem.SOULS_AMOUNT);
+            }
+        }
+        return 0;
+    }
+
     @ModifyVariable(method = "decreaseSouls", at = @At("HEAD"), argsOnly = true, ordinal = 0, remap = false)
-    private int beyond$drainNetworkFirst(int souls) {
+    private int beyond$drainNetworkLast(int souls) {
         if (souls <= 0) return souls;
         DimensionsNet net = beyond$net();
         if (net == null) return souls;
+        int nativeHave = beyond$nativeCageSouls();
+        if (nativeHave >= souls) return souls; // 原生魂足够：完全不碰网络
         long netSouls = SoulEnergyAccess.getSouls(net);
         if (netSouls <= 0L) return souls;
-        long use = Math.min((long) souls, netSouls);
-        long got = SoulEnergyAccess.extractSouls(net, use);
+        long got = SoulEnergyAccess.extractSouls(net, Math.min((long) souls - nativeHave, netSouls));
         if (got <= 0L) return souls;
         int remaining = (int) Math.max(0L, (long) souls - got);
-        SoulDebug.log("cage decreaseSouls: net {} drained {} (req {} => native {})",
-                net.getId(), got, souls, remaining);
-        return remaining;
+        SoulDebug.log("cage decreaseSouls: net {} drained {} after native {} (req {} => native {})",
+                net.getId(), got, nativeHave, souls, Math.min(remaining, nativeHave));
+        // 原版先扣光其可用量，余量已由网络补
+        return Math.min(remaining, nativeHave);
     }
 }

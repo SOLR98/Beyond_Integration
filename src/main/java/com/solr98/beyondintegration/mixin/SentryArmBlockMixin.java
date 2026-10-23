@@ -29,8 +29,9 @@ public class SentryArmBlockMixin {
                        net.minecraft.world.phys.BlockHitResult hit,
                        CallbackInfoReturnable<InteractionResult> cir) {
         ItemStack stack = player.getItemInHand(hand);
+        if (!(stack.getItem() instanceof com.wintercogs.beyonddimensions.common.item.NetTerminalItem)) return; // 仅便携网络终端
         int netId = NetedItem.getNetId(stack);
-        if (stack.isEmpty() || netId < 0) return;
+        if (netId < 0) return;
 
         net.minecraft.world.level.block.entity.BlockEntity be = level.getBlockEntity(pos);
         if (be == null) return;

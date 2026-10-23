@@ -1,6 +1,7 @@
 package com.solr98.beyondintegration.maid;
 
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
+import com.solr98.beyondintegration.handler.NetTerminalHelper;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
@@ -53,6 +54,7 @@ public class MaidNetworkHelper {
                         ItemStack stack = stacks.getStackInSlot(i);
                         if (stack.isEmpty()) continue;
 
+                        if (!NetTerminalHelper.isTerminal(stack)) continue;
                         int netId = NetedItem.getNetId(stack);
                         if (netId < 0) continue;
 
@@ -76,6 +78,7 @@ public class MaidNetworkHelper {
             ItemStack stack = inv.getStackInSlot(i);
             if (stack.isEmpty()) continue;
 
+            if (!NetTerminalHelper.isTerminal(stack)) continue;
             int netId = NetedItem.getNetId(stack);
             if (netId < 0) continue;
 

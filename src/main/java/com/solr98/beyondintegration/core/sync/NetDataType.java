@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.core.sync;
 
-import com.solr98.beyondintegration.feature.soul.SoulEnergyStackKey;
+import com.solr98.beyondintegration.feature.soul.SoulKeyResolver;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
@@ -32,7 +32,7 @@ public enum NetDataType {
     public static NetDataType of(IStackKey<?> key) {
         if (key instanceof ItemStackKey) return ITEM;
         if (key instanceof EnergyStackKey) return ENERGY;
-        if (key instanceof SoulEnergyStackKey) return SOUL;
+        if (SoulKeyResolver.isSoulKey(key)) return SOUL;
         return null;
     }
 }

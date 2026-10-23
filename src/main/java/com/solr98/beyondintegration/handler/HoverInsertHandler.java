@@ -41,6 +41,7 @@ public final class HoverInsertHandler {
      */
     public static boolean tryInsert(Player player, ItemStack credential, ItemStack movable,
                                     @Nullable Slot movableSlot) {
+        if (!NetTerminalHelper.isTerminal(credential)) return false; // 仅便携网络终端可作凭证
         int netId = NetedItem.getNetId(credential);
         if (netId < 0) return false;
 

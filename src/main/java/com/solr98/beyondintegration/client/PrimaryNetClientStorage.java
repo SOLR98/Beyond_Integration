@@ -6,6 +6,7 @@ import com.solr98.beyondintegration.core.sync.NetDataType;
 import com.solr98.beyondintegration.core.sync.NetFlag;
 import com.solr98.beyondintegration.core.sync.NetSyncDebug;
 import com.solr98.beyondintegration.feature.soul.SoulEnergyStackKey;
+import com.solr98.beyondintegration.feature.soul.SoulKeyResolver;
 import com.wintercogs.beyonddimensions.api.storage.handler.impl.AbstractUnorderedStackHandler;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
@@ -91,7 +92,15 @@ public final class PrimaryNetClientStorage extends AbstractUnorderedStackHandler
     @Override
     public OptionalLong getAmount(NetDataType numericType) {
         if (numericType == NetDataType.ENERGY) return OptionalLong.of(getCount(EnergyStackKey.INSTANCE));
-        if (numericType == NetDataType.SOUL) return OptionalLong.of(getCount(SoulEnergyStackKey.INSTANCE));
+        if (numericType == NetDataType.SOUL) {
+            // 兼容两种键：优先 RI 键（若镜像里存在），否则回退 BI 键
+            IStackKey<?> ri = SoulKeyResolver.riKey();
+            if (ri != null) {
+                long v = getCount(ri);
+                if (v > 0L) return OptionalLong.of(v);
+            }
+            return OptionalLong.of(getCount(SoulEnergyStackKey.INSTANCE));
+        }
         return OptionalLong.empty();
     }
 

@@ -36,6 +36,11 @@ public class MixinPlugin implements IMixinConfigPlugin {
                 || targetClassName.startsWith("com.wintercogs.beyonddimensions.integration.module.emi.")) {
             return !modList.isLoaded(com.solr98.beyondintegration.compat.EmiBdCompat.CONFLICT_MOD_ID);
         }
+        // BD 的 JEI 集成模块类：仅 JEI 加载时应用（未装 JEI 时该 target 不存在，
+        // 且 mixin 引用 JEI 类型，过早应用会 NoClassDefFoundError）
+        if (targetClassName.startsWith("com.wintercogs.beyonddimensions.integration.module.jei.")) {
+            return modList.isLoaded("jei");
+        }
         if (targetClassName.startsWith("euphy.upo.sentrymechanicalarm.")) {
             return modList.isLoaded("sentrymechanicalarm");
         }
@@ -49,6 +54,9 @@ public class MixinPlugin implements IMixinConfigPlugin {
                     && modList.getModContainerById("taczaddon")
                     .map(c -> isTaczAddonCompatible(c.getModInfo().getVersion().toString()))
                     .orElse(false);
+        }
+        if (targetClassName.startsWith("io.redspace.ironsspellbooks.")) {
+            return modList.isLoaded("irons_spellbooks");
         }
         if (targetClassName.startsWith("com.atsuishio.superbwarfare.")) {
             return modList.isLoaded("superbwarfare");

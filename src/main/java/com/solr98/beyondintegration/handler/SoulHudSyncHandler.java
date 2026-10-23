@@ -4,7 +4,7 @@ import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub;
 import com.solr98.beyondintegration.feature.soul.NetworkSoulSource;
 import com.solr98.beyondintegration.feature.soul.SoulEnergyAccess;
-import com.solr98.beyondintegration.feature.soul.SoulEnergyStackKey;
+import com.solr98.beyondintegration.feature.soul.SoulKeyResolver;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.SoulEnergySyncPacket;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
@@ -39,7 +39,8 @@ public class SoulHudSyncHandler {
         AutoCloseable subscription;
         /** 订阅回调置真：本 tick 需要重新读取网络魂量。 */
         volatile boolean dirty = true;
-        int lastAmount = 0;
+        long lastAmount = 0L;
+        long lastCap = 0L;
         boolean lastSource = false;
 
         void close() {
@@ -59,6 +60,7 @@ public class SoulHudSyncHandler {
     public void onPlayerTick(TickEvent.PlayerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         if (!(event.player instanceof ServerPlayer player)) return;
+        if (player.connection == null) return; // 假玩家（无客户端连接）：跳过
         tick(player);
     }
 
@@ -93,7 +95,7 @@ public class SoulHudSyncHandler {
         if (!CommandConfig.soulEnabled()) {
             Session session = sessions.get(id);
             if (session != null) {
-                if (session.lastSource) push(player, 0, false);
+                if (session.lastSource) push(player, 0, 0L, false);
                 close(id);
             }
             return;
@@ -112,19 +114,19 @@ public class SoulHudSyncHandler {
             boolean hadSource = session.lastSource;
             session.close();
             sessions.remove(id);
-            if (hadSource) push(player, 0, false);
+            if (hadSource) push(player, 0, 0L, false);
             if (net != null && NetworkSoulSource.usable(net)) bind(player, net);
             return;
         }
 
         boolean usable = NetworkSoulSource.usable(net);
-        int amount = session.lastAmount;
+        long amount = session.lastAmount;
         if (usable && (session.dirty || usable != session.lastSource)) {
-            amount = SoulEnergyAccess.getSoulsInt(net);
+            amount = SoulEnergyAccess.getSouls(net);
         }
         if (usable != session.lastSource || amount != session.lastAmount) {
-            int pushAmount = usable ? amount : 0;
-            push(player, pushAmount, usable);
+            long pushAmount = usable ? amount : 0L;
+            push(player, pushAmount, session.lastCap, usable);
             if (usable) com.Polarice3.Goety.utils.SEHelper.sendSEUpdatePacket(player);
             session.lastAmount = pushAmount;
             session.lastSource = usable;
@@ -139,20 +141,22 @@ public class SoulHudSyncHandler {
         // 订阅方以自身（session）为 owner 捕获 dirty 标记；会话关闭 / 网络销毁时由
         // BdSubscriptionHub 关闭句柄释放强引用（与 PrimaryNetSyncManager 用法一致）。
         session.subscription = BdSubscriptionHub.subscribe(net, session, (key, size, insert) -> {
-            if (key instanceof SoulEnergyStackKey) session.dirty = true;
+            if (SoulKeyResolver.isSoulKey(key)) session.dirty = true;
         });
 
-        int amount = SoulEnergyAccess.getSoulsInt(net);
+        long amount = SoulEnergyAccess.getSouls(net);
+        long cap = SoulEnergyAccess.hudCap(net);
         sessions.put(player.getUUID(), session);
-        push(player, amount, true);
+        push(player, amount, cap, true);
         com.Polarice3.Goety.utils.SEHelper.sendSEUpdatePacket(player);
         session.lastAmount = amount;
+        session.lastCap = cap;
         session.lastSource = true;
         session.dirty = false;
     }
 
-    private void push(ServerPlayer player, int amount, boolean source) {
-        PacketHandler.sendToPlayer(player, new SoulEnergySyncPacket(amount, source));
+    private void push(ServerPlayer player, long amount, long cap, boolean source) {
+        PacketHandler.sendToPlayer(player, new SoulEnergySyncPacket(amount, cap, source));
     }
 
     private void close(UUID id) {

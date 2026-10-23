@@ -41,27 +41,47 @@ public class EnchantmentBookSeparatorHandler implements UnifiedStorageBeforeInse
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    /**
+     * 拦截链重入深度（{@code tryMergeSameLevel} 产出的书再次入网会再次进入拦截链做级联）。
+     * 超过配置上限（{@code enchantment_separation.max_reentrancy}）即放行，防止过深/环形。
+     */
+    private static final ThreadLocal<Integer> beyond$depth = ThreadLocal.withInitial(() -> 0);
+
     @Override
     public @NotNull UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo beforeInsert(
             @NotNull KeyAmount originalInsert,
             @NotNull KeyAmount tryInsert,
             DimensionsNet net) {
-        // 调试日志：入口信息（网络/物品/开关）
-        if (CommandConfig.enchantmentSeparationDebug()) {
-            LOGGER.info("[enchant-sep] beforeInsert net={} item={} amount={} netSwitch={}",
-                    net != null ? net.getId() : -1,
-                    tryInsert.key() instanceof ItemStackKey ik ? ik.getReadOnlyStack().getHoverName().getString() : tryInsert.key().getClass().getSimpleName(),
-                    tryInsert.amount(),
-                    net instanceof com.solr98.beyondintegration.handler.EnchantSeparationAccessor ea && ea.beyond$isEnchantSeparationEnabled());
-        }
-        // 检查该网络是否启用了附魔分离（网络级别开关）
-        if (!(net instanceof com.solr98.beyondintegration.handler.EnchantSeparationAccessor ea)
-                || !ea.beyond$isEnchantSeparationEnabled()) {
-            if (CommandConfig.enchantmentSeparationDebug())
-                LOGGER.info("[enchant-sep] pass: net switch off or not accessor");
+        int max = CommandConfig.enchantmentSeparationMaxReentrancy();
+        int depth = beyond$depth.get();
+        if (depth >= max) {
+            if (CommandConfig.enchantmentSeparationDebug()) {
+                LOGGER.info("[enchant-sep] reentrancy cap {} reached, pass", max);
+            }
             return new UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo(tryInsert, false);
         }
-        return handleSeparation(tryInsert, net);
+        beyond$depth.set(depth + 1);
+        try {
+            // 调试日志：入口信息（网络/物品/开关）
+            if (CommandConfig.enchantmentSeparationDebug()) {
+                LOGGER.info("[enchant-sep] beforeInsert net={} item={} amount={} netSwitch={} depth={}",
+                        net != null ? net.getId() : -1,
+                        tryInsert.key() instanceof ItemStackKey ik ? ik.getReadOnlyStack().getHoverName().getString() : tryInsert.key().getClass().getSimpleName(),
+                        tryInsert.amount(),
+                        net instanceof com.solr98.beyondintegration.handler.EnchantSeparationAccessor ea && ea.beyond$isEnchantSeparationEnabled(),
+                        depth);
+            }
+            // 检查该网络是否启用了附魔分离（网络级别开关）
+            if (!(net instanceof com.solr98.beyondintegration.handler.EnchantSeparationAccessor ea)
+                    || !ea.beyond$isEnchantSeparationEnabled()) {
+                if (CommandConfig.enchantmentSeparationDebug())
+                    LOGGER.info("[enchant-sep] pass: net switch off or not accessor");
+                return new UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo(tryInsert, false);
+            }
+            return handleSeparation(tryInsert, net);
+        } finally {
+            beyond$depth.set(depth);
+        }
     }
 
     private UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo handleSeparation(

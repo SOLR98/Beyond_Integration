@@ -1,6 +1,7 @@
 package com.solr98.beyondintegration.feature.sentry;
 
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
+import com.solr98.beyondintegration.handler.NetTerminalHelper;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.util.FakePlayer;
@@ -57,6 +58,7 @@ public final class SentryFakePlayerNetMarker {
         for (int i = 0; i < handler.getSlots(); i++) {
             ItemStack stack = handler.getStackInSlot(i);
             if (stack.isEmpty()) continue;
+            if (!NetTerminalHelper.isTerminal(stack)) continue;
             int netId = NetedItem.getNetId(stack);
             if (netId >= 0) {
                 for (var entry : bindings.entrySet()) {

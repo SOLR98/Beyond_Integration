@@ -9,7 +9,9 @@ import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 模组通用配置（ForgeConfigSpec 服务端配置）。
@@ -146,26 +148,6 @@ public class CommandConfig
         public final ForgeConfigSpec.EnumValue<Language> language;
         public final ForgeConfigSpec.IntValue maxNetworksPerPage;
 
-        public final ForgeConfigSpec.BooleanValue ENABLE_ENCHANTMENT_SEPARATION;
-
-
-        // Enchantment separation debug
-        public final ForgeConfigSpec.BooleanValue ENCHANTMENT_SEPARATION_DEBUG;
-        /** 附魔分离：单附魔书同类同级自动合并（两本 L 级 → 一本 L+1 级，铁砧费用转点数，默认关闭） */
-        public final ForgeConfigSpec.BooleanValue ENCHANTMENT_SEPARATION_MERGE_SAME_LEVEL;
-        public final ForgeConfigSpec.IntValue ENCHANTMENT_SEPARATION_BASE_COST;
-        public final ForgeConfigSpec.IntValue ENCHANTMENT_SEPARATION_LEVEL_MULTIPLIER;
-        public final ForgeConfigSpec.DoubleValue DEFAULT_ENCHANTMENT_MULTIPLIER;
-        public final ForgeConfigSpec.ConfigValue<String> COST_FORMULA;
-        public final ForgeConfigSpec.BooleanValue USE_FORMULA;
-        public final ForgeConfigSpec.ConfigValue<List<? extends String>> HIGH_COST_ENCHANTMENTS;
-
-        // Vehicle energy charge
-        public final ForgeConfigSpec.EnumValue<VehicleChargeMode> swVehicleChargeMode;
-        public final ForgeConfigSpec.IntValue swVehicleEnergyChargeRate;
-        public final ForgeConfigSpec.IntValue swVehicleChargeInterval;
-        public final ForgeConfigSpec.DoubleValue swVehicleChargePercentage;
-
 
         public final ForgeConfigSpec.BooleanValue ENABLE_ITEM_BLACKLIST;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> ITEM_BLACKLIST;
@@ -179,44 +161,6 @@ public class CommandConfig
         // 工作台献祭激活（可选平衡项）：开启后 anvil/cut/grind/smith/enchant 需先献祭对应原版工作台激活（网络级）
         public final ForgeConfigSpec.BooleanValue WORKSTATION_ACTIVATION_ENABLED;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> WORKSTATION_ACTIVATION_COSTS;
-
-        public final ForgeConfigSpec.ConfigValue<List<? extends String>> AMMO_EXTRACT_MAPPINGS;
-
-        // TACZ ammo polling
-        public final ForgeConfigSpec.BooleanValue TACZ_AMMO_POLL_ENABLED;
-        public final ForgeConfigSpec.IntValue TACZ_AMMO_POLL_INTERVAL_TICKS;
-
-        // SW ammo polling
-        public final ForgeConfigSpec.BooleanValue SW_AMMO_POLL_ENABLED;
-        public final ForgeConfigSpec.IntValue SW_AMMO_POLL_INTERVAL_TICKS;
-
-        // SW energy ammo network charging
-        public final ForgeConfigSpec.BooleanValue ENERGY_AMMO_CHARGE_ENABLED;
-        public final ForgeConfigSpec.IntValue ENERGY_AMMO_CHARGE_INTERVAL;
-        public final ForgeConfigSpec.IntValue ENERGY_AMMO_CHARGE_RATE;
-        public final ForgeConfigSpec.ConfigValue<List<? extends String>> ENERGY_AMMO_CHARGE_WHITELIST;
-        public final ForgeConfigSpec.BooleanValue ENERGY_AMMO_CHARGE_CURIOS;
-        public final ForgeConfigSpec.BooleanValue ENERGY_AMMO_CHARGE_MAID_BAUBLES;
-        public final ForgeConfigSpec.EnumValue<EnergyChargeMode> ENERGY_AMMO_CHARGE_MODE;
-        public final ForgeConfigSpec.DoubleValue ENERGY_AMMO_CHARGE_PERCENTAGE;
-
-        // Networked potion charm
-        public final ForgeConfigSpec.BooleanValue POTION_CHARM_ENABLED;
-        public final ForgeConfigSpec.IntValue POTION_CHARM_INTERVAL;
-        public final ForgeConfigSpec.IntValue POTION_CHARM_REFRESH_LEAD;
-        public final ForgeConfigSpec.DoubleValue POTION_CHARM_MENDING_XP_COST;
-
-        // Goety network soul source（网络灵魂源）
-        public final ForgeConfigSpec.BooleanValue SOUL_ENABLED;
-        public final ForgeConfigSpec.BooleanValue SOUL_REQUIRE_ARK_SACRIFICE;
-        public final ForgeConfigSpec.ConfigValue<String> SOUL_ARK_ITEM;
-        public final ForgeConfigSpec.BooleanValue SOUL_SOURCE_KILL;
-        public final ForgeConfigSpec.DoubleValue SOUL_KILL_RATIO;
-        public final ForgeConfigSpec.BooleanValue SOUL_SOURCE_MANUAL;
-        public final ForgeConfigSpec.BooleanValue SOUL_DIRECT_MAIN_NET;
-        public final ForgeConfigSpec.BooleanValue SOUL_FOLD_INTO_PLAYER;
-        public final ForgeConfigSpec.LongValue SOUL_MAX;
-        public final ForgeConfigSpec.BooleanValue SOUL_DEBUG;
 
         // Anvil workstation
         public final ForgeConfigSpec.EnumValue<AnvilChargeMode> anvilCostMode;
@@ -232,6 +176,22 @@ public class CommandConfig
         public final ForgeConfigSpec.IntValue anvilSupportPercent;
         public final ForgeConfigSpec.IntValue anvilBreakLevelPercent;
         public final ForgeConfigSpec.IntValue anvilUnrestrictedPercent;
+
+        public final ForgeConfigSpec.BooleanValue ENABLE_ENCHANTMENT_SEPARATION;
+
+
+        // Enchantment separation debug
+        public final ForgeConfigSpec.BooleanValue ENCHANTMENT_SEPARATION_DEBUG;
+        /** 附魔分离：单附魔书同类同级自动合并（两本 L 级 → 一本 L+1 级，铁砧费用转点数，默认关闭） */
+        public final ForgeConfigSpec.BooleanValue ENCHANTMENT_SEPARATION_MERGE_SAME_LEVEL;
+        /** 附魔分离：拦截链最高重入次数（同级合并级联的深度上限，默认 100，最高 255） */
+        public final ForgeConfigSpec.IntValue ENCHANTMENT_SEPARATION_MAX_REENTRANCY;
+        public final ForgeConfigSpec.IntValue ENCHANTMENT_SEPARATION_BASE_COST;
+        public final ForgeConfigSpec.IntValue ENCHANTMENT_SEPARATION_LEVEL_MULTIPLIER;
+        public final ForgeConfigSpec.DoubleValue DEFAULT_ENCHANTMENT_MULTIPLIER;
+        public final ForgeConfigSpec.ConfigValue<String> COST_FORMULA;
+        public final ForgeConfigSpec.BooleanValue USE_FORMULA;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> HIGH_COST_ENCHANTMENTS;
 
         // Enchantment table workstation
         public final ForgeConfigSpec.EnumValue<EnchantPowerMode> enchantPowerMode;
@@ -273,6 +233,12 @@ public class CommandConfig
         public final ForgeConfigSpec.EnumValue<XpGrantMode> xpRodGrantMode;
         /** 桶入网自动分离：含流体的容器入网时拆为"流体 + 空容器"（默认开启） */
         public final ForgeConfigSpec.BooleanValue bucketSeparatorEnabled;
+        /** 桶入网自动分离：仅处理桶物品（BucketItem，默认开启；关闭则连带拆分水瓶等非桶容器） */
+        public final ForgeConfigSpec.BooleanValue bucketSeparatorBucketOnly;
+        /** 桶入网自动分离：排除项（物品注册名列表；命中则不拆分、原样入网；支持 namespace:* 通配） */
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> bucketSeparatorExcludedItems;
+        /** 插入拦截器（附魔书除外）的拦截链最高重入次数（默认 32，最高 255） */
+        public final ForgeConfigSpec.IntValue handlerMaxReentrancy;
         /** 网络熔炉熔炼速度倍率（1.0=原速；配方耗时按倍率缩放，越大越快） */
         public final ForgeConfigSpec.DoubleValue netFurnaceSmeltSpeed;
         /** 服务端：会话级主网络库存/状态同步（供 JEI 角标等多种功能读取；关闭则各自回退独立通道，默认关闭） */
@@ -336,6 +302,73 @@ public class CommandConfig
         public final ForgeConfigSpec.IntValue REVIVE_EXTRA_TOTEM_COUNT;
         public final ForgeConfigSpec.BooleanValue REVIVE_RESET_DEATH_TIME;
 
+        // Vehicle energy charge
+        public final ForgeConfigSpec.EnumValue<VehicleChargeMode> swVehicleChargeMode;
+        public final ForgeConfigSpec.IntValue swVehicleEnergyChargeRate;
+        public final ForgeConfigSpec.IntValue swVehicleChargeInterval;
+        public final ForgeConfigSpec.DoubleValue swVehicleChargePercentage;
+
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> AMMO_EXTRACT_MAPPINGS;
+
+        // TACZ ammo polling
+        public final ForgeConfigSpec.BooleanValue TACZ_AMMO_POLL_ENABLED;
+        public final ForgeConfigSpec.IntValue TACZ_AMMO_POLL_INTERVAL_TICKS;
+
+        // SW ammo polling
+        public final ForgeConfigSpec.BooleanValue SW_AMMO_POLL_ENABLED;
+        public final ForgeConfigSpec.IntValue SW_AMMO_POLL_INTERVAL_TICKS;
+
+        // SW energy ammo network charging
+        public final ForgeConfigSpec.BooleanValue ENERGY_AMMO_CHARGE_ENABLED;
+        public final ForgeConfigSpec.IntValue ENERGY_AMMO_CHARGE_INTERVAL;
+        public final ForgeConfigSpec.IntValue ENERGY_AMMO_CHARGE_RATE;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> ENERGY_AMMO_CHARGE_WHITELIST;
+        public final ForgeConfigSpec.BooleanValue ENERGY_AMMO_CHARGE_CURIOS;
+        public final ForgeConfigSpec.BooleanValue ENERGY_AMMO_CHARGE_MAID_BAUBLES;
+        public final ForgeConfigSpec.EnumValue<EnergyChargeMode> ENERGY_AMMO_CHARGE_MODE;
+        public final ForgeConfigSpec.DoubleValue ENERGY_AMMO_CHARGE_PERCENTAGE;
+
+        // Networked potion charm
+        public final ForgeConfigSpec.BooleanValue POTION_CHARM_ENABLED;
+        public final ForgeConfigSpec.IntValue POTION_CHARM_INTERVAL;
+        public final ForgeConfigSpec.IntValue POTION_CHARM_REFRESH_LEAD;
+        public final ForgeConfigSpec.DoubleValue POTION_CHARM_MENDING_XP_COST;
+
+        // Goety network soul source（网络灵魂源）
+        public final ForgeConfigSpec.BooleanValue SOUL_ENABLED;
+        public final ForgeConfigSpec.BooleanValue SOUL_REQUIRE_ACTIVATION;
+        public final ForgeConfigSpec.BooleanValue SOUL_SOURCE_KILL;
+        public final ForgeConfigSpec.DoubleValue SOUL_KILL_RATIO;
+        public final ForgeConfigSpec.BooleanValue SOUL_SOURCE_MANUAL;
+        public final ForgeConfigSpec.BooleanValue SOUL_DIRECT_MAIN_NET;
+        public final ForgeConfigSpec.LongValue SOUL_MAX;
+        public final ForgeConfigSpec.BooleanValue SOUL_NETWORK_DISCOUNT;
+        public final ForgeConfigSpec.BooleanValue SOUL_NETWORK_REVIVE;
+        public final ForgeConfigSpec.BooleanValue SOUL_NETWORK_REVIVE_TO_ARCA;
+        public final ForgeConfigSpec.BooleanValue SOUL_DEBUG;
+        /** 灵魂是否改用 RI 的 beyonddimensions:stack_type/goety_soul 键（启用并在重载时迁移旧数据） */
+        public final ForgeConfigSpec.BooleanValue SOUL_USE_RI_KEY;
+
+        // Iron's Spells 'n Spellbooks network mana source（网络魔力源）
+        public final ForgeConfigSpec.BooleanValue IRONS_MANA_ENABLED;
+        public final ForgeConfigSpec.BooleanValue IRONS_MANA_PAY_CONSUMPTION;
+        public final ForgeConfigSpec.DoubleValue IRONS_MANA_SINK_RATIO;
+        public final ForgeConfigSpec.BooleanValue IRONS_MANA_SINK_ON_FULL;
+        public final ForgeConfigSpec.BooleanValue IRONS_MANA_SINK_ON_INSTANT;
+        public final ForgeConfigSpec.BooleanValue IRONS_MANA_FIXED_REGEN;
+        public final ForgeConfigSpec.LongValue IRONS_MANA_FIXED_REGEN_AMOUNT;
+        public final ForgeConfigSpec.BooleanValue IRONS_MANA_REGEN_WHEN_NOT_FULL;
+        public final ForgeConfigSpec.BooleanValue IRONS_MANA_INDEPENDENT_REGEN;
+        public final ForgeConfigSpec.LongValue IRONS_MANA_MAX;
+
+        // Goety ritual environment bypass（仪式环境绕过）
+        public final ForgeConfigSpec.BooleanValue RITUAL_ENV_BYPASS;
+        public final ForgeConfigSpec.LongValue RITUAL_ENV_SOUL_COST;
+        public final ForgeConfigSpec.IntValue RITUAL_ENV_PATHWAY_COUNT;
+        public final ForgeConfigSpec.IntValue RITUAL_ENV_CONNECT_COUNT;
+        public final ForgeConfigSpec.IntValue RITUAL_ENV_RADIUS;
+        public final ForgeConfigSpec.BooleanValue RITUAL_PATHWAY_CAGE;
+
         public ServerConfig(ForgeConfigSpec.Builder builder)
         {
             builder.comment(ConfigCommentLang.comment("language")).push("language");
@@ -344,63 +377,6 @@ public class CommandConfig
 
             builder.comment(ConfigCommentLang.comment("network_list")).push("network_list");
             maxNetworksPerPage = builder.defineInRange("max_networks_per_page", 10, 1, 100);
-            builder.pop();
-
-            builder.comment(ConfigCommentLang.comment("enchantment_separation")).push("enchantment_separation");
-
-            ENABLE_ENCHANTMENT_SEPARATION = builder
-                    .comment(ConfigCommentLang.comment("enchantment_separation.enable"))
-                    .define("enable", false);
-
-            ENCHANTMENT_SEPARATION_BASE_COST = builder
-                    .comment(ConfigCommentLang.comment("enchantment_separation.base_cost"))
-                    .defineInRange("base_cost", 10, 0, 1000);
-
-            ENCHANTMENT_SEPARATION_LEVEL_MULTIPLIER = builder
-                    .comment(ConfigCommentLang.comment("enchantment_separation.level_multiplier"))
-                    .defineInRange("level_multiplier", 5, 0, 100);
-
-            DEFAULT_ENCHANTMENT_MULTIPLIER = builder
-                    .comment(ConfigCommentLang.comment("enchantment_separation.default_multiplier"))
-                    .defineInRange("default_multiplier", 1.0, 0.1, 10.0);
-
-            COST_FORMULA = builder
-                    .comment(ConfigCommentLang.comment("enchantment_separation.cost_formula"))
-                    .define("cost_formula", "base + (level - 1) * multiplier");
-
-            USE_FORMULA = builder
-                    .comment(ConfigCommentLang.comment("enchantment_separation.use_formula"))
-                    .define("use_formula", false);
-
-            HIGH_COST_ENCHANTMENTS = builder
-                    .comment(ConfigCommentLang.comment("enchantment_separation.high_cost_list"))
-                    .defineList("high_cost_list",
-                            Arrays.asList("minecraft:mending:3.0", "minecraft:sharpness:1.2"),
-                            obj -> obj instanceof String);
-
-            ENCHANTMENT_SEPARATION_DEBUG = builder
-                    .comment(ConfigCommentLang.comment("enchantment_separation.debug"))
-                    .define("debug", false);
-
-            ENCHANTMENT_SEPARATION_MERGE_SAME_LEVEL = builder
-                    .comment(ConfigCommentLang.comment("enchantment_separation.merge_same_level"))
-                    .define("merge_same_level", false);
-
-            builder.pop();
-
-            builder.comment(ConfigCommentLang.comment("vehicle")).push("vehicle");
-            swVehicleChargeMode = builder
-                    .comment(ConfigCommentLang.comment("vehicle.charge_mode"))
-                    .defineEnum("charge_mode", VehicleChargeMode.RATE);
-            swVehicleEnergyChargeRate = builder
-                    .comment(ConfigCommentLang.comment("vehicle.energyChargeRate"))
-                    .defineInRange("energyChargeRate", 500000, 0, Integer.MAX_VALUE);
-            swVehicleChargeInterval = builder
-                    .comment(ConfigCommentLang.comment("vehicle.chargeInterval"))
-                    .defineInRange("chargeInterval", 20, 1, 1200);
-            swVehicleChargePercentage = builder
-                    .comment(ConfigCommentLang.comment("vehicle.chargePercentage"))
-                    .defineInRange("chargePercentage", 0.0, 0.0, 100.0);
             builder.pop();
 
             builder.comment(ConfigCommentLang.comment("blacklist")).push("blacklist");
@@ -440,128 +416,6 @@ public class CommandConfig
                                     "enchant_merge:minecraft:enchanting_table:1"),
                             obj -> obj instanceof String);
             builder.pop();
-            builder.pop();
-
-            builder.comment(ConfigCommentLang.comment("ammo_extract")).push("ammo_extract");
-            AMMO_EXTRACT_MAPPINGS = builder
-                    .comment(ConfigCommentLang.comment("ammo_extract.mappings"))
-                    .defineList("mappings",
-                            Arrays.asList(
-                                    "superbwarfare:handgun_ammo:HandgunAmmo",
-                                    "superbwarfare:handgun_ammo_box:HandgunAmmo",
-                                    "superbwarfare:rifle_ammo:RifleAmmo",
-                                    "superbwarfare:rifle_ammo_box:RifleAmmo",
-                                    "superbwarfare:shotgun_ammo:ShotgunAmmo",
-                                    "superbwarfare:shotgun_ammo_box:ShotgunAmmo",
-                                    "superbwarfare:sniper_ammo:SniperAmmo",
-                                    "superbwarfare:sniper_ammo_box:SniperAmmo",
-                                    "superbwarfare:heavy_ammo:HeavyAmmo"
-                            ),
-                            obj -> obj instanceof String);
-            builder.pop();
-
-            builder.comment(ConfigCommentLang.comment("tacz_ammo")).push("tacz_ammo");
-            TACZ_AMMO_POLL_ENABLED = builder
-                    .comment(ConfigCommentLang.comment("tacz_ammo.ammo_poll_enabled"))
-                    .define("ammo_poll_enabled", true);
-            TACZ_AMMO_POLL_INTERVAL_TICKS = builder
-                    .comment(ConfigCommentLang.comment("tacz_ammo.ammo_poll_interval_ticks"))
-                    .defineInRange("ammo_poll_interval_ticks", 10, 1, 1200);
-            builder.pop();
-
-            builder.comment(ConfigCommentLang.comment("sw_ammo")).push("sw_ammo");
-            SW_AMMO_POLL_ENABLED = builder
-                    .comment(ConfigCommentLang.comment("sw_ammo.ammo_poll_enabled"))
-                    .define("ammo_poll_enabled", true);
-            SW_AMMO_POLL_INTERVAL_TICKS = builder
-                    .comment(ConfigCommentLang.comment("sw_ammo.ammo_poll_interval_ticks"))
-                    .defineInRange("ammo_poll_interval_ticks", 10, 1, 1200);
-            builder.pop();
-
-            builder.comment(ConfigCommentLang.comment("energy_ammo")).push("energy_ammo");
-            ENERGY_AMMO_CHARGE_ENABLED = builder
-                    .comment(ConfigCommentLang.comment("energy_ammo.charge_enabled"))
-                    .define("charge_enabled", true);
-            ENERGY_AMMO_CHARGE_INTERVAL = builder
-                    .comment(ConfigCommentLang.comment("energy_ammo.charge_interval"))
-                    .defineInRange("charge_interval", 20, 1, 1200);
-            ENERGY_AMMO_CHARGE_RATE = builder
-                    .comment(ConfigCommentLang.comment("energy_ammo.charge_rate"))
-                    .defineInRange("charge_rate", 10000, 1, Integer.MAX_VALUE);
-            ENERGY_AMMO_CHARGE_MODE = builder
-                    .comment(ConfigCommentLang.comment("energy_ammo.charge_mode"))
-                    .defineEnum("charge_mode", EnergyChargeMode.RATE);
-            ENERGY_AMMO_CHARGE_PERCENTAGE = builder
-                    .comment(ConfigCommentLang.comment("energy_ammo.charge_percentage"))
-                    .defineInRange("charge_percentage", 10.0, 0.0, 100.0);
-            ENERGY_AMMO_CHARGE_WHITELIST = builder
-                    .comment(ConfigCommentLang.comment("energy_ammo.charge_whitelist"))
-                    .defineList("charge_whitelist", Arrays.asList(
-                            "ae2:wireless_terminal",
-                            "ae2:wireless_crafting_terminal",
-                            "ae2wtlib:wireless_crafting_terminal",
-                            "ae2wtlib:wireless_pattern_access_terminal",
-                            "ae2wtlib:wireless_pattern_encoding_terminal",
-                            "ae2wtlib:wireless_universal_terminal",
-                            "wcwt:wireless_comprehensive_work_terminal",
-                            "refinedstorage:wireless_grid",
-                            "refinedstorage:wireless_fluid_grid",
-                            "refinedstorage:wireless_crafting_monitor"
-                    ), obj -> obj instanceof String);
-            ENERGY_AMMO_CHARGE_CURIOS = builder
-                    .comment(ConfigCommentLang.comment("energy_ammo.charge_curios"))
-                    .define("charge_curios", true);
-            ENERGY_AMMO_CHARGE_MAID_BAUBLES = builder
-                    .comment(ConfigCommentLang.comment("energy_ammo.charge_maid_baubles"))
-                    .define("charge_maid_baubles", true);
-            builder.pop();
-
-            builder.comment(ConfigCommentLang.comment("potion_charm")).push("potion_charm");
-            POTION_CHARM_ENABLED = builder
-                    .comment(ConfigCommentLang.comment("potion_charm.enabled"))
-                    .define("enabled", true);
-            POTION_CHARM_INTERVAL = builder
-                    .comment(ConfigCommentLang.comment("potion_charm.interval"))
-                    .defineInRange("interval", 20, 1, 1200);
-            POTION_CHARM_REFRESH_LEAD = builder
-                    .comment(ConfigCommentLang.comment("potion_charm.refresh_lead_ticks"))
-                    .defineInRange("refresh_lead_ticks", 10, 1, 1200);
-            POTION_CHARM_MENDING_XP_COST = builder
-                    .comment(ConfigCommentLang.comment("potion_charm.mending_xp_cost"))
-                    .defineInRange("mending_xp_cost", 1.0, 0.0, 1000000.0);
-            builder.pop();
-
-            builder.comment(ConfigCommentLang.comment("goety_soul")).push("goety_soul");
-            SOUL_ENABLED = builder
-                    .comment(ConfigCommentLang.comment("goety_soul.enabled"))
-                    .define("enabled", true);
-            SOUL_REQUIRE_ARK_SACRIFICE = builder
-                    .comment(ConfigCommentLang.comment("goety_soul.require_ark_sacrifice"))
-                    .define("require_ark_sacrifice", true);
-            SOUL_ARK_ITEM = builder
-                    .comment(ConfigCommentLang.comment("goety_soul.ark_item"))
-                    .define("ark_item", "goety:arca");
-            SOUL_SOURCE_KILL = builder
-                    .comment(ConfigCommentLang.comment("goety_soul.source_kill"))
-                    .define("source_kill", false);
-            SOUL_KILL_RATIO = builder
-                    .comment(ConfigCommentLang.comment("goety_soul.kill_ratio"))
-                    .defineInRange("kill_ratio", 0.5, 0.0, 1.0);
-            SOUL_SOURCE_MANUAL = builder
-                    .comment(ConfigCommentLang.comment("goety_soul.source_manual"))
-                    .define("source_manual", true);
-            SOUL_DIRECT_MAIN_NET = builder
-                    .comment(ConfigCommentLang.comment("goety_soul.direct_main_net"))
-                    .define("direct_main_net", false);
-            SOUL_FOLD_INTO_PLAYER = builder
-                    .comment(ConfigCommentLang.comment("goety_soul.fold_into_player"))
-                    .define("fold_into_player", false);
-            SOUL_MAX = builder
-                    .comment(ConfigCommentLang.comment("goety_soul.max_souls"))
-                    .defineInRange("max_souls", Long.MAX_VALUE, 0L, Long.MAX_VALUE);
-            SOUL_DEBUG = builder
-                    .comment(ConfigCommentLang.comment("goety_soul.debug"))
-                    .define("debug", false);
             builder.pop();
 
             builder.comment(ConfigCommentLang.comment("anvil")).push("anvil");
@@ -604,6 +458,52 @@ public class CommandConfig
             anvilUnrestrictedPercent = builder
                     .comment(ConfigCommentLang.comment("anvil.unrestrictedPercent"))
                     .defineInRange("unrestrictedPercent", 100, 0, 1000000);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("enchantment_separation")).push("enchantment_separation");
+
+            ENABLE_ENCHANTMENT_SEPARATION = builder
+                    .comment(ConfigCommentLang.comment("enchantment_separation.enable"))
+                    .define("enable", false);
+
+            ENCHANTMENT_SEPARATION_BASE_COST = builder
+                    .comment(ConfigCommentLang.comment("enchantment_separation.base_cost"))
+                    .defineInRange("base_cost", 10, 0, 1000);
+
+            ENCHANTMENT_SEPARATION_LEVEL_MULTIPLIER = builder
+                    .comment(ConfigCommentLang.comment("enchantment_separation.level_multiplier"))
+                    .defineInRange("level_multiplier", 5, 0, 100);
+
+            DEFAULT_ENCHANTMENT_MULTIPLIER = builder
+                    .comment(ConfigCommentLang.comment("enchantment_separation.default_multiplier"))
+                    .defineInRange("default_multiplier", 1.0, 0.1, 10.0);
+
+            COST_FORMULA = builder
+                    .comment(ConfigCommentLang.comment("enchantment_separation.cost_formula"))
+                    .define("cost_formula", "base + (level - 1) * multiplier");
+
+            USE_FORMULA = builder
+                    .comment(ConfigCommentLang.comment("enchantment_separation.use_formula"))
+                    .define("use_formula", false);
+
+            HIGH_COST_ENCHANTMENTS = builder
+                    .comment(ConfigCommentLang.comment("enchantment_separation.high_cost_list"))
+                    .defineList("high_cost_list",
+                            Arrays.asList("minecraft:mending:3.0", "minecraft:sharpness:1.2"),
+                            obj -> obj instanceof String);
+
+            ENCHANTMENT_SEPARATION_DEBUG = builder
+                    .comment(ConfigCommentLang.comment("enchantment_separation.debug"))
+                    .define("debug", false);
+
+            ENCHANTMENT_SEPARATION_MERGE_SAME_LEVEL = builder
+                    .comment(ConfigCommentLang.comment("enchantment_separation.merge_same_level"))
+                    .define("merge_same_level", false);
+
+            ENCHANTMENT_SEPARATION_MAX_REENTRANCY = builder
+                    .comment(ConfigCommentLang.comment("enchantment_separation.max_reentrancy"))
+                    .defineInRange("max_reentrancy", 100, 1, 255);
+
             builder.pop();
 
             builder.comment(ConfigCommentLang.comment("enchant_table")).push("enchant_table");
@@ -679,6 +579,23 @@ public class CommandConfig
             bucketSeparatorEnabled = builder
                     .comment(ConfigCommentLang.comment("bd_tweaks.bucket_separator_enabled"))
                     .define("bucket_separator_enabled", true);
+            bucketSeparatorBucketOnly = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.bucket_separator_bucket_only"))
+                    .define("bucket_separator_bucket_only", true);
+            bucketSeparatorExcludedItems = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.bucket_separator_excluded_items"))
+                    .defineList("bucket_separator_excluded_items",
+                            Arrays.asList(
+                                    "kaleidoscope_tavern:grape_bucket",
+                                    "kaleidoscope_tavern:ice_grape_bucket",
+                                    "kaleidoscope_tavern:gold_grape_bucket",
+                                    "kaleidoscope_tavern:green_grape_bucket",
+                                    "kaleidoscope_tavern:sweet_berries_bucket",
+                                    "kaleidoscope_tavern:glow_berries_bucket"),
+                            obj -> obj instanceof String);
+            handlerMaxReentrancy = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.handler_max_reentrancy"))
+                    .defineInRange("handler_max_reentrancy", 32, 1, 255);
             netFurnaceSmeltSpeed = builder
                     .comment(ConfigCommentLang.comment("bd_tweaks.net_furnace_smelt_speed"))
                     .defineInRange("net_furnace_smelt_speed", 1.0D, 0.1D, 100.0D);
@@ -823,6 +740,203 @@ public class CommandConfig
                     .comment(ConfigCommentLang.comment("revive.reset_death_time"))
                     .define("reset_death_time", true);
             builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("vehicle")).push("vehicle");
+            swVehicleChargeMode = builder
+                    .comment(ConfigCommentLang.comment("vehicle.charge_mode"))
+                    .defineEnum("charge_mode", VehicleChargeMode.RATE);
+            swVehicleEnergyChargeRate = builder
+                    .comment(ConfigCommentLang.comment("vehicle.energyChargeRate"))
+                    .defineInRange("energyChargeRate", 500000, 0, Integer.MAX_VALUE);
+            swVehicleChargeInterval = builder
+                    .comment(ConfigCommentLang.comment("vehicle.chargeInterval"))
+                    .defineInRange("chargeInterval", 20, 1, 1200);
+            swVehicleChargePercentage = builder
+                    .comment(ConfigCommentLang.comment("vehicle.chargePercentage"))
+                    .defineInRange("chargePercentage", 0.0, 0.0, 100.0);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("ammo_extract")).push("ammo_extract");
+            AMMO_EXTRACT_MAPPINGS = builder
+                    .comment(ConfigCommentLang.comment("ammo_extract.mappings"))
+                    .defineList("mappings",
+                            Arrays.asList(
+                                    "superbwarfare:handgun_ammo:HandgunAmmo",
+                                    "superbwarfare:handgun_ammo_box:HandgunAmmo",
+                                    "superbwarfare:rifle_ammo:RifleAmmo",
+                                    "superbwarfare:rifle_ammo_box:RifleAmmo",
+                                    "superbwarfare:shotgun_ammo:ShotgunAmmo",
+                                    "superbwarfare:shotgun_ammo_box:ShotgunAmmo",
+                                    "superbwarfare:sniper_ammo:SniperAmmo",
+                                    "superbwarfare:sniper_ammo_box:SniperAmmo",
+                                    "superbwarfare:heavy_ammo:HeavyAmmo"
+                            ),
+                            obj -> obj instanceof String);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("tacz_ammo")).push("tacz_ammo");
+            TACZ_AMMO_POLL_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("tacz_ammo.ammo_poll_enabled"))
+                    .define("ammo_poll_enabled", true);
+            TACZ_AMMO_POLL_INTERVAL_TICKS = builder
+                    .comment(ConfigCommentLang.comment("tacz_ammo.ammo_poll_interval_ticks"))
+                    .defineInRange("ammo_poll_interval_ticks", 10, 1, 1200);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("sw_ammo")).push("sw_ammo");
+            SW_AMMO_POLL_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("sw_ammo.ammo_poll_enabled"))
+                    .define("ammo_poll_enabled", true);
+            SW_AMMO_POLL_INTERVAL_TICKS = builder
+                    .comment(ConfigCommentLang.comment("sw_ammo.ammo_poll_interval_ticks"))
+                    .defineInRange("ammo_poll_interval_ticks", 10, 1, 1200);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("energy_ammo")).push("energy_ammo");
+            ENERGY_AMMO_CHARGE_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("energy_ammo.charge_enabled"))
+                    .define("charge_enabled", true);
+            ENERGY_AMMO_CHARGE_INTERVAL = builder
+                    .comment(ConfigCommentLang.comment("energy_ammo.charge_interval"))
+                    .defineInRange("charge_interval", 20, 1, 1200);
+            ENERGY_AMMO_CHARGE_RATE = builder
+                    .comment(ConfigCommentLang.comment("energy_ammo.charge_rate"))
+                    .defineInRange("charge_rate", 10000, 1, Integer.MAX_VALUE);
+            ENERGY_AMMO_CHARGE_MODE = builder
+                    .comment(ConfigCommentLang.comment("energy_ammo.charge_mode"))
+                    .defineEnum("charge_mode", EnergyChargeMode.RATE);
+            ENERGY_AMMO_CHARGE_PERCENTAGE = builder
+                    .comment(ConfigCommentLang.comment("energy_ammo.charge_percentage"))
+                    .defineInRange("charge_percentage", 10.0, 0.0, 100.0);
+            ENERGY_AMMO_CHARGE_WHITELIST = builder
+                    .comment(ConfigCommentLang.comment("energy_ammo.charge_whitelist"))
+                    .defineList("charge_whitelist", Arrays.asList(
+                            "ae2:wireless_terminal",
+                            "ae2:wireless_crafting_terminal",
+                            "ae2wtlib:wireless_crafting_terminal",
+                            "ae2wtlib:wireless_pattern_access_terminal",
+                            "ae2wtlib:wireless_pattern_encoding_terminal",
+                            "ae2wtlib:wireless_universal_terminal",
+                            "wcwt:wireless_comprehensive_work_terminal",
+                            "refinedstorage:wireless_grid",
+                            "refinedstorage:wireless_fluid_grid",
+                            "refinedstorage:wireless_crafting_monitor"
+                    ), obj -> obj instanceof String);
+            ENERGY_AMMO_CHARGE_CURIOS = builder
+                    .comment(ConfigCommentLang.comment("energy_ammo.charge_curios"))
+                    .define("charge_curios", true);
+            ENERGY_AMMO_CHARGE_MAID_BAUBLES = builder
+                    .comment(ConfigCommentLang.comment("energy_ammo.charge_maid_baubles"))
+                    .define("charge_maid_baubles", true);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("potion_charm")).push("potion_charm");
+            POTION_CHARM_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("potion_charm.enabled"))
+                    .define("enabled", true);
+            POTION_CHARM_INTERVAL = builder
+                    .comment(ConfigCommentLang.comment("potion_charm.interval"))
+                    .defineInRange("interval", 20, 1, 1200);
+            POTION_CHARM_REFRESH_LEAD = builder
+                    .comment(ConfigCommentLang.comment("potion_charm.refresh_lead_ticks"))
+                    .defineInRange("refresh_lead_ticks", 10, 1, 1200);
+            POTION_CHARM_MENDING_XP_COST = builder
+                    .comment(ConfigCommentLang.comment("potion_charm.mending_xp_cost"))
+                    .defineInRange("mending_xp_cost", 1.0, 0.0, 1000000.0);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("goety_soul")).push("goety_soul");
+            SOUL_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.enabled"))
+                    .define("enabled", true);
+            SOUL_REQUIRE_ACTIVATION = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.require_activation"))
+                    .define("require_activation", false);
+            SOUL_SOURCE_KILL = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.source_kill"))
+                    .define("source_kill", true);
+            SOUL_KILL_RATIO = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.kill_ratio"))
+                    .defineInRange("kill_ratio", 1.0, 0.0, 1.0);
+            SOUL_SOURCE_MANUAL = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.source_manual"))
+                    .define("source_manual", false);
+            SOUL_DIRECT_MAIN_NET = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.direct_main_net"))
+                    .define("direct_main_net", true);
+            SOUL_MAX = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.max_souls"))
+                    .defineInRange("max_souls", 0L, 0L, Long.MAX_VALUE);
+            SOUL_NETWORK_DISCOUNT = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.network_discount"))
+                    .define("network_discount", false);
+            SOUL_NETWORK_REVIVE = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.network_revive"))
+                    .define("network_revive", true);
+            SOUL_NETWORK_REVIVE_TO_ARCA = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.network_revive_to_arca"))
+                    .define("network_revive_to_arca", true);
+            SOUL_DEBUG = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.debug"))
+                    .define("debug", false);
+            SOUL_USE_RI_KEY = builder
+                    .comment(ConfigCommentLang.comment("goety_soul.use_ri_key"))
+                    .define("use_ri_key", false);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("irons_mana")).push("irons_mana");
+            IRONS_MANA_ENABLED = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.enabled"))
+                    .define("enabled", true);
+            IRONS_MANA_PAY_CONSUMPTION = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.pay_consumption"))
+                    .define("pay_consumption", true);
+            IRONS_MANA_SINK_RATIO = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.sink_ratio"))
+                    .defineInRange("sink_ratio", 1.0, 0.0, 1.0);
+            IRONS_MANA_SINK_ON_FULL = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.sink_on_full"))
+                    .define("sink_on_full", true);
+            IRONS_MANA_SINK_ON_INSTANT = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.sink_on_instant"))
+                    .define("sink_on_instant", true);
+            IRONS_MANA_FIXED_REGEN = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.fixed_regen"))
+                    .define("fixed_regen", false);
+            IRONS_MANA_FIXED_REGEN_AMOUNT = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.fixed_regen_amount"))
+                    .defineInRange("fixed_regen_amount", 1L, 0L, Long.MAX_VALUE);
+            IRONS_MANA_REGEN_WHEN_NOT_FULL = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.regen_when_not_full"))
+                    .define("regen_when_not_full", false);
+            IRONS_MANA_INDEPENDENT_REGEN = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.independent_regen"))
+                    .define("independent_regen", false);
+            IRONS_MANA_MAX = builder
+                    .comment(ConfigCommentLang.comment("irons_mana.max_mana"))
+                    .defineInRange("max_mana", 10000L, 0L, Long.MAX_VALUE);
+            builder.pop();
+
+            builder.comment(ConfigCommentLang.comment("goety_ritual")).push("goety_ritual");
+            RITUAL_ENV_BYPASS = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.env_bypass"))
+                    .define("env_bypass", true);
+            RITUAL_ENV_SOUL_COST = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.env_bypass_soul_cost"))
+                    .defineInRange("env_bypass_soul_cost", 100L, 0L, Long.MAX_VALUE);
+            RITUAL_ENV_PATHWAY_COUNT = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.pathway_count"))
+                    .defineInRange("pathway_count", 5, 0, 64);
+            RITUAL_ENV_CONNECT_COUNT = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.connect_count"))
+                    .defineInRange("connect_count", 16, 0, 64);
+            RITUAL_ENV_RADIUS = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.radius"))
+                    .defineInRange("radius", 8, 1, 32);
+            RITUAL_PATHWAY_CAGE = builder
+                    .comment(ConfigCommentLang.comment("goety_ritual.pathway_cage"))
+                    .define("pathway_cage", true);
+            builder.pop();
         }
 
     }
@@ -838,23 +952,8 @@ public class CommandConfig
     }
     public static int maxNetworksPerPage() { return SERVER.maxNetworksPerPage.get(); }
 
-    public static boolean enableEnchantmentSeparation() { return SERVER.ENABLE_ENCHANTMENT_SEPARATION.get(); }
-    public static boolean enchantmentSeparationDebug() { return SERVER.ENCHANTMENT_SEPARATION_DEBUG.get(); }
-    /** 附魔分离：单附魔书同类同级自动合并（默认关闭） */
-    public static boolean enchantmentSeparationMergeSameLevel() { return SERVER.ENCHANTMENT_SEPARATION_MERGE_SAME_LEVEL.get(); }
-    public static int enchantmentSeparationBaseCost() { return SERVER.ENCHANTMENT_SEPARATION_BASE_COST.get(); }
-    public static int enchantmentSeparationLevelMultiplier() { return SERVER.ENCHANTMENT_SEPARATION_LEVEL_MULTIPLIER.get(); }
-    public static double defaultEnchantmentMultiplier() { return SERVER.DEFAULT_ENCHANTMENT_MULTIPLIER.get(); }
-    public static String costFormula() { return SERVER.COST_FORMULA.get(); }
-    public static boolean useFormula() { return SERVER.USE_FORMULA.get(); }
-    public static List<? extends String> highCostEnchantments() { return SERVER.HIGH_COST_ENCHANTMENTS.get(); }
-
     public static boolean enableItemBlacklist() { return SERVER.ENABLE_ITEM_BLACKLIST.get(); }
     public static List<? extends String> itemBlacklist() { return SERVER.ITEM_BLACKLIST.get(); }
-    public static VehicleChargeMode vehicleChargeMode() { return SERVER.swVehicleChargeMode.get(); }
-    public static int vehicleChargeRate() { return SERVER.swVehicleEnergyChargeRate.get(); }
-    public static int vehicleChargeInterval() { return SERVER.swVehicleChargeInterval.get(); }
-    public static double vehicleChargePercentage() { return SERVER.swVehicleChargePercentage.get(); }
 
     public static int craftCooldownMs() { return SERVER.CRAFT_COOLDOWN_MS.get(); }
     public static int craftMaxDepth() { return SERVER.CRAFT_MAX_DEPTH.get(); }
@@ -905,39 +1004,6 @@ public class CommandConfig
         return net.minecraft.world.item.ItemStack.EMPTY;
     }
 
-    public static List<? extends String> ammoExtractMappings() { return SERVER.AMMO_EXTRACT_MAPPINGS.get(); }
-
-    public static boolean taczAmmoPollEnabled() { return SERVER.TACZ_AMMO_POLL_ENABLED.get(); }
-    public static int taczAmmoPollIntervalTicks() { return SERVER.TACZ_AMMO_POLL_INTERVAL_TICKS.get(); }
-
-    public static boolean swAmmoPollEnabled() { return SERVER.SW_AMMO_POLL_ENABLED.get(); }
-    public static int swAmmoPollIntervalTicks() { return SERVER.SW_AMMO_POLL_INTERVAL_TICKS.get(); }
-    public static boolean energyAmmoChargeEnabled() { return SERVER.ENERGY_AMMO_CHARGE_ENABLED.get(); }
-    public static int energyAmmoChargeInterval() { return SERVER.ENERGY_AMMO_CHARGE_INTERVAL.get(); }
-    public static int energyAmmoChargeRate() { return SERVER.ENERGY_AMMO_CHARGE_RATE.get(); }
-    public static List<? extends String> energyAmmoChargeWhitelist() { return SERVER.ENERGY_AMMO_CHARGE_WHITELIST.get(); }
-    public static boolean energyAmmoChargeCuriosEnabled() { return SERVER.ENERGY_AMMO_CHARGE_CURIOS.get(); }
-    public static boolean energyAmmoChargeMaidBaublesEnabled() { return SERVER.ENERGY_AMMO_CHARGE_MAID_BAUBLES.get(); }
-    public static EnergyChargeMode energyAmmoChargeMode() { return SERVER.ENERGY_AMMO_CHARGE_MODE.get(); }
-    public static double energyAmmoChargePercentage() { return SERVER.ENERGY_AMMO_CHARGE_PERCENTAGE.get(); }
-
-    public static boolean potionCharmEnabled() { return SERVER.POTION_CHARM_ENABLED.get(); }
-    public static int potionCharmInterval() { return SERVER.POTION_CHARM_INTERVAL.get(); }
-    public static int potionCharmRefreshLeadTicks() { return SERVER.POTION_CHARM_REFRESH_LEAD.get(); }
-    public static double potionCharmMendingXpCost() { return SERVER.POTION_CHARM_MENDING_XP_COST.get(); }
-
-    // ── 网络灵魂源（Goety 联动）──
-    public static boolean soulEnabled() { return SERVER.SOUL_ENABLED.get(); }
-    public static boolean soulRequireArkSacrifice() { return SERVER.SOUL_REQUIRE_ARK_SACRIFICE.get(); }
-    public static String soulArkItem() { return SERVER.SOUL_ARK_ITEM.get(); }
-    public static boolean soulSourceKill() { return SERVER.SOUL_SOURCE_KILL.get(); }
-    public static double soulKillRatio() { return SERVER.SOUL_KILL_RATIO.get(); }
-    public static boolean soulSourceManual() { return SERVER.SOUL_SOURCE_MANUAL.get(); }
-    public static boolean soulDirectMainNet() { return SERVER.SOUL_DIRECT_MAIN_NET.get(); }
-    public static boolean soulFoldIntoPlayer() { return SERVER.SOUL_FOLD_INTO_PLAYER.get(); }
-    public static long soulMax() { return SERVER.SOUL_MAX.get(); }
-    public static boolean soulDebug() { return SERVER.SOUL_DEBUG.get(); }
-
     public static AnvilChargeMode anvilCostMode() { return SERVER.anvilCostMode.get(); }
     public static int anvilLevelCap() { return SERVER.anvilLevelCap.get(); }
     public static long anvilPointsCap() { return SERVER.anvilPointsCap.get(); }
@@ -951,6 +1017,19 @@ public class CommandConfig
     public static int anvilSupportPercent() { return SERVER.anvilSupportPercent.get(); }
     public static int anvilBreakLevelPercent() { return SERVER.anvilBreakLevelPercent.get(); }
     public static int anvilUnrestrictedPercent() { return SERVER.anvilUnrestrictedPercent.get(); }
+
+    public static boolean enableEnchantmentSeparation() { return SERVER.ENABLE_ENCHANTMENT_SEPARATION.get(); }
+    public static boolean enchantmentSeparationDebug() { return SERVER.ENCHANTMENT_SEPARATION_DEBUG.get(); }
+    /** 附魔分离：单附魔书同类同级自动合并（默认关闭） */
+    public static boolean enchantmentSeparationMergeSameLevel() { return SERVER.ENCHANTMENT_SEPARATION_MERGE_SAME_LEVEL.get(); }
+    /** 附魔分离：拦截链最高重入次数（同级合并级联深度上限，默认 100，最高 255）。 */
+    public static int enchantmentSeparationMaxReentrancy() { return SERVER.ENCHANTMENT_SEPARATION_MAX_REENTRANCY.get(); }
+    public static int enchantmentSeparationBaseCost() { return SERVER.ENCHANTMENT_SEPARATION_BASE_COST.get(); }
+    public static int enchantmentSeparationLevelMultiplier() { return SERVER.ENCHANTMENT_SEPARATION_LEVEL_MULTIPLIER.get(); }
+    public static double defaultEnchantmentMultiplier() { return SERVER.DEFAULT_ENCHANTMENT_MULTIPLIER.get(); }
+    public static String costFormula() { return SERVER.COST_FORMULA.get(); }
+    public static boolean useFormula() { return SERVER.USE_FORMULA.get(); }
+    public static List<? extends String> highCostEnchantments() { return SERVER.HIGH_COST_ENCHANTMENTS.get(); }
 
     public static EnchantPowerMode enchantPowerMode() { return SERVER.enchantPowerMode.get(); }
     public static int enchantFixedPower() { return SERVER.enchantFixedPower.get(); }
@@ -993,6 +1072,51 @@ public class CommandConfig
 
     /** BD 修改：桶入网自动分离（含流体的容器拆为流体 + 空容器；默认开启） */
     public static boolean bucketSeparatorEnabled() { return SERVER.bucketSeparatorEnabled.get(); }
+    /** BD 修改：桶入网自动分离是否仅处理桶物品（BucketItem；默认开启）。 */
+    public static boolean bucketSeparatorBucketOnly() { return SERVER.bucketSeparatorBucketOnly.get(); }
+    /** BD 修改：桶入网自动分离排除项（物品注册名列表；命中则不拆分、原样入网）。 */
+    public static List<? extends String> bucketSeparatorExcludedItems() { return SERVER.bucketSeparatorExcludedItems.get(); }
+    /** 插入拦截器（附魔书除外）的拦截链最高重入次数（默认 32，最高 255）。 */
+    public static int handlerMaxReentrancy() { return SERVER.handlerMaxReentrancy.get(); }
+
+    /** BD 修改：熔炉烧网络终端触发批量烧炼（默认关闭；终端不消耗，产物即终端，取出时触发） */
+    public static boolean furnaceTerminalSmeltAllEnabled() { return SERVER.furnaceTerminalSmeltAllEnabled.get(); }
+
+    /** 网络熔炉熔炼速度倍率（1.0=原速） */
+    public static double netFurnaceSmeltSpeed() { return SERVER.netFurnaceSmeltSpeed.get(); }
+
+    /** 服务端：会话级主网络库存/状态同步（供 JEI 等多种功能读取；默认关闭 = 各自回退独立通道） */
+    public static boolean primaryNetSync() { return SERVER.primaryNetSync.get(); }
+
+    /** 主网络同步范围（ITEMS / STORAGE / STORAGE_EXT） */
+    public static PrimaryNetSyncScope primaryNetSyncScope() { return SERVER.primaryNetSyncScope.get(); }
+
+    /** 主网络同步调试日志 / 性能探针开关（默认关闭） */
+    public static boolean primaryNetSyncDebug() { return SERVER.primaryNetSyncDebug.get(); }
+
+    /** 维度网络通道（net_pathway）标记槽行数（1~6，全局） */
+    public static int netPathwayFilterRows() { return SERVER.netPathwayFilterRows.get(); }
+
+    /** 维度网络方块被破坏时保留配置 NBT（标记槽 + 方块配置） */
+    public static boolean netedBlockKeepNbt() { return SERVER.netedBlockKeepNbt.get(); }
+
+    /** 经验棒可设定的目标等级上限（默认 21863，受经验总量 int 边界约束） */
+    public static int xpRodMaxTargetLevel() { return SERVER.xpRodMaxTargetLevel.get(); }
+
+    /** 经验棒每 tick 发放批次上限（0 = 不分批，一次性发放安全量） */
+    public static int xpRodGrantBatchSize() { return SERVER.xpRodGrantBatchSize.get(); }
+
+    /** 经验棒经验给予方式（BATCH 分批 / DIRECT 直设式） */
+    public static XpGrantMode xpRodGrantMode() { return SERVER.xpRodGrantMode.get(); }
+
+    /** 网络磁铁是否使用自定义档位列表 */
+    public static boolean magnetCustomTiersEnabled() { return SERVER.magnetCustomTiersEnabled.get(); }
+
+    /** 网络磁铁物品吸取档位列表（名称:半径:间隔；半径 -1 = 整区块） */
+    public static List<? extends String> magnetItemRangeTiers() { return SERVER.magnetItemRangeTiers.get(); }
+
+    /** 网络磁铁流体吸取档位列表（名称:半径:间隔；半径 -1 = 整区块） */
+    public static List<? extends String> magnetFluidRangeTiers() { return SERVER.magnetFluidRangeTiers.get(); }
 
     // ===== 网络喂食器口渴（Thirst）集成 =====
 
@@ -1030,36 +1154,6 @@ public class CommandConfig
     /** 回血模式维持的饥饿/水饱和下限 */
     public static int feederThirstRegenMinSaturation() { return SERVER.feederThirstRegenMinSaturation.get(); }
 
-    /** BD 修改：熔炉烧网络终端触发批量烧炼（默认关闭；终端不消耗，产物即终端，取出时触发） */
-    public static boolean furnaceTerminalSmeltAllEnabled() { return SERVER.furnaceTerminalSmeltAllEnabled.get(); }
-
-    /** 网络熔炉熔炼速度倍率（1.0=原速） */
-    public static double netFurnaceSmeltSpeed() { return SERVER.netFurnaceSmeltSpeed.get(); }
-
-    /** 服务端：会话级主网络库存/状态同步（供 JEI 等多种功能读取；默认关闭 = 各自回退独立通道） */
-    public static boolean primaryNetSync() { return SERVER.primaryNetSync.get(); }
-
-    /** 主网络同步范围（ITEMS / STORAGE / STORAGE_EXT） */
-    public static PrimaryNetSyncScope primaryNetSyncScope() { return SERVER.primaryNetSyncScope.get(); }
-
-    /** 主网络同步调试日志 / 性能探针开关（默认关闭） */
-    public static boolean primaryNetSyncDebug() { return SERVER.primaryNetSyncDebug.get(); }
-
-    /** 维度网络通道（net_pathway）标记槽行数（1~6，全局） */
-    public static int netPathwayFilterRows() { return SERVER.netPathwayFilterRows.get(); }
-
-    /** 维度网络方块被破坏时保留配置 NBT（标记槽 + 方块配置） */
-    public static boolean netedBlockKeepNbt() { return SERVER.netedBlockKeepNbt.get(); }
-
-    /** 经验棒可设定的目标等级上限（默认 21863，受经验总量 int 边界约束） */
-    public static int xpRodMaxTargetLevel() { return SERVER.xpRodMaxTargetLevel.get(); }
-
-    /** 经验棒每 tick 发放批次上限（0 = 不分批，一次性发放安全量） */
-    public static int xpRodGrantBatchSize() { return SERVER.xpRodGrantBatchSize.get(); }
-
-    /** 经验棒经验给予方式（BATCH 分批 / DIRECT 直设式） */
-    public static XpGrantMode xpRodGrantMode() { return SERVER.xpRodGrantMode.get(); }
-
     public static boolean autoTotemEnabled() { return SERVER.AUTO_TOTEM_ENABLED.get(); }
     public static int autoTotemCooldownSeconds() { return SERVER.AUTO_TOTEM_COOLDOWN_SECONDS.get(); }
     public static List<? extends String> autoTotemDamageBlacklist() { return SERVER.AUTO_TOTEM_DAMAGE_BLACKLIST.get(); }
@@ -1084,12 +1178,94 @@ public class CommandConfig
     public static int reviveExtraTotemCount() { return SERVER.REVIVE_EXTRA_TOTEM_COUNT.get(); }
     public static boolean reviveResetDeathTime() { return SERVER.REVIVE_RESET_DEATH_TIME.get(); }
 
-    /** 网络磁铁是否使用自定义档位列表 */
-    public static boolean magnetCustomTiersEnabled() { return SERVER.magnetCustomTiersEnabled.get(); }
+    public static VehicleChargeMode vehicleChargeMode() { return SERVER.swVehicleChargeMode.get(); }
+    public static int vehicleChargeRate() { return SERVER.swVehicleEnergyChargeRate.get(); }
+    public static int vehicleChargeInterval() { return SERVER.swVehicleChargeInterval.get(); }
+    public static double vehicleChargePercentage() { return SERVER.swVehicleChargePercentage.get(); }
 
-    /** 网络磁铁物品吸取档位列表（名称:半径:间隔；半径 -1 = 整区块） */
-    public static List<? extends String> magnetItemRangeTiers() { return SERVER.magnetItemRangeTiers.get(); }
+    public static List<? extends String> ammoExtractMappings() { return SERVER.AMMO_EXTRACT_MAPPINGS.get(); }
 
-    /** 网络磁铁流体吸取档位列表（名称:半径:间隔；半径 -1 = 整区块） */
-    public static List<? extends String> magnetFluidRangeTiers() { return SERVER.magnetFluidRangeTiers.get(); }
+    public static boolean taczAmmoPollEnabled() { return SERVER.TACZ_AMMO_POLL_ENABLED.get(); }
+    public static int taczAmmoPollIntervalTicks() { return SERVER.TACZ_AMMO_POLL_INTERVAL_TICKS.get(); }
+
+    public static boolean swAmmoPollEnabled() { return SERVER.SW_AMMO_POLL_ENABLED.get(); }
+    public static int swAmmoPollIntervalTicks() { return SERVER.SW_AMMO_POLL_INTERVAL_TICKS.get(); }
+
+    public static boolean energyAmmoChargeEnabled() { return SERVER.ENERGY_AMMO_CHARGE_ENABLED.get(); }
+    public static int energyAmmoChargeInterval() { return SERVER.ENERGY_AMMO_CHARGE_INTERVAL.get(); }
+    public static int energyAmmoChargeRate() { return SERVER.ENERGY_AMMO_CHARGE_RATE.get(); }
+    public static List<? extends String> energyAmmoChargeWhitelist() { return SERVER.ENERGY_AMMO_CHARGE_WHITELIST.get(); }
+    public static boolean energyAmmoChargeCuriosEnabled() { return SERVER.ENERGY_AMMO_CHARGE_CURIOS.get(); }
+    public static boolean energyAmmoChargeMaidBaublesEnabled() { return SERVER.ENERGY_AMMO_CHARGE_MAID_BAUBLES.get(); }
+    public static EnergyChargeMode energyAmmoChargeMode() { return SERVER.ENERGY_AMMO_CHARGE_MODE.get(); }
+    public static double energyAmmoChargePercentage() { return SERVER.ENERGY_AMMO_CHARGE_PERCENTAGE.get(); }
+
+    public static boolean potionCharmEnabled() { return SERVER.POTION_CHARM_ENABLED.get(); }
+    public static int potionCharmInterval() { return SERVER.POTION_CHARM_INTERVAL.get(); }
+    public static int potionCharmRefreshLeadTicks() { return SERVER.POTION_CHARM_REFRESH_LEAD.get(); }
+    public static double potionCharmMendingXpCost() { return SERVER.POTION_CHARM_MENDING_XP_COST.get(); }
+
+    // ── 网络灵魂源（Goety 联动）──
+    public static boolean soulEnabled() { return SERVER.SOUL_ENABLED.get(); }
+    /** 是否启用"仪式激活门槛"；关闭时网络默认已激活灵魂存储。 */
+    public static boolean soulRequireActivation() { return SERVER.SOUL_REQUIRE_ACTIVATION.get(); }
+    public static boolean soulSourceKill() { return SERVER.SOUL_SOURCE_KILL.get(); }
+    public static double soulKillRatio() { return SERVER.SOUL_KILL_RATIO.get(); }
+    public static boolean soulSourceManual() { return SERVER.SOUL_SOURCE_MANUAL.get(); }
+    public static boolean soulDirectMainNet() { return SERVER.SOUL_DIRECT_MAIN_NET.get(); }
+    public static long soulMax() { return SERVER.SOUL_MAX.get(); }
+    /** 网络魂是否参与 {@code soulDiscount}（折扣/减免装备）。默认关：网络部分按原价扣。 */
+    public static boolean soulNetworkDiscount() { return SERVER.SOUL_NETWORK_DISCOUNT.get(); }
+    /** 是否允许网络灵魂参与复活判定（死亡时扣网络魂复活）。 */
+    public static boolean soulNetworkRevive() { return SERVER.SOUL_NETWORK_REVIVE.get(); }
+    /** 网络复活时，若玩家有绑定方舟则传送到方舟位置，否则原地复活。 */
+    public static boolean soulNetworkReviveToArca() { return SERVER.SOUL_NETWORK_REVIVE_TO_ARCA.get(); }
+    public static boolean soulDebug() { return SERVER.SOUL_DEBUG.get(); }
+    /** 灵魂是否改用 RI 键（beyonddimensions:stack_type/goety_soul）；启用且重载配置时迁移旧数据。 */
+    public static boolean soulUseRiKey() { return SERVER.SOUL_USE_RI_KEY.get(); }
+
+    /**
+     * 采集全部服务端配置项的快照（路径 → 字符串值），用于整包下发客户端。
+     * <p>直接使用 Forge 提供的配置项列表 {@code SERVER_SPEC.getValues().valueMap()}；
+     * 跳过取值为 null 的项。列表型值按 {@link String#valueOf(Object)} 形式输出。
+     */
+    public static Map<String, String> snapshotAll() {
+        Map<String, String> out = new LinkedHashMap<>();
+        for (Object raw : SERVER_SPEC.getValues().valueMap().values()) {
+            if (!(raw instanceof ForgeConfigSpec.ConfigValue<?> value) || value.get() == null) continue;
+            out.put(String.join(".", value.getPath()), String.valueOf(value.get()));
+        }
+        return out;
+    }
+
+    // ── 网络魔力源（Iron's Spells 'n Spellbooks 联动）──
+    public static boolean ironsManaEnabled() { return SERVER.IRONS_MANA_ENABLED.get(); }
+    /** 魔力消耗时是否由网络支付。 */
+    public static boolean ironsManaPayConsumption() { return SERVER.IRONS_MANA_PAY_CONSUMPTION.get(); }
+    /** 魔力回复时沉淀入网的比例（0~1）。 */
+    public static double ironsManaSinkRatio() { return SERVER.IRONS_MANA_SINK_RATIO.get(); }
+    /** 自然回蓝满蓝（溢出）时是否沉淀入网。 */
+    public static boolean ironsManaSinkOnFull() { return SERVER.IRONS_MANA_SINK_ON_FULL.get(); }
+    /** 瞬间回复（如法力药水）满蓝时溢出部分是否沉淀入网。 */
+    public static boolean ironsManaSinkOnInstant() { return SERVER.IRONS_MANA_SINK_ON_INSTANT.get(); }
+    /** 固定自然回复网络蓝（固定量而非溢出）。 */
+    public static boolean ironsManaFixedRegen() { return SERVER.IRONS_MANA_FIXED_REGEN.get(); }
+    /** 固定回蓝的每次注入量。 */
+    public static long ironsManaFixedRegenAmount() { return SERVER.IRONS_MANA_FIXED_REGEN_AMOUNT.get(); }
+    /** 固定回蓝时，玩家未满蓝也注入。 */
+    public static boolean ironsManaRegenWhenNotFull() { return SERVER.IRONS_MANA_REGEN_WHEN_NOT_FULL.get(); }
+    /** 网络独立回蓝（需至少一个成员在线）。 */
+    public static boolean ironsManaIndependentRegen() { return SERVER.IRONS_MANA_INDEPENDENT_REGEN.get(); }
+    /** 网络魔力上限（0=不限）。 */
+    public static long ironsManaMax() { return SERVER.IRONS_MANA_MAX.get(); }
+
+    // ── 仪式环境绕过（Goety 原版仪式）──
+    public static boolean ritualEnvBypass() { return SERVER.RITUAL_ENV_BYPASS.get(); }
+    /** 环境绕过生效时按次额外消耗的魂量（0 = 关闭）。 */
+    public static long ritualEnvBypassSoulCost() { return SERVER.RITUAL_ENV_SOUL_COST.get(); }
+    public static int ritualEnvPathwayCount() { return SERVER.RITUAL_ENV_PATHWAY_COUNT.get(); }
+    public static int ritualEnvConnectCount() { return SERVER.RITUAL_ENV_CONNECT_COUNT.get(); }
+    public static int ritualEnvRadius() { return SERVER.RITUAL_ENV_RADIUS.get(); }
+    /** 允许祭坛正下方的诅咒之笼被维度网络通道（net_pathway）替代，取施法者主网络作魂源。 */
+    public static boolean ritualPathwayCage() { return SERVER.RITUAL_PATHWAY_CAGE.get(); }
 }

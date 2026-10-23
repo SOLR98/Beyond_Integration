@@ -36,6 +36,11 @@ public final class WorkstationActivation {
         return id != null && ACTIVATABLE.contains(id.toLowerCase(Locale.ROOT));
     }
 
+    /** 全部参与献祭激活的工作台 ID（用于管理命令补全/批量操作）。 */
+    public static Set<String> activatableIds() {
+        return ACTIVATABLE;
+    }
+
     /** 该网络是否已激活指定工作台（非可激活工作台视为已激活） */
     public static boolean isActivated(DimensionsNet net, String id) {
         if (!isActivatable(id)) return true;
@@ -72,12 +77,20 @@ public final class WorkstationActivation {
      * 成本未配置时直接激活（视为无需献祭）。
      */
     public static Result tryActivate(ServerPlayer player, String id) {
-        if (!CommandConfig.isWorkstationActivationEnabled()) return Result.DISABLED;
-        if (!isActivatable(id)) return Result.INVALID;
-        String key = id.toLowerCase(Locale.ROOT);
         DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
         if (net == null) return Result.NO_NETWORK;
+        return tryActivate(net, id);
+    }
+
+    /**
+     * 尝试献祭激活（指定网络，供管理命令用）：从该网络扣除成本物品并激活。
+     * 成本未配置时直接激活。
+     */
+    public static Result tryActivate(DimensionsNet net, String id) {
+        if (!CommandConfig.isWorkstationActivationEnabled()) return Result.DISABLED;
+        if (!isActivatable(id)) return Result.INVALID;
         if (!(net instanceof WorkstationActivationAccessor acc)) return Result.DISABLED;
+        String key = id.toLowerCase(Locale.ROOT);
         if (acc.beyond$isWorkstationActivated(key)) return Result.ALREADY;
 
         ItemStack cost = costOf(key);

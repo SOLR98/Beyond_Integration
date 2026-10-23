@@ -27,6 +27,22 @@ public class ItemBlacklistHandler implements UnifiedStorageBeforeInsertHandler.B
             @NotNull KeyAmount tryInsert,
             com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet net) {
 
+        if (!com.solr98.beyondintegration.handler.ReentrancyGuard.enter(
+                "blacklist", CommandConfig.handlerMaxReentrancy())) {
+            return new UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo(tryInsert, false);
+        }
+        try {
+            return beyond$check(originalInsert, tryInsert, net);
+        } finally {
+            com.solr98.beyondintegration.handler.ReentrancyGuard.exit("blacklist");
+        }
+    }
+
+    private @NotNull UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo beyond$check(
+            @NotNull KeyAmount originalInsert,
+            @NotNull KeyAmount tryInsert,
+            com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet net) {
+
         if (!CommandConfig.enableItemBlacklist()) {
             return new UnifiedStorageBeforeInsertHandler.BeforeInsertHandlerReturnInfo(tryInsert, false);
         }

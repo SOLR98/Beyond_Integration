@@ -70,6 +70,14 @@ versionRange = "[0.7.27,)"
 ordering = "AFTER"
 side = "BOTH"
 
+# AE2 Lightning Tech（可选兼容：闪电作为维度网络原生资源）
+[[dependencies."${mod_id}"]]
+modId = "ae2lt"
+mandatory = false
+versionRange = "[1.0.2,)"
+ordering = "AFTER"
+side = "BOTH"
+
 # Mixin 配置声明（Forge 生产环境加载入口；开发环境由 --mixin.config 提供）
 [[mixins]]
 config="${mod_id}.mixins.json"

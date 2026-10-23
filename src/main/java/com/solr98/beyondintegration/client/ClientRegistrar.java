@@ -34,13 +34,25 @@ public class ClientRegistrar {
     @OnlyIn(Dist.CLIENT) @SuppressWarnings("removal")
     public static void register() {
         // JEI 点击取物（公开 API + 高优先级事件拦截，替代 FocusInputHandler Mixin）
-        JeiExtractInputHandler.register();
+        // 必须在调用点门控：JeiExtractInputHandler 类加载即会解析 JEI 类型（IIngredientType 等），
+        // 未安装 JEI 时无条件调用会 NoClassDefFoundError（类内 register 的门控太晚，类已被加载）
+        if (ModList.get().isLoaded("jei")) {
+            JeiExtractInputHandler.register();
+        }
         // BD 终端快捷操作（Shift/Space + 点击：提取/批量转移/批量合成/网格清理；EMI 联动，EmiLink 让路）
         EmiBdShortcuts.register();
         // 快捷栏上方“复制配置”提示（瞄准网络方块且手持其物品时）
         FMLJavaModLoadingContext.get().getModEventBus().addListener((net.minecraftforge.client.event.RegisterGuiOverlaysEvent e) ->
                 e.registerAbove(net.minecraftforge.client.gui.overlay.VanillaGuiOverlay.HOTBAR.id(),
                         "beyond_net_hint", new NetHintOverlay()));
+        // 快捷栏上方：主网络同步状态 HUD
+        FMLJavaModLoadingContext.get().getModEventBus().addListener((net.minecraftforge.client.event.RegisterGuiOverlaysEvent e) ->
+                e.registerAbove(net.minecraftforge.client.gui.overlay.VanillaGuiOverlay.HOTBAR.id(),
+                        "beyond_net_sync_status", new NetSyncStatusOverlay()));
+        // 网络魔力 HUD（铁魔法联动；独立可拖动，无网络源时不显示）
+        FMLJavaModLoadingContext.get().getModEventBus().addListener((net.minecraftforge.client.event.RegisterGuiOverlaysEvent e) ->
+                e.registerAbove(net.minecraftforge.client.gui.overlay.VanillaGuiOverlay.HOTBAR.id(),
+                        "beyond_net_mana", com.solr98.beyondintegration.client.hud.NetManaHudOverlay.INSTANCE));
         ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,()->new ConfigScreenHandler.ConfigScreenFactory((mc,parent)->{if(ModList.get().isLoaded("cloth_config")){try{return ModConfigScreen.createScreen(parent);}catch(NoClassDefFoundError e){}}return parent;}));
         FMLJavaModLoadingContext.get().getModEventBus().addListener((FMLClientSetupEvent e)->{e.enqueueWork(()->{
             MenuScreens.<DimensionsStorageMenu,DimensionsStorageGUI<DimensionsStorageMenu>>register(ModMenus.STORAGE.get(),(a,b,c)->new DimensionsStorageGUI<>(a,b,c));
@@ -62,6 +74,7 @@ public class ClientRegistrar {
             e.register(BDKeyBindings.OPEN_ANVIL);
             e.register(BDKeyBindings.OPEN_ENCHANT);
             e.register(BDKeyBindings.OPEN_ENCHANT_MERGE);
+            e.register(BDKeyBindings.OPEN_SOUL_HUD_EDITOR);
         });
         MinecraftForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent e)->{
             if (e.phase == TickEvent.Phase.END) {
@@ -90,6 +103,7 @@ public class ClientRegistrar {
                 PrimaryNetClientStorage.INSTANCE.clear();
                 SyncConfigClient.reset();
                 SoulEnergyState.clear();
+                ManaState.clear();
             }
         );
         if(ModList.get().isLoaded("tacz")){

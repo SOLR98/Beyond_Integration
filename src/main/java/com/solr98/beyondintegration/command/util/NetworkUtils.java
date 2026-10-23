@@ -1,6 +1,7 @@
 package com.solr98.beyondintegration.command.util;
 
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
+import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.FluidStackKey;
@@ -107,6 +108,21 @@ public class NetworkUtils {
      * 检查网络是否有足够的存储空间（能量）
      */
     public static boolean hasEnoughStorageForEnergy(DimensionsNet net, EnergyStackKey key, long amountToAdd) {
+        KeyAmount currentStack = net.getUnifiedStorage().getStackByKey(key);
+        long currentAmount = currentStack.amount();
+        long slotCapacity = net.getUnifiedStorage().getSlotCapacity(0);
+        
+        if (slotCapacity <= 0) {
+            slotCapacity = Long.MAX_VALUE;
+        }
+        
+        return currentAmount + amountToAdd <= slotCapacity;
+    }
+    
+    /**
+     * 检查网络是否有足够的存储空间（任意注册存储键）。
+     */
+    public static boolean hasEnoughStorageForKey(DimensionsNet net, IStackKey<?> key, long amountToAdd) {
         KeyAmount currentStack = net.getUnifiedStorage().getStackByKey(key);
         long currentAmount = currentStack.amount();
         long slotCapacity = net.getUnifiedStorage().getSlotCapacity(0);

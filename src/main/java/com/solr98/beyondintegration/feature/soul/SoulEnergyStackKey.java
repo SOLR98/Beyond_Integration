@@ -15,7 +15,11 @@ import java.util.stream.Stream;
 
 /**
  * 网络"灵魂能量"存储键（纯数值型，唯一实例）。
- * <p>类型 ID：{@code beyond_integration:stack_type/soul_energy}；与 {@code EnergyStackKey} 相互独立。
+ * <p>BI 自己的类型 ID：{@code beyond_integration:stack_type/soul_energy}；与 {@code EnergyStackKey} 相互独立。
+ * <p><b>RI 兜底</b>：{@link #RI_FALLBACK} 使用 RI 的 ID
+ * {@code beyonddimensions:stack_type/goety_soul}。当 RI 未安装（或已移除）时由
+ * {@link SoulKeyRegistration#ensureRiKeyFallback()} 注册，保证已迁移到该 ID 的既有灵魂数据
+ * 仍能被 BD 反序列化并读取。
  * <p><b>必须在任何网络反序列化之前注册</b>（见 {@link SoulKeyRegistration}），否则
  * {@code IStackKey.deserializeCommon / deserializeNBTCommon} 找不到类型会抛异常。
  */
@@ -24,24 +28,33 @@ public class SoulEnergyStackKey extends LongStackKey<SoulEnergyType> {
     public static final ResourceLocation ID =
             ResourceLocation.tryBuild(BeyondIntegration.MODID, "stack_type/soul_energy");
 
-    /** 唯一实例（不区分空/非空） */
-    public static final SoulEnergyStackKey INSTANCE = new SoulEnergyStackKey();
+    /** RI（rs_integration）的 BD 灵魂键 ID。 */
+    public static final ResourceLocation RI_FALLBACK_ID =
+            ResourceLocation.tryParse("beyonddimensions:stack_type/goety_soul");
 
-    private SoulEnergyStackKey() {
+    /** BI 自己的灵魂键实例。 */
+    public static final SoulEnergyStackKey INSTANCE = new SoulEnergyStackKey(ID);
+    /** RI 缺席时注册到 RI ID 的兜底实例（与 {@link SoulEnergyStackKey} 数据类型一致）。 */
+    public static final SoulEnergyStackKey RI_FALLBACK = new SoulEnergyStackKey(RI_FALLBACK_ID);
+
+    private final ResourceLocation id;
+
+    private SoulEnergyStackKey(ResourceLocation id) {
+        this.id = id;
         this.stack = new SoulEnergyType(0);
     }
 
     @Override
     public @Nullable KeyAmount fromStackObject(Object stack) {
         if (stack instanceof SoulEnergyType type) {
-            return new KeyAmount(SoulEnergyStackKey.INSTANCE, type.getStackCount());
+            return new KeyAmount(this, type.getStackCount());
         }
         return null;
     }
 
     @Override
     public ResourceLocation getTypeID() {
-        return ID;
+        return id;
     }
 
     @Override
@@ -58,7 +71,7 @@ public class SoulEnergyStackKey extends LongStackKey<SoulEnergyType> {
     @Override
     public @Nullable SoulEnergyStackKey fromSourceObject(Object key, CompoundTag ignored) {
         if (key instanceof SoulEnergyType || key instanceof Number) {
-            return INSTANCE;
+            return this;
         }
         return null;
     }
@@ -70,7 +83,7 @@ public class SoulEnergyStackKey extends LongStackKey<SoulEnergyType> {
 
     @Override
     public SoulEnergyStackKey getEmpty() {
-        return INSTANCE;
+        return this;
     }
 
     @Override
@@ -94,7 +107,7 @@ public class SoulEnergyStackKey extends LongStackKey<SoulEnergyType> {
 
     @Override
     public @NotNull SoulEnergyStackKey deserialize(FriendlyByteBuf buf) {
-        return INSTANCE;
+        return this;
     }
 
     @Override
@@ -104,7 +117,7 @@ public class SoulEnergyStackKey extends LongStackKey<SoulEnergyType> {
 
     @Override
     public @NotNull SoulEnergyStackKey deserializeNBT(CompoundTag nbt) {
-        return INSTANCE;
+        return this;
     }
 
     @Override

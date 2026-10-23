@@ -1,5 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 
+import com.solr98.beyondintegration.handler.NetTerminalHelper;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
@@ -34,9 +35,17 @@ public abstract class CursedCageBlockMixin {
         if (hand != InteractionHand.MAIN_HAND) return;
         if (state.getValue(com.Polarice3.Goety.common.blocks.CursedCageBlock.POWERED)) return;
         ItemStack held = player.getItemInHand(hand);
-        if (held.isEmpty()) return;
+        if (!NetTerminalHelper.isTerminal(held)) return; // 仅便携网络终端可作灵魂符
         if (NetedItem.getNetId(held) < 0) return;
+        // 仅笼内为空时才能放入（避免覆盖/损失已有灵魂符）；已占用则静默消费、不放入
+        if (level.getBlockEntity(pos) instanceof com.Polarice3.Goety.common.blocks.entities.CursedCageBlockEntity cage
+                && cage.getItem() != null && !cage.getItem().isEmpty()) {
+            cir.setReturnValue(InteractionResult.SUCCESS);
+            return;
+        }
         ((com.Polarice3.Goety.common.blocks.CursedCageBlock) (Object) this).setItem(level, pos, state, held.copy());
+        // 终端被“输入”牢笼 → 消耗手持物（避免复制）；创造模式不扣除
+        if (!player.isCreative()) held.shrink(1);
         cir.setReturnValue(InteractionResult.sidedSuccess(false));
     }
 }
