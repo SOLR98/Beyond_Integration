@@ -55,7 +55,16 @@
     "NetMagnetItemMixin",
     "NetMagnetItemOpenMixin",
     "NetHopperBlockEntityTierMixin",
-    "NetHopperMenuTierMixin"
+    "NetHopperMenuTierMixin",
+    "AbstractSpellManaMixin",
+    "MagicDataManaMixin",
+    "MagicManagerManaMixin",
+    "SEHelperMixin",
+    "SoulReviveMixin",
+    "RitualRequirementsMixin",
+    "CursedCageBlockEntityMixin",
+    "CursedCageBlockMixin",
+    "DarkAltarBlockEntityMixin"
   ],
   "client": [
     "AmmoBarOverlayMixin",
@@ -73,7 +82,8 @@
     "ywzj_vehicle.OverlayRegistrationMixin",
     "XpExchangeGUIMixin",
     "FeederThirstGUIMixin",
-    "NetHopperGUITierMixin"
+    "NetHopperGUITierMixin",
+    "SoulEnergyGuiMixin"
   ],
   "injectors": { "defaultRequire": 0 },
   "overwrites": { "requireAnnotations": true }

@@ -44,6 +44,14 @@ public class ClientConfig {
         public final ModConfigSpec.IntValue searchHistoryRows;
         /** 搜索历史最多保存条数（默认 20） */
         public final ModConfigSpec.IntValue searchHistoryMax;
+        /** 网络魔力 HUD（铁魔法联动；客户端偏好） */
+        public final ModConfigSpec.BooleanValue ironsManaHud;
+        /** HUD 位置布局：<id>=RATIO:x:y（屏幕万分比），兼容旧 RELATIVE/ABSOLUTE。 */
+        public final ModConfigSpec.ConfigValue<List<? extends String>> hudLayout;
+        /** 是否允许用快捷键打开 HUD 位置可视化编辑器。 */
+        public final ModConfigSpec.BooleanValue hudVisualEdit;
+        /** 是否显示主网络同步状态 HUD（默认关闭）。 */
+        public final ModConfigSpec.BooleanValue showNetSyncStatus;
 
         ClientValues(ModConfigSpec.Builder builder) {
             taczSmithUseNetwork = builder
@@ -78,6 +86,18 @@ public class ClientConfig {
             searchHistoryMax = builder
                     .comment(ConfigCommentLang.comment("search_history_max"))
                     .defineInRange("search_history_max", 20, 1, 100);
+            ironsManaHud = builder
+                    .comment(ConfigCommentLang.comment("irons_mana_hud"))
+                    .define("irons_mana_hud", true);
+            hudLayout = builder
+                    .comment(ConfigCommentLang.comment("hud_layout"))
+                    .defineList("hud_layout", java.util.Collections.emptyList(), obj -> obj instanceof String);
+            hudVisualEdit = builder
+                    .comment(ConfigCommentLang.comment("hud_visual_edit"))
+                    .define("hud_visual_edit", true);
+            showNetSyncStatus = builder
+                    .comment(ConfigCommentLang.comment("show_net_sync_status"))
+                    .define("show_net_sync_status", false);
         }
     }
 
@@ -156,4 +176,22 @@ public class ClientConfig {
     /** 搜索历史最多保存条数 */
     public static int searchHistoryMax() { return CLIENT.searchHistoryMax.get(); }
     public static void setSearchHistoryMax(int v) { CLIENT.searchHistoryMax.set(v); CLIENT_SPEC.save(); }
+
+    /** 是否显示网络魔力 HUD（客户端偏好） */
+    public static boolean ironsManaHud() { return CLIENT.ironsManaHud.get(); }
+
+    public static void setIronsManaHud(boolean v) { CLIENT.ironsManaHud.set(v); CLIENT_SPEC.save(); }
+
+    // ── HUD 位置布局（客户端，统一） ──
+    public static List<? extends String> hudLayout() { return CLIENT.hudLayout.get(); }
+
+    public static void setHudLayout(List<? extends String> v) { CLIENT.hudLayout.set(v); CLIENT_SPEC.save(); }
+
+    public static boolean hudVisualEdit() { return CLIENT.hudVisualEdit.get(); }
+
+    public static void setHudVisualEdit(boolean v) { CLIENT.hudVisualEdit.set(v); CLIENT_SPEC.save(); }
+
+    public static boolean showNetSyncStatus() { return CLIENT.showNetSyncStatus.get(); }
+
+    public static void setShowNetSyncStatus(boolean v) { CLIENT.showNetSyncStatus.set(v); CLIENT_SPEC.save(); }
 }

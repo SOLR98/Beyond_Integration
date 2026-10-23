@@ -27,6 +27,8 @@ public class NetworkAmmoData extends SavedData {
     private final Map<Integer, Boolean> networkCreativeAllType = new HashMap<>();
     /** 网络 ID → 已献祭激活的工作台 ID 集合 */
     private final Map<Integer, java.util.Set<String>> networkWorkstations = new HashMap<>();
+    /** 网络 ID → 灵魂源是否已激活（Goety 联动） */
+    private final Map<Integer, Boolean> soulArkActivated = new HashMap<>();
 
     public NetworkAmmoData() {}
 
@@ -106,6 +108,17 @@ public class NetworkAmmoData extends SavedData {
         return id != null && getActivatedWorkstations(netId).contains(id);
     }
 
+    /** 查询网络的灵魂源是否已激活（默认关闭） */
+    public boolean isSoulArkActivated(int netId) {
+        return soulArkActivated.getOrDefault(netId, false);
+    }
+
+    /** 设置网络的灵魂源激活状态并标记脏数据 */
+    public void setSoulArkActivated(int netId, boolean v) {
+        soulArkActivated.put(netId, v);
+        setDirty();
+    }
+
     /** 激活网络的工作台（网络级持久化） */
     public void activateWorkstation(int netId, String id) {
         if (id == null) return;
@@ -128,6 +141,7 @@ public class NetworkAmmoData extends SavedData {
         networkCreativeTypes.remove(netId);
         networkCreativeAllType.remove(netId);
         networkWorkstations.remove(netId);
+        soulArkActivated.remove(netId);
         setDirty();
     }
     /** 转换为"类型 → 计数"映射（全类型用 "*" 表示） */
@@ -192,6 +206,12 @@ public class NetworkAmmoData extends SavedData {
             waTag.put(String.valueOf(e.getKey()), perNet);
         }
         tag.put("workstationActivation", waTag);
+
+        CompoundTag soulTag = new CompoundTag();
+        for (var e : soulArkActivated.entrySet()) {
+            if (e.getValue()) soulTag.putBoolean(String.valueOf(e.getKey()), true);
+        }
+        tag.put("soulArkActivation", soulTag);
 
         return tag;
     }
@@ -260,6 +280,14 @@ public class NetworkAmmoData extends SavedData {
                     if (!id.isEmpty()) ids.add(id);
                 }
                 if (!ids.isEmpty()) data.networkWorkstations.put(netId, ids);
+            }
+        }
+
+        if (tag.contains("soulArkActivation")) {
+            CompoundTag soulTag = tag.getCompound("soulArkActivation");
+            for (String netKey : soulTag.getAllKeys()) {
+                int netId = parseNetId(netKey);
+                if (netId >= 0 && soulTag.getBoolean(netKey)) data.soulArkActivated.put(netId, true);
             }
         }
 

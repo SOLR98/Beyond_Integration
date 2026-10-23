@@ -40,6 +40,8 @@ public class MixinPlugin implements IMixinConfigPlugin {
         }
         if (targetClassName.startsWith("euphy.upo.sentrymechanicalarm.")) return modList.isLoaded("sentrymechanicalarm");
         if (targetClassName.startsWith("org.ywzj.vehicle.")) return modList.isLoaded("ywzj_vehicle");
+        if (targetClassName.startsWith("io.redspace.ironsspellbooks.")) return modList.isLoaded("irons_spellbooks");
+        if (targetClassName.startsWith("com.Polarice3.Goety.")) return modList.isLoaded("goety");
         // JEI 集成（物品数量角标/点击取物品）仅在 JEI 加载时应用；
         // 检测到 rs_integration（RI）时让路禁用，避免与其同类功能冲突。
         // 跨 JEI 版本的新旧 helper 包差异已由 Mixin 的 @Coerce 单 Mixin 兼容，无需再按版本选择。

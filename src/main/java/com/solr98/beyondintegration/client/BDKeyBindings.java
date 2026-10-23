@@ -26,6 +26,7 @@ public final class BDKeyBindings {
     public static final KeyMapping OPEN_ANVIL = new KeyMapping("key.beyond_integration.open_anvil", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
     public static final KeyMapping OPEN_ENCHANT = new KeyMapping("key.beyond_integration.open_enchant", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
     public static final KeyMapping OPEN_ENCHANT_MERGE = new KeyMapping("key.beyond_integration.open_enchant_merge", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
+    public static final KeyMapping OPEN_HUD_EDITOR = new KeyMapping("key.beyond_integration.open_soul_hud_editor", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
 
     private BDKeyBindings() {}
 
@@ -38,6 +39,18 @@ public final class BDKeyBindings {
         check(OPEN_ANVIL, WorkstationModeConstants.Mode.ANVIL);
         check(OPEN_ENCHANT, WorkstationModeConstants.Mode.ENCHANT);
         check(OPEN_ENCHANT_MERGE, WorkstationModeConstants.Mode.ENCHANT_MERGE);
+        openHudEditorIfPressed();
+    }
+
+    private static void openHudEditorIfPressed() {
+        if (!OPEN_HUD_EDITOR.consumeClick()) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen != null || mc.player == null) return;
+        if (com.solr98.beyondintegration.ClientConfig.hudVisualEdit()) {
+            mc.setScreen(new com.solr98.beyondintegration.client.gui.HudPositionScreen());
+        } else {
+            mc.player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.beyond_integration.hud_pos.disabled"), true);
+        }
     }
 
     /** 检查单个按键：按下则保存当前 BD 菜单状态并发送打开请求 */
