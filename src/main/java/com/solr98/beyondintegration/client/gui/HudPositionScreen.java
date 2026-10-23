@@ -141,9 +141,10 @@ public class HudPositionScreen extends Screen {
         positions.put(active, defaultPos(active));
     }
 
-    /** HUD 位置编辑：不绘制背景（避免模糊/半透明遮罩，保持游戏画面可见）。 */
+    /** HUD 位置编辑：仅绘制半透明暗色遮罩（不模糊，HUD 与世界仍可见）。 */
     @Override
     public void renderBackground(GuiGraphics guiGraphics) {
+        guiGraphics.fill(0, 0, this.width, this.height, 0x99000000);
     }
 
     @Override

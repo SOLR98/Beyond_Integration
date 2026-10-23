@@ -56,6 +56,8 @@ public class SoulEnergyGuiMixin {
         int by = HudLayout.resolveY(HudElement.SOUL, defY, screenHeight);
 
         SoulHudRenderer.render(g, bx, by, amount, SoulEnergyState.getMax(), partialTicks);
+        // 施法进度条：画在网络魂条同一行（覆盖条体，不上移）
+        SoulHudRenderer.renderCastProgress(g, bx, by);
         SoulChangePopups.renderNetwork(g, bx, by);
     }
 }

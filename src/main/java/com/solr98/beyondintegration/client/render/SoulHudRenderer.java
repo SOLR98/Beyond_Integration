@@ -67,16 +67,50 @@ public final class SoulHudRenderer {
         int len = (int) Math.min(BAR_W, Math.max(0L, Math.round(BAR_W * (amount / (double) denom))));
         g.blit(Goety.location("textures/gui/soul_energy_bar.png"), x + 9, y + 2, offset, 0, len, 5, 234, 5);
 
-        if (MainConfig.ShowNum.get()) {
-            String s = cap > 0L
-                    ? amount + "/" + NumberFormatUtil.compactLarge(cap)
-                    : Long.toString(amount);
-            // 整条水平居中；不得覆盖条头（维度发生器），过宽时从发生器右缘向右扩展
-            int textW = mc.font.width(s);
-            int tx = x + (WIDTH - textW) / 2;
-            int minX = x + HEAD_W;
-            if (tx < minX) tx = minX;
-            g.drawString(mc.font, s, tx, y + 1, 0xFFFFFF);
+        // 网络魂条数值始终显示（不依赖 Goety 的 showNumber，避免第三方默认关闭导致无数值）
+        String s = cap > 0L
+                ? amount + "/" + NumberFormatUtil.compactLarge(cap)
+                : Long.toString(amount);
+        // 整条水平居中；不得覆盖条头（维度发生器），过宽时从发生器右缘向右扩展
+        int textW = mc.font.width(s);
+        int tx = x + (WIDTH - textW) / 2;
+        int minX = x + HEAD_W;
+        if (tx < minX) tx = minX;
+        g.drawString(mc.font, s, tx, y + 1, 0xFFFFFF);
+    }
+
+    /**
+     * 施法进度条（复刻 Goety 原版 {@code SoulEnergyGui} 的逻辑：施法时在条上方一行绘制）。
+     * <p>常规施法/蓄力画粉色（纹理 v=27），连续射击（shots）画青色（v=45）。
+     */
+    public static void renderCastProgress(GuiGraphics g, int x, int y) {
+        var mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        if (!com.Polarice3.Goety.utils.MobUtil.isSpellCasting(mc.player)) return;
+        var use = mc.player.getUseItem();
+        if (use.isEmpty()) return;
+        int useDuration = use.getUseDuration();
+        if (useDuration <= 0) return;
+        float remaining = mc.player.getUseItemRemainingTicks();
+        float progress = (useDuration - remaining) / (float) useDuration;
+        int v = 27;
+        var spell = com.Polarice3.Goety.utils.WandUtil.getSpell(mc.player);
+        if (spell instanceof com.Polarice3.Goety.api.magic.IChargingSpell charging) {
+            int shots = com.Polarice3.Goety.utils.WandUtil.getShots(mc.player);
+            int shotsNum = charging.shotsNumber(mc.player, use);
+            if (shots > 0 && shotsNum > 0) {
+                progress = shots / (float) shotsNum;
+                v = 45;
+            } else {
+                int castUp = charging.castUp(mc.player, use);
+                if (castUp > 0) {
+                    progress = (use.getUseDuration() - remaining) / (float) castUp;
+                }
+            }
         }
+        progress = Math.min(1.0F, progress);
+        int len = (int) (BAR_W * progress);
+        if (len <= 0) return;
+        g.blit(Goety.location("textures/gui/soul_energy.png"), x + HEAD_W, y, 9.0F, (float) v, len, HEIGHT, 128, 90);
     }
 }
