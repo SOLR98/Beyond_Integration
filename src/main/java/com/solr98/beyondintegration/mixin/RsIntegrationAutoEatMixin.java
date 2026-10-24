@@ -23,7 +23,10 @@ import java.util.function.Consumer;
  * RI 未安装时（@Pseudo）本 mixin 自动跳过。
  */
 @Pseudo
-@Mixin(targets = "com.huanghuang.rsintegration.autoeat.client.AutoEatClientEvents", remap = false)
+@Mixin(targets = {
+        "com.huanghuang.rsintegration.feature.autoeat.client.AutoEatClientEvents",
+        "com.huanghuang.rsintegration.autoeat.client.AutoEatClientEvents"
+}, remap = false)
 public class RsIntegrationAutoEatMixin {
 
     /** 屏蔽 RI 自身（含其 BD GUI mixin）的单参安装调用（仅限 BD 界面，放行本模组发起的调用） */

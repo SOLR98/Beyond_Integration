@@ -29,6 +29,8 @@ public class SentryArmReloadMixin {
                            com.tacz.guns.api.item.IGun iGun,
                            net.minecraft.world.item.ItemStack gunStack,
                            CallbackInfoReturnable<Boolean> cir) {
+        // TACZ 1.1.4 无 useInventoryAmmo：跳过接管
+        if (!com.solr98.beyondintegration.compat.tacz.TaczApiCompat.supportsUseInventoryAmmo()) return;
         try {
             if (iGun.useInventoryAmmo(gunStack)) return;
             DimensionsNet net = getTerminalNetwork();

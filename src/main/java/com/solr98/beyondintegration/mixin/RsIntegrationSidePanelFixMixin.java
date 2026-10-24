@@ -14,7 +14,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * 未装 RI 或结构变化时静默跳过。
  */
 @Pseudo
-@Mixin(targets = "com.huanghuang.rsintegration.sidepanel.RSSidePanelClient", remap = false)
+@Mixin(targets = {
+        "com.huanghuang.rsintegration.feature.sidepanel.RSSidePanelClient",
+        "com.huanghuang.rsintegration.sidepanel.RSSidePanelClient"
+}, remap = false)
 public class RsIntegrationSidePanelFixMixin {
 
     @Redirect(method = "registerKeyMappings",

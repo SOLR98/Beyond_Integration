@@ -1,6 +1,8 @@
 package com.solr98.beyondintegration.mixin;
 
+import com.solr98.beyondintegration.handler.XpAutoRepairHandler;
 import com.solr98.beyondintegration.handler.XpDirectGranter;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -21,5 +23,14 @@ public class XpExchangeItemMixin {
     private void beyondintegration$directLevelGrant(ItemStack stack, Player player, Level level, CallbackInfo ci) {
         if (level.isClientSide()) return;
         if (XpDirectGranter.tryGrant(stack, player)) ci.cancel();
+    }
+
+    /** 物品 tick：用绑定网络的经验自动修复玩家装备（remap 由 refmap 映射到生产 SRG 名）。 */
+    @Inject(method = "inventoryTick", at = @At("TAIL"), remap = true)
+    private void beyondintegration$autoRepair(ItemStack stack, Level level, Entity entity,
+                                              int slotId, boolean isSelected, CallbackInfo ci) {
+        if (entity instanceof Player player) {
+            XpAutoRepairHandler.onInventoryTick(stack, level, player);
+        }
     }
 }

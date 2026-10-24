@@ -24,6 +24,8 @@ public class LocalPlayerShootMixin {
     /** 改写 doShoot 中 Math.min 的第一个参数（当前弹匣量），绕过弹药为 0 的拦截 */
     @ModifyArg(method = "doShoot", at = @At(value = "INVOKE", target = "Ljava/lang/Math;min(II)I", remap = false), index = 0)
     private int fixAmmoCount(int ammoCount) {
+        // TACZ 1.1.4 无 useInventoryAmmo：不绕过弹匣拦截
+        if (!com.solr98.beyondintegration.compat.tacz.TaczApiCompat.supportsUseInventoryAmmo()) return ammoCount;
         if (ammoCount > 0) return ammoCount;
         ItemStack stack = player.getMainHandItem();
         if (!(stack.getItem() instanceof IGun iGun)) return ammoCount;

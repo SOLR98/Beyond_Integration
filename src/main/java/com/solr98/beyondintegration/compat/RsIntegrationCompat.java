@@ -30,6 +30,20 @@ public final class RsIntegrationCompat {
 
     private RsIntegrationCompat() {}
 
+    /**
+     * 按顺序尝试类名：RI 1.5.2 起包名重构（新增 feature/machine/client 层级），
+     * 新包优先、旧包回退；均不存在返回 null。
+     */
+    private static Class<?> findClass(String... names) {
+        for (String name : names) {
+            try {
+                return Class.forName(name);
+            } catch (Throwable ignored) {
+            }
+        }
+        return null;
+    }
+
     /** 登记由本模组接管的按钮 */
     public static void manage(Button button) {
         if (button != null) MANAGED.add(button);
@@ -43,27 +57,40 @@ public final class RsIntegrationCompat {
     /** 反射调用 RI 机器中心面板切换（接管其手动渲染按钮的点击） */
     public static void toggleMachineCenter() {
         try {
-            Class<?> cls = Class.forName("com.huanghuang.rsintegration.sidepanel.client.MachineTabHandler");
-            cls.getMethod("toggleMachineCenter").invoke(null);
+            Class<?> cls = findClass(
+                    "com.huanghuang.rsintegration.machine.client.MachineTabHandler",
+                    "com.huanghuang.rsintegration.sidepanel.client.MachineTabHandler");
+            if (cls != null) cls.getMethod("toggleMachineCenter").invoke(null);
         } catch (Throwable ignored) {}
     }
 
     /** 反射调用 RI 维度共振盘背包切换（接管其手动渲染按钮的点击） */
     public static void toggleResonanceBackpack() {
         try {
-            Class<?> cls = Class.forName("com.huanghuang.rsintegration.sidepanel.client.MachineTabHandler");
-            cls.getMethod("toggleResonanceBackpack", boolean.class).invoke(null, true);
+            Class<?> cls = findClass(
+                    "com.huanghuang.rsintegration.machine.client.MachineTabHandler",
+                    "com.huanghuang.rsintegration.sidepanel.client.MachineTabHandler");
+            if (cls != null) cls.getMethod("toggleResonanceBackpack", boolean.class).invoke(null, true);
         } catch (Throwable ignored) {}
     }
 
     /** 反射触发 RI 自动进食（等同其 EAT 按钮） */
     public static void sendAutoEat() {
         try {
-            Class<?> state = Class.forName("com.huanghuang.rsintegration.autoeat.client.ClientState");
+            Class<?> state = findClass(
+                    "com.huanghuang.rsintegration.feature.autoeat.client.ClientState",
+                    "com.huanghuang.rsintegration.autoeat.client.ClientState");
+            if (state == null) return;
             Object mode = state.getField("currentMode").get(null);
             Object selected = state.getField("selectedItems").get(null);
-            Class<?> modeCls = Class.forName("com.huanghuang.rsintegration.autoeat.AutoEatMode");
-            Object packet = Class.forName("com.huanghuang.rsintegration.autoeat.network.AutoEatPacket")
+            Class<?> modeCls = findClass(
+                    "com.huanghuang.rsintegration.feature.autoeat.AutoEatMode",
+                    "com.huanghuang.rsintegration.autoeat.AutoEatMode");
+            Class<?> packetCls = findClass(
+                    "com.huanghuang.rsintegration.feature.autoeat.network.AutoEatPacket",
+                    "com.huanghuang.rsintegration.autoeat.network.AutoEatPacket");
+            if (modeCls == null || packetCls == null) return;
+            Object packet = packetCls
                     .getConstructor(modeCls, java.util.Collection.class)
                     .newInstance(mode, selected);
             sendToServer(packet);
@@ -73,10 +100,19 @@ public final class RsIntegrationCompat {
     /** 反射打开 RI 自动进食选择界面（等同其 SELECT 按钮） */
     public static void openAutoEatScreen() {
         try {
-            Class<?> state = Class.forName("com.huanghuang.rsintegration.autoeat.client.ClientState");
+            Class<?> state = findClass(
+                    "com.huanghuang.rsintegration.feature.autoeat.client.ClientState",
+                    "com.huanghuang.rsintegration.autoeat.client.ClientState");
+            if (state == null) return;
             Object mode = state.getField("currentMode").get(null);
-            Class<?> modeCls = Class.forName("com.huanghuang.rsintegration.autoeat.AutoEatMode");
-            Object screen = Class.forName("com.huanghuang.rsintegration.autoeat.client.AutoEatScreen")
+            Class<?> modeCls = findClass(
+                    "com.huanghuang.rsintegration.feature.autoeat.AutoEatMode",
+                    "com.huanghuang.rsintegration.autoeat.AutoEatMode");
+            Class<?> screenCls = findClass(
+                    "com.huanghuang.rsintegration.feature.autoeat.client.AutoEatScreen",
+                    "com.huanghuang.rsintegration.autoeat.client.AutoEatScreen");
+            if (modeCls == null || screenCls == null) return;
+            Object screen = screenCls
                     .getConstructor(modeCls)
                     .newInstance(mode);
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
@@ -94,16 +130,21 @@ public final class RsIntegrationCompat {
     /** 反射循环切换 RI 自动进食模式（等同其 MODE 按钮） */
     public static void cycleAutoEatMode() {
         try {
-            Class.forName("com.huanghuang.rsintegration.autoeat.client.ClientState")
-                    .getMethod("cycleMode").invoke(null);
+            Class<?> cls = findClass(
+                    "com.huanghuang.rsintegration.feature.autoeat.client.ClientState",
+                    "com.huanghuang.rsintegration.autoeat.client.ClientState");
+            if (cls != null) cls.getMethod("cycleMode").invoke(null);
         } catch (Throwable ignored) {}
     }
 
     /** 当前 RI 自动进食模式显示名（RI 未加载或反射失败返回 null） */
     public static net.minecraft.network.chat.Component autoEatModeName() {
         try {
-            Object mode = Class.forName("com.huanghuang.rsintegration.autoeat.client.ClientState")
-                    .getField("currentMode").get(null);
+            Class<?> cls = findClass(
+                    "com.huanghuang.rsintegration.feature.autoeat.client.ClientState",
+                    "com.huanghuang.rsintegration.autoeat.client.ClientState");
+            if (cls == null) return null;
+            Object mode = cls.getField("currentMode").get(null);
             if (mode == null) return null;
             Object name = mode.getClass().getMethod("displayName").invoke(mode);
             return name instanceof net.minecraft.network.chat.Component c ? c : null;
@@ -138,7 +179,10 @@ public final class RsIntegrationCompat {
     public static void installControls(Screen screen, Consumer<Button> adder) {
         if (!isLoaded() || screen == null || adder == null) return;
         try {
-            Class<?> cls = Class.forName("com.huanghuang.rsintegration.autoeat.client.AutoEatClientEvents");
+            Class<?> cls = findClass(
+                    "com.huanghuang.rsintegration.feature.autoeat.client.AutoEatClientEvents",
+                    "com.huanghuang.rsintegration.autoeat.client.AutoEatClientEvents");
+            if (cls == null) return;
             Method method = cls.getMethod(INSTALL_METHOD, Screen.class, Consumer.class);
             INSTALLING.set(true);
             method.invoke(null, screen, adder);

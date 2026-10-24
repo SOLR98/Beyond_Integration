@@ -17,7 +17,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * RI 未安装或方法名不匹配时（{@code @Pseudo} + require=0）自动跳过。
  */
 @Pseudo
-@Mixin(targets = "com.huanghuang.rsintegration.autoeat.client.AutoEatScreen", remap = false)
+@Mixin(targets = {
+        "com.huanghuang.rsintegration.feature.autoeat.client.AutoEatScreen",
+        "com.huanghuang.rsintegration.autoeat.client.AutoEatScreen"
+}, remap = false)
 public class RsIntegrationAutoEatReturnMixin {
 
     /** Forge 运行时映射：Screen#onClose 的 SRG 名 */

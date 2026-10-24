@@ -94,6 +94,45 @@ public class CommandConfig
     }
 
     /**
+     * 经验棒自动修复档位（自动用网络经验修复玩家装备）：
+     * LOW    = 每次最多 1 XP，间隔 20 tick；
+     * NORMAL = 每次最多 4 XP，间隔 10 tick；
+     * HIGH   = 每次最多 16 XP，间隔 5 tick；
+     * MAX    = 每次最多 64 XP，每 tick。
+     * 每 1 XP 修复 2 点耐久（与原版经验修补一致）。
+     */
+    public enum XpRepairTier
+    {
+        LOW(1, 20), NORMAL(4, 10), HIGH(16, 5), MAX(64, 1);
+
+        private final int xpPerAction;
+        private final int intervalTicks;
+
+        XpRepairTier(int xpPerAction, int intervalTicks)
+        {
+            this.xpPerAction = xpPerAction;
+            this.intervalTicks = intervalTicks;
+        }
+
+        /** 每次修复可消耗的 XP 上限。 */
+        public int xpPerAction() { return xpPerAction; }
+
+        /** 修复间隔（tick）。 */
+        public int intervalTicks() { return intervalTicks; }
+    }
+
+    /**
+     * 经验棒自动修复的“每次修复耐久量”模式（仅作用于带“经验修补”附魔的装备）：
+     * PERCENT  = 每次修复最大耐久的百分比（各档位 xp_repair_tier_*_percent）；
+     * ABSOLUTE = 每次修复固定耐久值（xp_repair_absolute）。
+     * 二者选其一，实际修复量再受剩余损伤与当次 XP 预算限制。
+     */
+    public enum XpRepairAmountMode
+    {
+        PERCENT, ABSOLUTE
+    }
+
+    /**
      * 主网络同步范围：
      * ITEMS      = 仅物品键（默认，行为同旧版）；
      * STORAGE    = 所有 storage 键（含能量 / 灵魂）；
@@ -231,6 +270,26 @@ public class CommandConfig
         public final ForgeConfigSpec.IntValue xpRodMaxTargetLevel;
         public final ForgeConfigSpec.IntValue xpRodGrantBatchSize;
         public final ForgeConfigSpec.EnumValue<XpGrantMode> xpRodGrantMode;
+        /** 经验棒自动修复：允许使用该功能（总开关；实际使用由经验棒界面决定） */
+        public final ForgeConfigSpec.BooleanValue xpAutoRepairEnabled;
+        /** 允许界面选择“百分比”修复模式 */
+        public final ForgeConfigSpec.BooleanValue xpRepairAllowPercent;
+        /** 允许界面选择“固定值”修复模式 */
+        public final ForgeConfigSpec.BooleanValue xpRepairAllowAbsolute;
+        /** 百分比模式：各档位每次修复量（最大耐久的百分比） */
+        public final ForgeConfigSpec.IntValue xpRepairTierLowPercent;
+        public final ForgeConfigSpec.IntValue xpRepairTierNormalPercent;
+        public final ForgeConfigSpec.IntValue xpRepairTierHighPercent;
+        public final ForgeConfigSpec.IntValue xpRepairTierMaxPercent;
+        /** 固定值模式每次修复量（耐久值，配置决定数值） */
+        public final ForgeConfigSpec.IntValue xpAutoRepairAbsolute;
+        /** 各档位修复间隔（tick） */
+        public final ForgeConfigSpec.IntValue xpRepairTierLowInterval;
+        public final ForgeConfigSpec.IntValue xpRepairTierNormalInterval;
+        public final ForgeConfigSpec.IntValue xpRepairTierHighInterval;
+        public final ForgeConfigSpec.IntValue xpRepairTierMaxInterval;
+        /** 允许界面选择的最高修复档位（LOW..该档位） */
+        public final ForgeConfigSpec.EnumValue<XpRepairTier> xpRepairMaxTier;
         /** 桶入网自动分离：含流体的容器入网时拆为"流体 + 空容器"（默认开启） */
         public final ForgeConfigSpec.BooleanValue bucketSeparatorEnabled;
         /** 桶入网自动分离：仅处理桶物品（BucketItem，默认开启；关闭则连带拆分水瓶等非桶容器） */
@@ -576,6 +635,45 @@ public class CommandConfig
             xpRodGrantMode = builder
                     .comment(ConfigCommentLang.comment("bd_tweaks.grant_mode"))
                     .defineEnum("grant_mode", XpGrantMode.BATCH);
+            xpAutoRepairEnabled = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_enabled"))
+                    .define("xp_repair_enabled", true);
+            xpRepairAllowPercent = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_allow_percent"))
+                    .define("xp_repair_allow_percent", true);
+            xpRepairAllowAbsolute = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_allow_absolute"))
+                    .define("xp_repair_allow_absolute", true);
+            xpRepairTierLowPercent = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_tier_low_percent"))
+                    .defineInRange("xp_repair_tier_low_percent", 5, 0, 100);
+            xpRepairTierNormalPercent = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_tier_normal_percent"))
+                    .defineInRange("xp_repair_tier_normal_percent", 10, 0, 100);
+            xpRepairTierHighPercent = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_tier_high_percent"))
+                    .defineInRange("xp_repair_tier_high_percent", 20, 0, 100);
+            xpRepairTierMaxPercent = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_tier_max_percent"))
+                    .defineInRange("xp_repair_tier_max_percent", 50, 0, 100);
+            xpAutoRepairAbsolute = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_absolute"))
+                    .defineInRange("xp_repair_absolute", 100, 0, Integer.MAX_VALUE);
+            xpRepairTierLowInterval = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_tier_low_interval"))
+                    .defineInRange("xp_repair_tier_low_interval", 20, 1, 200);
+            xpRepairTierNormalInterval = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_tier_normal_interval"))
+                    .defineInRange("xp_repair_tier_normal_interval", 10, 1, 200);
+            xpRepairTierHighInterval = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_tier_high_interval"))
+                    .defineInRange("xp_repair_tier_high_interval", 5, 1, 200);
+            xpRepairTierMaxInterval = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_tier_max_interval"))
+                    .defineInRange("xp_repair_tier_max_interval", 1, 1, 200);
+            xpRepairMaxTier = builder
+                    .comment(ConfigCommentLang.comment("bd_tweaks.xp_repair_max_tier"))
+                    .defineEnum("xp_repair_max_tier", XpRepairTier.MAX);
             bucketSeparatorEnabled = builder
                     .comment(ConfigCommentLang.comment("bd_tweaks.bucket_separator_enabled"))
                     .define("bucket_separator_enabled", true);
@@ -1108,6 +1206,41 @@ public class CommandConfig
 
     /** 经验棒经验给予方式（BATCH 分批 / DIRECT 直设式） */
     public static XpGrantMode xpRodGrantMode() { return SERVER.xpRodGrantMode.get(); }
+
+    /** 经验棒自动修复开关（用绑定网络的经验修复玩家装备） */
+    public static boolean xpAutoRepairEnabled() { return SERVER.xpAutoRepairEnabled.get(); }
+
+    /** 允许界面选择“百分比”修复模式 */
+    public static boolean xpRepairAllowPercent() { return SERVER.xpRepairAllowPercent.get(); }
+
+    /** 允许界面选择“固定值”修复模式 */
+    public static boolean xpRepairAllowAbsolute() { return SERVER.xpRepairAllowAbsolute.get(); }
+
+    /** 经验棒自动修复：档位对应的每次修复百分比（PERCENT 模式） */
+    public static int xpRepairTierPercent(XpRepairTier tier) {
+        return switch (tier) {
+            case LOW -> SERVER.xpRepairTierLowPercent.get();
+            case NORMAL -> SERVER.xpRepairTierNormalPercent.get();
+            case HIGH -> SERVER.xpRepairTierHighPercent.get();
+            case MAX -> SERVER.xpRepairTierMaxPercent.get();
+        };
+    }
+
+    /** 经验棒自动修复：档位对应的修复间隔（tick） */
+    public static int xpRepairTierInterval(XpRepairTier tier) {
+        return switch (tier) {
+            case LOW -> SERVER.xpRepairTierLowInterval.get();
+            case NORMAL -> SERVER.xpRepairTierNormalInterval.get();
+            case HIGH -> SERVER.xpRepairTierHighInterval.get();
+            case MAX -> SERVER.xpRepairTierMaxInterval.get();
+        };
+    }
+
+    /** 经验棒自动修复每次修复量（固定耐久值，ABSOLUTE 模式） */
+    public static int xpAutoRepairAbsolute() { return SERVER.xpAutoRepairAbsolute.get(); }
+
+    /** 允许界面选择的最高修复档位（LOW..该档位） */
+    public static XpRepairTier xpRepairMaxTier() { return SERVER.xpRepairMaxTier.get(); }
 
     /** 网络磁铁是否使用自定义档位列表 */
     public static boolean magnetCustomTiersEnabled() { return SERVER.magnetCustomTiersEnabled.get(); }

@@ -20,7 +20,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * 未装 RI 或结构变化时静默跳过（{@code @Pseudo} + {@code require = 0}）。
  */
 @Pseudo
-@Mixin(targets = "com.huanghuang.rsintegration.transfer.ContainerTransferClient", remap = false)
+@Mixin(targets = {
+        "com.huanghuang.rsintegration.client.transfer.ContainerTransferClient",
+        "com.huanghuang.rsintegration.transfer.ContainerTransferClient"
+}, remap = false)
 public class RsIntegrationContainerTransferFixMixin {
 
     @Redirect(method = "registerKeyMappings",

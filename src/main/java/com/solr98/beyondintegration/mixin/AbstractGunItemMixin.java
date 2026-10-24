@@ -71,7 +71,7 @@ public class AbstractGunItemMixin {
     }
 
     /** 扩展 hasInventoryAmmo：网络中存在弹药时视为拥有库存弹药（服务端按玩家网络、客户端按本地缓存判断） */
-    @Inject(method = "hasInventoryAmmo", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "hasInventoryAmmo", at = @At("RETURN"), cancellable = true, require = 0)
     private void onHasInventoryAmmo(LivingEntity shooter, ItemStack gun, boolean needCheckAmmo,
                                     CallbackInfoReturnable<Boolean> cir) {
         if (cir.getReturnValue()) return;
@@ -99,8 +99,8 @@ public class AbstractGunItemMixin {
         }
     }
 
-    /** 扩展 findAndExtractInventoryAmmo：背包弹药不足时，从玩家维度网络或终端容器网络中扣除弹药补足 */
-    @Inject(method = "findAndExtractInventoryAmmo", at = @At("RETURN"), cancellable = true)
+    /** 扩展 findAndExtractInventoryAmmos：背包弹药不足时，从玩家维度网络或终端容器网络中扣除弹药补足（TACZ 1.1.4/1.1.5+ 均存在该方法） */
+    @Inject(method = "findAndExtractInventoryAmmos", at = @At("RETURN"), cancellable = true, require = 0)
     private void onFindAndExtractInventoryAmmo(IItemHandler itemHandler, ItemStack gunItem, int needAmmoCount,
                                                 CallbackInfoReturnable<Integer> cir) {
         int fromOrig = cir.getReturnValueI();

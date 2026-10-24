@@ -297,11 +297,14 @@ public class BeyondIntegration {
         LOGGER.info("Registered ItemBlacklistHandler");
     }
 
-    /** 注册 TACZ 弹药箱自动提取拦截器（仅在 tacz 加载时） */
+    /** 注册 TACZ 弹药箱/弹药库方块自动提取拦截器（仅在 tacz 加载时） */
     private void registerAmmoBoxExtractHandler() {
         if (ModList.get().isLoaded("tacz")) {
             com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
                     .addHandler(new com.solr98.beyondintegration.feature.ammo.tacz.AmmoBoxExtractHandler());
+            // 1.2.0 弹药库方块：入网时拆解内部弹药，空格入库
+            com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
+                    .addHandler(new com.solr98.beyondintegration.feature.ammo.tacz.AmmoStorageExtractHandler());
             LOGGER.info("Registered AmmoBoxExtractHandler");
         }
     }

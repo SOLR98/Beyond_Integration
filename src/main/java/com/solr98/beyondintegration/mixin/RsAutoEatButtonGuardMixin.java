@@ -15,7 +15,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * RI 未安装时（@Pseudo）本 mixin 自动跳过。
  */
 @Pseudo
-@Mixin(targets = "com.huanghuang.rsintegration.autoeat.client.AutoEatClientEvents$AutoEatButton", remap = false)
+@Mixin(targets = {
+        "com.huanghuang.rsintegration.feature.autoeat.client.AutoEatClientEvents$AutoEatButton",
+        "com.huanghuang.rsintegration.autoeat.client.AutoEatClientEvents$AutoEatButton"
+}, remap = false)
 public class RsAutoEatButtonGuardMixin {
 
     @Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true, remap = false, require = 0)

@@ -14,7 +14,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * 重定向为"成功取实值、失败取默认值"。未装 RI 或结构变化时静默跳过。
  */
 @Pseudo
-@Mixin(targets = "com.huanghuang.rsintegration.sidepanel.RSSidePanelModule", remap = false)
+@Mixin(targets = {
+        "com.huanghuang.rsintegration.feature.sidepanel.RSSidePanelModule",
+        "com.huanghuang.rsintegration.sidepanel.RSSidePanelModule"
+}, remap = false)
 public class RsIntegrationSidePanelModuleFixMixin {
 
     @Redirect(method = "isEnabled",

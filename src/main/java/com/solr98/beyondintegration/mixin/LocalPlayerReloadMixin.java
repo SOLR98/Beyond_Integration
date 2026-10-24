@@ -41,6 +41,8 @@ public class LocalPlayerReloadMixin {
     /** 在 reload 头部注入：校验换弹可行性后接管流程，锁定状态并通知服务端 */
     @Inject(method = "reload", at = @At("HEAD"), cancellable = true)
     private void onReload(CallbackInfo ci) {
+        // TACZ 1.1.4 无 useInventoryAmmo：跳过接管，走原版逻辑（网络补弹由 findAndExtractInventoryAmmos 注入完成）
+        if (!com.solr98.beyondintegration.compat.tacz.TaczApiCompat.supportsUseInventoryAmmo()) return;
         ItemStack mainHandItem = player.getMainHandItem();
         if (!(mainHandItem.getItem() instanceof AbstractGunItem gunItem)) return;
         if (!gunItem.useInventoryAmmo(mainHandItem)) return;

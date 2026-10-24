@@ -19,7 +19,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * RI 未安装时（@Pseudo）本 mixin 自动跳过。
  */
 @Pseudo
-@Mixin(targets = "com.huanghuang.rsintegration.machine.BeyondDimensionsMachineHubClient", remap = false)
+@Mixin(targets = {
+        "com.huanghuang.rsintegration.machine.client.BeyondDimensionsMachineHubClient",
+        "com.huanghuang.rsintegration.machine.BeyondDimensionsMachineHubClient"
+}, remap = false)
 public class RsIntegrationMachineHubMixin {
 
     /** 屏蔽机器中心按钮渲染（仅 BD 界面） */

@@ -5,6 +5,7 @@ import com.solr98.beyondintegration.client.TaczAmmoCache;
 import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.client.gui.overlay.GunHudOverlay;
+import com.tacz.guns.resource.pojo.data.gun.GunData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -37,9 +38,21 @@ public class GunHudOverlayMixin {
     @Unique
     private static int beyond$networkAmmoCount = 0;
 
-    /** 在原弹药统计后记录网络弹药数量（原值达到 9999 上限时视为已满则不叠加） */
-    @Inject(method = "handleInventoryAmmo", at = @At("RETURN"))
+    /** 旧版 TACZ（1.1.8-hotfix/hotfix2）：在原弹药统计后记录网络弹药数量。 */
+    @Inject(method = "handleInventoryAmmo", at = @At("RETURN"), require = 0)
     private static void onHandleInventoryAmmo(ItemStack stack, Inventory inventory, CallbackInfo ci) {
+        beyond$updateNetworkAmmo(stack);
+    }
+
+    /** 新版 TACZ（1023+ 重构）：handleInventoryAmmo 更名为 handleCacheCount，注入同一逻辑。 */
+    @Inject(method = "handleCacheCount", at = @At("RETURN"), require = 0)
+    private static void onHandleCacheCount(LocalPlayer player, ItemStack stack, GunData gunData, IGun gun, CallbackInfo ci) {
+        beyond$updateNetworkAmmo(stack);
+    }
+
+    /** 原值达到 9999 上限时视为已满则不叠加网络弹药。 */
+    @Unique
+    private static void beyond$updateNetworkAmmo(ItemStack stack) {
         if (cacheInventoryAmmoCount >= 9999) return;
 
         ResourceLocation ammoId = TaczAmmoExtractor.getAmmoIdClient(stack);

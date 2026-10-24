@@ -43,6 +43,8 @@ public class LivingEntityReloadMixin {
     /** 在 reload 头部注入：校验冷却/状态后接管换弹流程，设置战术或空仓换弹状态并启动换弹 */
     @Inject(method = "reload", at = @At("HEAD"), cancellable = true)
     private void onReload(CallbackInfo ci) {
+        // TACZ 1.1.4 无 useInventoryAmmo：跳过接管，走原版逻辑（网络补弹由 findAndExtractInventoryAmmos 注入完成）
+        if (!com.solr98.beyondintegration.compat.tacz.TaczApiCompat.supportsUseInventoryAmmo()) return;
         if (data.currentGunItem == null) return;
         ItemStack currentGunItem = data.currentGunItem.get();
         if (!(currentGunItem.getItem() instanceof AbstractGunItem gunItem)) return;
