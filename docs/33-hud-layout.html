@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>33 · 通用 HUD 布局框架 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>33 · 通用 HUD 布局框架</h1>
+    <div class="sub">可自定义各 HUD 位置（保存为屏幕比例，缩放窗口后按比例跟随）· 单界面同屏拖动编辑 · 统一配置 <code>hud_layout</code> · 仅客户端</div>
+</header>
+
+<div class="card">
+    <h2>一、目标</h2>
+    <p>把「BI 自有 HUD 的位置」做成<b>可配置 + 可视化调整</b>的通用设施：</p>
+    <ul>
+        <li>每个 HUD 元素有<b>默认位置</b>（相对原版锚点或固定）；</li>
+        <li>编辑器保存为<b>当前屏幕比例</b>（RATIO），窗口/分辨率缩小后仍按相对位置显示；旧版相对偏移/绝对坐标仍可读取；</li>
+        <li>用<b>同一个编辑器界面</b>同屏展示所有可调 HUD，拖动即所见即所得；</li>
+        <li>布局统一存于一份客户端配置 <code>hud_layout</code>（合并管理）。</li>
+    </ul>
+    <div class="note"><b>一句话</b>新增 HUD 只需「加枚举 + 注册预览 + 绘制处取坐标」三步即可纳入统一位置框架。</div>
+</div>
+
+<div class="card">
+    <h2>二、组件</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>元素枚举</td><td><code>client/hud/HudElement</code></td><td>可调 HUD 的 ID 与显示名（<code>soul</code> / <code>net_sync</code> / <code>net_mana</code>）</td></tr>
+        <tr><td>布局</td><td><code>client/hud/HudLayout</code></td><td>解析/写入 <code>hud_layout</code>；<code>resolveX/Y(e, defX/Y, screenW/H)</code> 求实际坐标；<code>setRatio/setAbsolute/clear</code></td></tr>
+        <tr><td>预览接口</td><td><code>client/hud/HudPreview</code></td><td>元素的命中尺寸、默认位置、预览绘制、可用性（依赖模组缺失时从编辑器隐藏）</td></tr>
+        <tr><td>注册表</td><td><code>client/hud/BiHuds</code></td><td><code>HudElement → HudPreview</code> 注册与枚举</td></tr>
+        <tr><td>编辑器</td><td><code>client/gui/HudPositionScreen</code></td><td>同屏展示全部元素；点击选中、拖动移动；保存为屏幕比例/重置；按钮避让当前项</td></tr>
+        <tr><td>条体渲染</td><td><code>client/render/SoulHudRenderer</code></td><td>SOUL 元素的 HUD 与预览共用渲染</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>三、配置（CLIENT）</h2>
+    <table>
+        <tr><th>键</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>hud_layout</code></td><td>空</td><td>统一布局列表。编辑器写入 <code>&lt;id&gt;=RATIO:x:y</code>（<code>x/y</code> 为 0..10000 的屏幕万分比）；兼容读取旧的 <code>&lt;id&gt;=RELATIVE:dx:dy</code> / <code>&lt;id&gt;=ABSOLUTE:x:y</code>；<b>无项 = 该 HUD 默认位置</b>。</td></tr>
+        <tr><td><code>show_net_sync_status</code></td><td>false</td><td>是否显示主网络同步状态 HUD（仅同步启用时生效）。</td></tr>
+        <tr><td><code>irons_mana_hud</code></td><td>true</td><td>是否显示网络魔力独立 HUD（需铁魔法与网络魔力源）。</td></tr>
+        <tr><td><code>hud_visual_edit</code></td><td>true</td><td>是否允许用快捷键打开位置编辑器。</td></tr>
+    </table>
+    <div class="note">快捷键「<b>打开 HUD 位置调整</b>」（<code>key.beyond_integration.open_soul_hud_editor</code>，默认未绑定，控制设置中分配）。</div>
+</div>
+
+<div class="card">
+    <h2>四、位置语义</h2>
+    <ul>
+        <li><b>RATIO</b>（编辑器保存）：实际坐标 = <b>万分比 × 当前屏幕尺寸</b>；窗口/分辨率变化后按比例跟随（如 5000 = 屏幕中线）。</li>
+        <li><b>RELATIVE</b>（旧格式，兼容读取）：实际坐标 = <b>元素默认坐标 + (dx,dy)</b>。默认坐标由元素自身决定（如 SOUL 为「原版灵魂条上方两行」、NET_SYNC 为「快捷栏上方水平居中」）。</li>
+        <li><b>ABSOLUTE</b>（旧格式，兼容读取）：实际坐标 = <b>(x,y)</b>（GUI 缩放坐标，元素左上角）。</li>
+        <li>无 <code>hud_layout</code> 项：直接用元素默认坐标（行为与未引入本框架一致）。</li>
+        <li><b>容错</b>：格式错误、未知模式、越界比例（RATIO 超出 0..10000）或解析异常时，该元素<b>自动回退默认位置</b>，不会崩溃；保存时会顺带清理同 id 的损坏项。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>五、当前接入的 HUD</h2>
+    <table>
+        <tr><th>id</th><th>名称</th><th>默认位置</th><th>备注</th></tr>
+        <tr><td><code>soul</code></td><td>网络灵魂条</td><td>原版灵魂条上方两行（居中；中间一行留给灵魂增减弹字）</td><td>见联动篇 32；由 <code>SoulEnergyGuiMixin</code> 绘制，条上方另有网络魂增减弹字</td></tr>
+        <tr><td><code>net_sync</code></td><td>主网络同步状态</td><td>快捷栏上方、水平居中（<code>screenHeight-45</code>）</td><td>由 <code>NetSyncStatusOverlay</code> 绘制；仅同步启用且 <code>show_net_sync_status</code>（默认关闭）开启时显示</td></tr>
+        <tr><td><code>net_mana</code></td><td>网络魔力（铁魔法）</td><td>快捷栏上方、水平居中（<code>screenHeight-45</code>）</td><td>由 <code>NetManaHudOverlay</code> 绘制；需安装 Iron's Spells 且存在网络魔力源</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>六、扩展新 HUD（三步）</h2>
+    <ol>
+        <li>在 <code>HudElement</code> 加枚举项（含 <code>id</code>）；</li>
+        <li>在 <code>BiHuds</code> 静态块 <code>register(...)</code> 其 <code>HudPreview</code>（<code>width()/height()/render()/defaultX()/defaultY()</code>）；</li>
+        <li>该 HUD 的绘制处把最终坐标改为 <code>HudLayout.resolveX(元素, defX)</code> / <code>resolveY(元素, defY)</code>。</li>
+    </ol>
+    <div class="note">随后该 HUD 会自动出现在编辑器中并可独立保存；无需改动编辑器或配置结构。</div>
+</div>
+
+<div class="card">
+    <h2>七、编辑界面行为</h2>
+    <ul>
+        <li>同屏渲染所有已注册元素：当前选中项橙色描边、其余半透明描边；</li>
+        <li><b>点击</b>任一元素即选中并开始拖动；<code>◀ / ▶</code> 循环切换选中项；</li>
+        <li><b>保存</b>：把选中项按当前屏幕尺寸写为 <code>RATIO</code> 比例（窗口缩放后按比例跟随）；<b>重置</b>：清除该项回默认；</li>
+        <li>屏幕中心十字为参考线；顶部显示当前元素名、<code>x/y</code> 与模式；</li>
+        <li>保存/重置按钮<b>自动避让当前正在调整的元素</b>（默认底部，重叠则切顶部，两端都叠取重叠更小的一侧）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/client/hud/HudElement.java<span class="fdesc">HUD 元素枚举</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/hud/HudLayout.java<span class="fdesc">布局解析/写入</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/hud/HudPreview.java<span class="fdesc">预览接口</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/hud/BiHuds.java<span class="fdesc">预览注册表</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/gui/HudPositionScreen.java<span class="fdesc">统一位置编辑器</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/render/SoulHudRenderer.java<span class="fdesc">灵魂条渲染（HUD/预览共用）</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/BDKeyBindings.java<span class="fdesc">打开编辑器快捷键</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/ClientConfig.java<span class="fdesc">hud_layout / hud_visual_edit</span></li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 系统与开发篇 · 仅客户端 · Beyond Integration v0.7.3
+</footer>
+
+</div>
+</body>
+</html>

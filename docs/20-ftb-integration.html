@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>22 · FTB Quests 集成 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>22 · FTB Quests 集成</h1>
+    <div class="sub">网络资源计入检测类任务（按任务需求精准收集）· 消耗型任务背包+网络合并提交（多候选弹选择 GUI）· XP 任务网络经验补足 · 手动检测命令 · 网络变化自动检测（可选）· 奖励领取选择 GUI（勾选部分 + 逐条去向）· 单条奖励 Shift 进网络 · 领取通知与入网标识 · 任务 tooltip 显示网络数量（完整千分位）· 统一数值格式化 · 检测到 rs_integration 时让路禁用</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <ul>
+        <li><b>检测类任务计入网络资源</b>：非消耗型物品任务扫描时，按<b>任务需求精准收集</b>主网络中的匹配物品（含已有存量），收集类任务自动完成/更新进度；不把整个网络全量注入 FTB 汇总。</li>
+        <li><b>消耗型任务背包+网络合并提交</b>：点击提交时先按原版从背包扣料，背包不足的缺口<b>直接从主网络扣除</b>并计入进度（不经过背包，背包满也能提交）。</li>
+        <li><b>多候选选择提交 GUI</b>：可提交物品种类 &gt; 1 时（典型为标签/过滤器任务）弹出选择界面——左侧候选列表（名称 + 背包/网络可用量，已选行绿框高亮），右侧已选栏（独立分页）；支持数字键 1-9、滚轮、左右键调整，自动填充/补满/清空；悬停显示完整千分位数值；提交/取消/ESC 后返回 FTB 任务界面。单一候选保持原自动路径。</li>
+        <li><b>XP 任务网络经验补足</b>：提交经验任务时玩家等级/经验点不足的部分，从主网络提取 XP 流体（1 点 = 20 mB）<b>直接补给玩家</b>，随后由 FTB 原生逻辑扣除并计入进度。</li>
+        <li><b>流体/能量任务网络提交</b>：FTB 原版这两类任务只能通过任务屏输入，现支持点击提交时从主网络直接扣除流体（fluid + NBT/components 精确匹配）或 FE 能量并计入进度。</li>
+        <li><b>手动检测命令</b>：<code>/bdftb scan</code> 手动触发一次 FTB 任务检测（忽略检测缓存，强制重新扫描主网络），用于网络存入物品后立即刷新任务进度。</li>
+        <li><b>网络变化自动检测（可选）</b>：开启 <code>auto_detect_enable</code> 后，订阅在线玩家主网络的存储变化——任务目标物品入网时经节流窗口合并，自动对相关玩家触发检测（无需手动命令）。</li>
+        <li><b>奖励领取选择 GUI</b>：奖励界面 Shift+点击"领取所有"打开——按<b>章节/任务</b>列出全部可领取奖励（显示提供奖励的任务），每条可<b>勾选是否领取</b>并切换去向（网络/背包；复合奖励按输出结果结算入网）；支持全选/全不选/全部网络/全部背包、去向汇总、悬停详情；提交后服务端逐条校验领取。</li>
+        <li><b>单条奖励领取进网络</b>：任务/奖励界面 Shift+点击单条奖励按钮，物品奖励直接进主网络（普通点击保持原版进背包）；选择奖励（choice）需玩家交互，保持原版。</li>
+        <li><b>领取通知与入网标识</b>：物品奖励被接管入网后补发 FTB 领取通知，并附加青色"奖励已收到网络：{物品} ×N"标识（仅统计实际入网数量）。</li>
+        <li><b>统一数值格式化</b>：<code>util/NumberFormatUtil</code> 提供千分位 / FTB 格式（K/M/B，最高 B）/ SI 单位（K/M/G/T/P/E）——任务 tooltip 用完整千分位，选择 GUI 用 FTB 格式，JEI 数量角标用 SI 整数（不解析内容，防止提前预览奖励结果）。</li>
+        <li><b>任务 tooltip 网络数量</b>：悬停物品/流体/能量任务时，提示框追加青色"<b>{网络标识}网络：N</b>"（完整千分位；标识优先网络自定义名，无则网络 ID）；按需查询 + 客户端缓存兜底 + 服务端订阅推送。</li>
+        <li><b>检测频率可配置</b>：<code>ftb_integration.detect_cache_ticks</code> 控制检测结果缓存时长（0 = 每次检测都重新扫描网络）。</li>
+    </ul>
+    <div class="note"><b>队伍共享</b>FTB 的任务进度/完成状态由 <code>TeamData</code> 按 FTB 队伍（teamId）共享——队伍中任一成员触发检测即推进全队进度，因此检测侧只需检测各自的主网络，不合并队友网络资源。</div>
+    <div class="warn"><b>让路条件</b>检测到 <code>rs_integration</code>（RI）加载时：MixinPlugin 不应用 FTB Mixin + 运行时开关返回 false，全部集成功能禁用。</div>
+</div>
+
+<div class="card">
+    <h2>实现状态</h2>
+    <table>
+        <tr><th>能力</th><th>状态</th><th>说明</th></tr>
+        <tr><td>检测类任务计入网络资源（含存量）</td><td style="color:var(--green)">✔ 已实现</td><td>按任务目标精准收集；1.20.1 修复注入点（原目标类不存在）</td></tr>
+        <tr><td>消耗型任务背包+网络合并提交</td><td style="color:var(--green)">✔ 已实现</td><td>背包扣料复用 FTB 原生 <code>ItemTask.insert</code>，缺口直接从网络扣除</td></tr>
+        <tr><td>多候选选择提交 GUI（标签任务）</td><td style="color:var(--green)">✔ 已实现</td><td>候选&gt;1 时弹窗；数字键/滚轮/点击调整、已选栏分页、完整数值 tooltip、提交后回退任务界面</td></tr>
+        <tr><td>标签/过滤器任务匹配</td><td style="color:var(--green)">✔ 已实现</td><td>经 FTB <code>ItemMatchingSystem</code> 适配器编译匹配器，检测/提交/tooltip 全链路覆盖</td></tr>
+        <tr><td>XP 任务网络经验补足</td><td style="color:var(--green)">✔ 已实现</td><td>消耗网络 XP 流体补给玩家（等级/点数模式均支持），再由原版逻辑扣除提交</td></tr>
+        <tr><td>流体/能量任务网络提交</td><td style="color:var(--green)">✔ 已实现</td><td>点击提交从网络扣除流体/FE 并计入进度（原版仅任务屏可提交）</td></tr>
+        <tr><td>手动检测命令</td><td style="color:var(--green)">✔ 已实现</td><td><code>/bdftb scan</code>（所有玩家，仅作用于自己）</td></tr>
+        <tr><td>奖励领取选择 GUI</td><td style="color:var(--green)">✔ 已实现</td><td>Shift+领取所有打开；按章节/任务来源、勾选部分领取、逐条网络/背包去向、汇总与悬停详情</td></tr>
+        <tr><td>单条奖励领取进网络</td><td style="color:var(--green)">✔ 已实现</td><td>Shift+点击奖励按钮；choice 需玩家交互保持原版</td></tr>
+        <tr><td>领取通知 + 入网标识</td><td style="color:var(--green)">✔ 已实现</td><td>补发 FTB 通知（1.21.1 <code>NotifyItemRewardMessage</code> / 1.20.1 <code>DisplayItemRewardToastMessage</code>）+ actionbar 标识</td></tr>
+        <tr><td>统一数值格式化</td><td style="color:var(--green)">✔ 已实现</td><td><code>NumberFormatUtil</code>：千分位 / FTB（K/M/B）/ SI（K/M/G/T/P/E）；应用于 tooltip、选择 GUI、JEI 角标</td></tr>
+        <tr><td>任务 tooltip 显示网络数量</td><td style="color:var(--green)">✔ 已实现</td><td>物品/流体/能量任务；完整千分位；服务端订阅 + 变化推送 + 客户端缓存兜底</td></tr>
+        <tr><td>检测频率配置</td><td style="color:var(--green)">✔ 已实现</td><td><code>detect_cache_ticks</code> / <code>detect_max_item_types</code>（服务器全局）</td></tr>
+        <tr><td>网络变化自动检测</td><td style="color:var(--green)">✔ 已实现（默认关闭）</td><td>BD 存储 delta 订阅 + 节流合并 + 按队伍去重触发；<code>auto_detect_enable</code> 控制</td></tr>
+        <tr><td>配置开关 + RI 让路</td><td style="color:var(--green)">✔ 已实现</td><td>MixinPlugin 门控 + 运行时双检</td></tr>
+        <tr><td>JEI 任务提交分类界面</td><td style="color:var(--yellow)">✘ 未实现</td><td>RI 在 JEI 显示"可提交任务"列表并支持一键提交</td></tr>
+        <tr><td>缺失物品书签</td><td style="color:var(--yellow)">✘ 未实现</td><td>RI 的任务书签/缺失物品书签链路</td></tr>
+        <tr><td>自动合成进度跟踪</td><td style="color:var(--yellow)">✘ 未实现</td><td>RI 的 RsAutocraftProgressTracker（合成完成计入任务）</td></tr>
+        <tr><td>提交托管 / 失败回滚</td><td style="color:var(--yellow)">✘ 未实现</td><td>RI 的 QuestSubmissionEscrow/Planner/Executor 完整流程</td></tr>
+        <tr><td>任务屏（TaskScreen）从网络补料</td><td style="color:var(--yellow)">✘ 未实现</td><td>任务屏的物品/流体/能量方块输入路径未接管（点击提交路径已支持）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>集成助手</td><td><code>feature/ftb/FtbIntegrationHelper</code></td><td>总开关（配置 + RI 让路）、领取进网络标记、手动检测、按任务计数、网络直接扣除</td></tr>
+        <tr><td>检测收集器</td><td><code>feature/ftb/FtbTaskNetworkScanner</code></td><td>按任务需求精准收集网络物品 / 按任务统计网络数量（结果缓存；过滤器任务编译匹配器）</td></tr>
+        <tr><td>奖励领取（旧路径）</td><td><code>feature/ftb/FtbRewardClaimer</code></td><td>复刻 FTB 领取遍历（已完成任务的全部未领取奖励）</td></tr>
+        <tr><td>物品选择提交服务</td><td><code>feature/ftb/FtbItemSubmitSelectionService</code></td><td>候选汇总（背包+网络按类型/组件合并）、选择校验、先背包后网络扣除并计入进度</td></tr>
+        <tr><td>奖励选择服务</td><td><code>feature/ftb/FtbRewardSelectionService</code></td><td>单条/批量奖励领取（校验 <code>claimType.canClaim</code>、逐条网络标记、调用原版 claim）</td></tr>
+        <tr><td>自动检测服务</td><td><code>feature/ftb/FtbAutoDetectService</code></td><td>订阅使用中的网络存储 delta → 节流合并 → 按队伍去重触发 detect</td></tr>
+        <tr><td>队伍助手</td><td><code>feature/ftb/FtbTeamHelper</code></td><td>经 <code>TeamData.getTeamId()</code> 取队伍 ID（自动检测去重用）</td></tr>
+        <tr><td>汇总注入（1.20.1）</td><td><code>mixin/FtbInventorySummaryMixin</code></td><td>注入 <code>FTBQuestsInventoryListener.buildInventorySummary</code> RETURN，追加任务目标匹配的网络物品</td></tr>
+        <tr><td>汇总注入（1.21.1）</td><td><code>mixin/FtbPlayerInventorySummaryMixin</code></td><td>注入 <code>PlayerInventorySummary.build</code> RETURN，同上</td></tr>
+        <tr><td>消耗型提交</td><td><code>mixin/FtbItemTaskMixin</code></td><td>接管 <code>ItemTask.submitTask</code> 点击提交：多候选弹选择 GUI；单候选背包扣料 + 网络直接扣除</td></tr>
+        <tr><td>XP 任务补足</td><td><code>mixin/FtbXpTaskMixin</code></td><td><code>XPTask.submitTask</code> HEAD：按缺口从网络提取 XP 流体补给玩家</td></tr>
+        <tr><td>流体/能量提交</td><td><code>mixin/FtbTaskSubmitMixin</code></td><td><code>Task.submitTask</code> HEAD：识别 FluidTask/EnergyTask 从网络扣除并计入进度</td></tr>
+        <tr><td>奖励方向</td><td><code>mixin/FtbItemRewardMixin</code></td><td>标记期间把物品奖励插入主网络（余量返还玩家）；补发 FTB 通知 + "已收到网络"标识</td></tr>
+        <tr><td>单条奖励进网络</td><td><code>mixin/FtbRewardButtonMixin</code></td><td><code>Reward.onButtonClicked</code> HEAD：Shift+点击发送单条领取到网络请求（choice 除外）</td></tr>
+        <tr><td>奖励入口（1.20.1）</td><td><code>mixin/FtbCollectRewardsButtonMixin</code></td><td>"收集奖励"按钮 Shift+点击 → 打开奖励领取选择 GUI</td></tr>
+        <tr><td>奖励入口（1.21.1）</td><td><code>mixin/FtbRewardSelectorScreenMixin</code></td><td>奖励选择界面 <code>doClaimAll</code> Shift+点击 → 打开奖励领取选择 GUI</td></tr>
+        <tr><td>tooltip 数量</td><td><code>mixin/FtbItemTaskTooltipMixin</code>（物品任务）<br><code>mixin/FtbFluidEnergyTaskTooltipMixin</code>（流体/能量任务）</td><td><code>addMouseOverText</code> 末尾追加青色"{网络标识}网络：N"（完整千分位）</td></tr>
+        <tr><td>tooltip 推送服务</td><td><code>feature/ftb/FtbTooltipPushService</code></td><td>悬停订阅（10 秒 TTL）+ BD delta 脏标记 + 节流重算推送；无人悬停零开销</td></tr>
+        <tr><td>客户端缓存</td><td><code>client/FtbTaskNetworkCountCache</code></td><td>任务网络数量缓存（请求去重 2s / TTL 5s，进服/登出清理）</td></tr>
+        <tr><td>选择提交 GUI</td><td><code>client/gui/FtbItemSubmitSelectScreen</code></td><td>候选列表（两行）+ 已选栏分页；数字键/滚轮/点击；自动填充/补满；完整数值 tooltip；回退 FTB 界面</td></tr>
+        <tr><td>奖励选择 GUI</td><td><code>client/gui/FtbRewardSelectScreen</code></td><td>按章节/任务来源列表；勾选部分领取；逐条去向切换；全选/汇总/悬停详情；回退打开前界面</td></tr>
+        <tr><td>数值格式化</td><td><code>util/NumberFormatUtil</code></td><td>千分位 <code>grouped</code> / FTB 格式 <code>compact</code>（最高 B）/ SI <code>compactLarge</code>·<code>compactLargeInt</code>（最高 E）</td></tr>
+        <tr><td>数据包</td><td><code>OpenFtbItemSubmitSelectPacket</code>、<code>SubmitFtbItemSelectionPacket</code>、<code>ClaimRewardToNetworkPacket</code>、<code>SubmitFtbRewardSelectionPacket</code>、<code>RequestFtbTaskNetworkCountPacket</code>、<code>FtbTaskNetworkCountResponsePacket</code>、<code>ClaimAllToNetworkPacket</code></td><td>选择提交打开/提交、单条/批量奖励领取、任务数量查询与响应、旧版领取所有到网络</td></tr>
+        <tr><td>命令</td><td><code>command/ftb/FtbCommand</code></td><td><code>/bdftb scan</code> 手动检测</td></tr>
+        <tr><td>Mixin 门控</td><td><code>mixin/MixinPlugin</code></td><td>FTB 目标仅当 <code>ftbquests</code> 加载且未加载 <code>rs_integration</code> 时应用</td></tr>
+        <tr><td>配置</td><td><code>CommandConfig</code> → <code>ftb_integration.*</code></td><td>总开关、检测缓存/上限、自动检测、tooltip 推送节流</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>工作流程</h2>
+
+    <h3>① 检测类任务（按任务需求精准收集）</h3>
+    <div class="flow">
+        <div class="step server"><span class="tag">服务端</span><b>FTB 触发检测</b>登录扫描 / 背包变化 detect / <code>/bdftb scan</code></div>
+        <div class="arrow"></div>
+        <div class="step server"><b>构建背包汇总</b>1.20.1 <code>buildInventorySummary</code> / 1.21.1 <code>PlayerInventorySummary.build</code></div>
+        <div class="arrow"><span class="al">RETURN 注入</span></div>
+        <div class="step data"><b>FtbTaskNetworkScanner.collect</b>取 <code>getSubmitTasks()</code>（非消耗物品任务）</div>
+    </div>
+    <div class="flow row">
+        <div class="step server"><b>普通任务</b>按目标 Item 分组索引</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>过滤器任务</b>（标签）编译匹配器</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>遍历主网络一次</b>候选任务 <code>task.test(stack)</code> 命中才注入</div>
+    </div>
+    <div class="note"><b>精准收集的意义</b>网络里有数千种物品、任务只要几种时，只注入这几种，避免全量注入导致的内存与扫描开销；带 NBT / <code>match_nbt</code> / 标签任务均按 FTB 原生匹配语义处理。</div>
+
+    <h3>② 消耗型任务提交（多候选选择 GUI / 单候选自动）</h3>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>点击提交</b>任务界面按钮（<code>SubmitTaskMessage</code>）</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>FtbItemTaskMixin 接管</b><code>ItemTask.submitTask</code> HEAD（仅点击路径、消耗型、顺序/完成校验通过）</div>
+        <div class="arrow"><span class="al">候选种类 &gt; 1</span></div>
+        <div class="step io"><span class="tag">S2C</span><b>OpenFtbItemSubmitSelectPacket</b>候选列表（名称 / 背包+网络可用量）</div>
+    </div>
+    <div class="flow">
+        <div class="step client"><b>选择界面</b>数字键/滚轮/点击分配数量，已选栏实时汇总（分页）</div>
+        <div class="arrow"><span class="al">确认提交</span></div>
+        <div class="step io"><span class="tag">C2S</span><b>SubmitFtbItemSelectionPacket</b>（任务 ID + 各候选数量）</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>先背包后网络扣除</b>校验 <code>task.test</code> 后计入进度；关闭界面回退 FTB 任务界面</div>
+    </div>
+    <div class="note"><b>单候选自动路径</b>候选种类 ≤ 1 时保持原逻辑（背包 <code>insert</code> + 网络 <code>consumeFromNetwork</code>）；合成提交（<code>craftedItem</code> 非空）保持 FTB 原版。</div>
+
+    <h3>③ XP 任务提交（网络经验补足）</h3>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>点击提交经验任务</b><code>XPTask.submitTask</code></div>
+        <div class="arrow"></div>
+        <div class="step server"><b>FtbXpTaskMixin 计算缺口</b>剩余需求 − 玩家当前（等级模式换算为总经验点）</div>
+        <div class="arrow"><span class="al">缺口 &gt; 0</span></div>
+        <div class="step server"><b>提取网络 XP 流体</b>标准 XP 流体键优先，不足遍历其他经验流体（1 点 = 20 mB）</div>
+        <div class="arrow"><span class="al">不取消原版方法</span></div>
+        <div class="step end"><b>FTB 原生提交</b>扣除玩家经验 → 计入进度（网络不足时部分提交）</div>
+    </div>
+
+    <h3>④ 流体/能量任务提交（网络扣除）</h3>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>点击提交流体/能量任务</b><code>Task.submitTask</code>（原版无实现，点击无效）</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>FtbTaskSubmitMixin 识别类型</b><code>instanceof FluidTask / EnergyTask</code></div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>按剩余需求扣除</b>流体：fluid + NBT/components 精确匹配；能量：<code>EnergyStackKey.INSTANCE</code></div>
+        <div class="arrow"><span class="al">网络不足时部分提交</span></div>
+        <div class="step server"><b>计入进度</b><code>teamData.addProgress</code> → 取消父类空实现</div>
+    </div>
+
+    <h3>⑤ 奖励领取选择（勾选部分 + 逐条去向）</h3>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>Shift+点击"领取所有"</b>1.20.1 收集奖励按钮 / 1.21.1 奖励选择界面 Claim All</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>FtbRewardSelectScreen</b>遍历客户端任务数据（章节/任务来源），打开选择界面</div>
+        <div class="arrow"><span class="al">勾选 + 去向</span></div>
+        <div class="step io"><span class="tag">C2S</span><b>SubmitFtbRewardSelectionPacket</b>（奖励 ID + 各条是否进网络）</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>FtbRewardSelectionService</b>逐条校验 <code>claimType.canClaim</code>，网络条目仅领取期间打标记</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>物品奖励入网 / 其他原版发放</b>入网后补发通知 + "已收到网络"标识</div>
+    </div>
+    <div class="note"><b>进网络范围</b>直接物品奖励（ItemReward）与按输出结果结算的随机/战利品/全表奖励（random/loot/all_table，子物品随标记入网）；选择奖励（choice）需玩家在界面选择子奖励（异步），保持原版。命令/经验/成就/阶段/提示/自定义/货币奖励一律原版。网络容量不足的余量按原版发给玩家，不丢失。</div>
+
+    <h3>⑥ 单条奖励领取进网络</h3>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>Shift+点击单条奖励按钮</b><code>Reward.onButtonClicked</code>（普通点击保持原版）</div>
+        <div class="arrow"><span class="al">choice 除外</span></div>
+        <div class="step io"><span class="tag">C2S</span><b>ClaimRewardToNetworkPacket</b>（奖励 ID）</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>标记 + 领取</b><code>claimReward(player, reward, true)</code> → 物品入网 + 通知标识</div>
+    </div>
+
+    <h3>⑦ 任务 tooltip 网络数量</h3>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>悬停物品/流体/能量任务</b><code>addMouseOverText</code> 渲染</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>缓存命中？</b>FtbTaskNetworkCountCache（TTL 5 秒）</div>
+        <div class="arrow"><span class="al">未命中 / 过期</span></div>
+        <div class="step io"><span class="tag">C2S</span><b>RequestFtbTaskNetworkCountPacket</b>（任务 ID，2 秒去重）</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>按任务统计</b>物品按任务匹配语义 / 流体 fluid+NBT / 能量 FE 库存</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">S2C</span><b>FtbTaskNetworkCountResponsePacket</b>（taskId/count/netId/netName）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>写入缓存</b>tooltip 追加青色"{网络标识}网络：{完整千分位}"</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><span class="tag">推送</span><b>请求同时登记订阅</b>FtbTooltipPushService（10 秒无请求自动清理）</div>
+        <div class="arrow"><span class="al">BD 存储 delta（仅任务目标物品）</span></div>
+        <div class="step data"><b>标记脏网络</b>节流窗口 <code>tooltip_push_throttle_ticks</code>（默认 10 tick）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>立即更新</b>tooltip 下一帧显示新值（≈0.5 秒内；无人悬停零开销）</div>
+    </div>
+
+    <h3>⑧ 网络变化自动检测（可选，默认关闭）</h3>
+    <div class="flow">
+        <div class="step server"><span class="tag">服务端</span><b>订阅使用中的网络</b>在线玩家主网络去重 → BdSubscriptionHub 存储 delta（每 5 秒同步订阅）</div>
+        <div class="arrow"><span class="al">仅物品键 + 与任务目标匹配（isRelevant）</span></div>
+        <div class="step data"><b>标记脏网络</b>netId → 首次变化 tick（窗口内多次变化合并）</div>
+        <div class="arrow"><span class="al">节流窗口到期（auto_detect_throttle_ticks）</span></div>
+        <div class="step server"><b>清缓存 + 按队伍去重触发 detect</b>等价于该玩家执行一次 /bdftb scan</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>配置与依赖</h2>
+    <table>
+        <tr><th>项</th><th>值 / 说明</th></tr>
+        <tr><td><code>ftb_integration.enable</code></td><td>总开关（默认 <code>true</code>，COMMON 配置，中英注释）</td></tr>
+        <tr><td><code>ftb_integration.detect_cache_ticks</code></td><td>检测缓存时长（逻辑刻，默认 20，范围 0–200；0 = 每次检测都重新扫描网络）。缓存按<b>网络 ID</b>共享</td></tr>
+        <tr><td><code>ftb_integration.detect_max_item_types</code></td><td>单次检测精准收集的物品种类上限（默认 8192，范围 64–65536；服务器全局）</td></tr>
+        <tr><td><code>ftb_integration.auto_detect_enable</code></td><td>网络变化自动检测开关（默认 <code>false</code>）</td></tr>
+        <tr><td><code>ftb_integration.auto_detect_throttle_ticks</code></td><td>自动检测节流窗口（逻辑刻，默认 20，范围 5–200）</td></tr>
+        <tr><td><code>ftb_integration.auto_detect_max_per_tick</code></td><td>自动检测单 tick 最多处理的脏网络数（默认 4，范围 1–64）</td></tr>
+        <tr><td><code>ftb_integration.tooltip_push_throttle_ticks</code></td><td>任务 tooltip 数量推送节流（逻辑刻，默认 10 = 0.5 秒，范围 1–200）</td></tr>
+        <tr><td>依赖</td><td>需安装 <b>FTB Quests</b>（编译期 <code>compileOnly</code> + 运行期 <code>runtimeOnly</code>）；FTB Teams 为 FTB Quests 前置</td></tr>
+        <tr><td>让路条件</td><td>检测到 <code>rs_integration</code>（RI）加载时：MixinPlugin 不应用 FTB Mixin + <code>FtbIntegrationHelper.isEnabled()</code> 运行时返回 false</td></tr>
+        <tr><td>关闭方式</td><td>配置 <code>enable=false</code>，或安装 RI（自动让路）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>已知限制与边界</h2>
+    <ul>
+        <li><b>进度更新延迟</b>：检测结果缓存 <code>detect_cache_ticks</code>（默认 1 秒，按网络共享）；未开启自动检测时网络变化不触发检测，需背包变化 / 登录 / <code>/bdftb scan</code>；开启自动检测后仍受节流窗口限制。</li>
+        <li><b>收集种类上限</b>：单次精准收集最多 <code>detect_max_item_types</code> 种；选择提交/奖励选择界面的候选上限为 128 条。</li>
+        <li><b>选择提交为快照</b>：界面打开期间网络/背包变化不会实时刷新；提交时服务端按实际可扣量部分提交（不会凭空产生进度）。</li>
+        <li><b>选择提交合并语义</b>：同一物品类型 + 组件合并为一行，提交时先扣背包、不足从网络扣，玩家不能指定仅从网络扣除。</li>
+        <li><b>choice 奖励不支持进网络</b>：选择奖励需玩家在界面中选择子奖励（异步），网络标记无法覆盖，GUI 固定"原版"且 Shift 单条点击也走原版。</li>
+        <li><b>复合奖励按输出结算</b>：random/loot/all_table 仅在结算出 ItemReward 子奖励时入网；子奖励中的命令/经验等仍原版。loot/all_table 因 FTB 硬编码 <code>exclude_from_claim_all</code> 不参与"领取所有"列表，可用 Shift+单条领取进网络。</li>
+        <li><b>奖励结果不可预览</b>：奖励选择界面沿用 FTB 奖励图标（复合奖励为表/类型图标），不解析奖励表内容，防止提前预览。</li>
+        <li><b>仅覆盖点击提交</b>：消耗型任务的合成来源提交（<code>craftedItem</code> 非空）保持 FTB 原版，不从网络补料。</li>
+        <li><b>任务屏未接管</b>：FTB 任务屏（TaskScreen）的物品/流体/能量方块输入路径不接网络（点击提交路径已支持物品/XP/流体/能量）。</li>
+        <li><b>队伍共享边界</b>：进度按队伍共享，但网络资源仍各查各的主网络——绑定共用网络的成员离线时其他成员无法推进（进度不回退）。</li>
+        <li><b>未实现清单</b>：JEI 任务提交界面、缺失物品书签、自动合成进度、提交托管/回滚、任务屏补料（详见"实现状态"表）。</li>
+    </ul>
+    <div class="note"><b>性能说明</b>检测仅在 FTB 原生时机（登录/背包变化）与手动命令时发生，且按任务需求过滤 + 缓存；tooltip 查询按任务 ID 限频（2 秒去重、5 秒 TTL），不做每帧网络访问。</div>
+</div>
+
+<footer>
+    Beyond Integration v0.7.3 · 文档基于 <code>1.20.1-FORGE</code> 与 <code>1.21.1_NEOFORGE</code> 分支源码 · 若与代码不符以源码为准
+</footer>
+
+</div>
+</body>
+</html>

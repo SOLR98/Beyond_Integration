@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>23 · BD 终端界面增强 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>23 · BD 终端界面增强</h1>
+    <div class="sub">左侧按钮栏接管与重排、RI 原生按钮屏蔽与替代、JEI 避让与网络数量角标、Shift 点击取物品、行数最大值跟随</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <ul>
+        <li><b>左侧按钮栏接管</b>：记录所有加入 BD 左侧栏的按钮（BD 原生 + 本模组 + 其他模组），统一重排——<b>BD 原有按钮始终在最前（保持原序）</b>，本模组接管的按钮排在其后；放不下的按钮自动移到<b>左侧新增列</b>（不会超过 GUI 底边）。</li>
+        <li><b>RI（rs_integration）按钮屏蔽与替代</b>：RI 原生的自动进食 EAT/SELECT/MODE/MENU 按钮全部屏蔽（不可见、不可点、不占位），改由本模组 3 个 16×16 侧栏按钮反射调用 RI 功能；每帧渲染前强制纠正坐标，避免被 RI 的每帧 setX/setY 拉回。</li>
+        <li><b>JEI 避让</b>：把本模组自绘区域（右侧工作站模式按钮列、SW 弹药面板、左侧溢出列）告知 JEI，物品列表不会覆盖这些元素。</li>
+        <li><b>JEI 网络数量角标 + Shift 点击取物品</b>：JEI 物品条目与<b>左侧收藏栏物品</b>右下角显示网络库存数量，悬停 tooltip 追加数量与取物提示，<b>Shift+左键取一组 / Shift+右键取 1 个</b>。默认仅在 BD 终端内生效；开启服务端 <code>bd_tweaks.primary_net_jei_sync</code> 后可在任意界面按<b>主网络</b>生效。</li>
+        <li><b>行数最大值跟随</b>：行数加满屏幕最大值后，调整窗口会继续按新屏幕最大值显示；手动减行后停止跟随。</li>
+    </ul>
+    <div class="note"><b>与 RI 共存</b>JEI 数量角标/点击取物品与 FTB 集成在检测到 rs_integration 时自动让路禁用（见文档 20 与本文末）。</div>
+</div>
+
+<div class="card">
+    <h2>左侧按钮栏接管</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>按钮收集</td><td><code>mixin/DimensionsNetGUIMixin</code> + <code>client/gui/BeyondSidebarAccess</code></td><td>反射读取 BD 原生左侧 8 个按钮 + 合并本模组按钮；<b>不依赖 BD <code>LeftButtonSidebar</code></b>（兼容 BD 0.7.27 / 0.7.30）</td></tr>
+        <tr><td>接管布局器</td><td><code>client/gui/LeftSidebarLayout</code></td><td>重排 + 溢出分列（直接 setX/setY，不依赖 GridLayout/LinearLayout，跨版本一致）</td></tr>
+        <tr><td>调用方</td><td><code>mixin/DimensionsNetGUIMixin</code></td><td>onInit 收集本模组按钮并应用布局；每帧 render HEAD 重排一次防外部覆盖</td></tr>
+    </table>
+    <div class="flow">
+        <div class="step server"><b>主列</b>BD 原生按钮（原序）+ 本模组按钮（排后）</div>
+        <div class="arrow"><span class="al">放不下（会超过 GUI 底边）</span></div>
+        <div class="step data"><b>左侧溢出列</b>右缘对齐主列左缘 - 2（16px 按钮即左移一列）</div>
+    </div>
+    <div class="note"><b>RI 折叠适配</b>RI 折叠菜单时隐藏按钮高度置 0（不占位），展开后自动重排。</div>
+</div>
+
+<div class="card">
+    <h2>RI 原生按钮屏蔽与替代</h2>
+    <table>
+        <tr><th>项</th><th>说明</th></tr>
+        <tr><td>屏蔽方式</td><td>安装回调中不加入侧栏布局、仅注册进界面（让 RI 的 existing 检测命中，避免其每帧重建）；每帧 render HEAD 强制 <code>visible=false</code>/<code>active=false</code>；<code>mouseClicked</code> HEAD 命中坐标直接吞掉</td></tr>
+        <tr><td>替代按钮</td><td><code>client/widget/RsAutoEatButton</code>（EAT/SELECT/MODE 三角色，16×16，BD slot_button 纹理 + 物品图标）</td></tr>
+        <tr><td>反射入口</td><td><code>compat/RsIntegrationCompat</code>：<code>sendAutoEat</code> / <code>openAutoEatScreen</code> / <code>cycleAutoEatMode</code> / <code>autoEatModeName</code>（RI 缺失时静默）</td></tr>
+        <tr><td>坐标纠正</td><td>RI 在渲染后事件（Render.Post）每帧覆盖坐标 → 本模组在下一帧 render HEAD 重排，渲染时始终为接管布局</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>JEI 集成（避让 / 数量角标 / 点击取物品）</h2>
+    <table>
+        <tr><th>功能</th><th>实现</th><th>要点</th></tr>
+        <tr><td>避让区域</td><td><code>jei/BDSidebarGuiHandler</code></td><td>模式按钮列（按可用模式数）、SW 弹药面板、左侧溢出列；与 BD 自身 handler 合并</td></tr>
+        <tr><td>数量角标 / tooltip</td><td><code>jei/NetworkCountOverlay</code><br><code>mixin/JeiIngredientElementMixin</code>（物品列表）<br><code>mixin/JeiIngredientBookmarkElementMixin</code>（左侧收藏栏）<br>NewMixin 变体：新版 JEI（15.56+）布局</td><td>打开 BD 终端即挂载；数量实时查询（按逻辑刻缓存）；文本按数量值缓存（数量不变复用格式化与宽度）+ 无阴影绘制；悬停 tooltip 追加数量与取物提示；仅无既有覆盖层时接管</td></tr>
+        <tr><td>JEI 双版本适配</td><td><code>mixin/MixinPlugin</code></td><td>新版（15.56+）<code>IngredientGridTooltipHelper</code> 移入 <code>.ingredients</code> 包：按运行时类存在性判定，选择 NewMixin / 原名 Mixin（<code>NewMixin</code> 后缀 = 新布局）；其余 JEI Mixin 不受影响</td></tr>
+        <tr><td>取物品</td><td><code>mixin/JeiFocusInputMixin</code> + <code>network/ExtractNetworkItemPacket</code></td><td>Shift+左键一组 / Shift+右键 1 个；服务端校验网络成员权限与库存；背包放不下掉落</td></tr>
+        <tr><td>数据源</td><td><code>jei/BeyondJeiNetworkHelper</code></td><td>优先<b>主网络会话镜像</b> <code>PrimaryNetClientStorage</code>（服务端会话级同步，须开启 <code>bd_tweaks.primary_net_jei_sync</code>）；未同步时回退 BD 终端客户端镜像 <code>clientNetStorage</code>；数量按<b>逻辑刻</b>缓存</td></tr>
+        <tr><td>点击范围</td><td><code>canClickToFocus()</code> 过滤</td><td>仅处理 JEI 物品列表/书签条目；终端 GUI 内槽位（canClickToFocus=false）交回 BD 原生行为</td></tr>
+    </table>
+    <div class="warn"><b>让路</b>检测到 rs_integration（RI）加载时，JEI 集成的全部 Mixin 不应用（MixinPlugin 门控），避免与其同类功能冲突。</div>
+</div>
+
+<div class="card">
+    <h2>行数最大值跟随</h2>
+    <div class="flow">
+        <div class="step server"><b>状态判定</b>init RETURN：行数 ≥ 99 或不能再加行 → 标记“已达最大值”</div>
+        <div class="arrow"><span class="al">窗口尺寸变化（真 resize）</span></div>
+        <div class="step server"><b>跟随</b>init HEAD：setLines(clamp(calMaxLines(), 2, 99)) + rebuildSlots</div>
+    </div>
+    <p>加/减页按钮触发的 init（尺寸未变）不触发跟随；手动减行后状态解除。</p>
+    <div class="note"><b>tooltip 层级</b>工作站模式按钮与弹药面板的 tooltip 统一在所有按钮/面板背景绘制完成后渲染，避免被后续背景覆盖。</div>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul>
+        <li><code>mixin/DimensionsNetGUIMixin</code> · <code>client/gui/BeyondSidebarAccess</code> · <code>client/gui/LeftSidebarLayout</code> · <code>client/PrimaryNetClientStorage</code></li>
+        <li><code>client/widget/RsAutoEatButton</code> · <code>compat/RsIntegrationCompat</code> · <code>mixin/RsIntegrationAutoEatMixin</code></li>
+        <li><code>jei/BDSidebarGuiHandler</code> · <code>jei/NetworkCountOverlay</code> · <code>jei/BeyondJeiNetworkHelper</code></li>
+        <li><code>mixin/JeiIngredientElementMixin</code> / <code>JeiIngredientElementNewMixin</code> · <code>mixin/JeiIngredientBookmarkElementMixin</code> / <code>JeiIngredientBookmarkElementNewMixin</code>（收藏栏角标 + tooltip；NewMixin = 新版 JEI 布局） · <code>mixin/JeiFocusInputMixin</code> · <code>network/ExtractNetworkItemPacket</code>（Neo：<code>network/payload/</code>）</li>
+        <li><code>mixin/DimensionsNetGUIMixin</code>（布局/角标/tooltip/行数跟随）</li>
+    </ul>
+</div>
+
+<footer>
+    Beyond Integration v0.6.5 · 文档基于 <code>1.20.1-FORGE</code> 与 <code>1.21.1_NEOFORGE</code> 分支源码 · 若与代码不符以源码为准
+</footer>
+
+</div>
+</body>
+</html>

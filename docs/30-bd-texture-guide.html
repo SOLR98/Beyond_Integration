@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>30 · BD 贴图使用指南 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>30 · BD 贴图使用指南</h1>
+    <div class="sub">Beyond Dimensions（<code>beyonddimensions</code>）贴图资源目录、命名规范、引用方式与可复用 GUI 部件 · 基于 BD <b>0.7.30</b> 源码（<code>1.20.1-FORGE</code> 与 <code>1.21.1_NEOFORGE</code> 两分支同名）· 供 BI 及附属模组复用</div>
+</header>
+
+<div class="card">
+    <h2>总述</h2>
+    <ul>
+        <li>BD 贴图命名空间为 <code>beyonddimensions</code>，根目录 <code>assets/beyonddimensions/textures/</code>。</li>
+        <li>分三大目录：<code>block/</code>（方块）、<code>item/</code>（物品）、<code>gui/</code>（界面）。</li>
+        <li>引用分两种路径：**普通纹理（完整路径 + <code>blit</code>）** 与 **GUI 精灵（短名 + <code>blitSprite</code>）**。</li>
+        <li>BI 复用 BD 界面风格时，统一复用其 <code>slot_button</code> 系列、箭头、模式图标与面板底图，避免自制贴图风格不一致。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>目录结构</h2>
+    <table>
+        <tr><th>目录</th><th>内容</th><th>规模（0.7.30）</th></tr>
+        <tr><td><code>textures/block/</code></td><td>方块贴图（<code>net_pathway.png</code>、<code>net_furnace_front.png</code>、<code>mana_pool_*</code> 等）</td><td>27 个文件（含 <code>.mcmeta</code> 动画）</td></tr>
+        <tr><td><code>textures/item/</code></td><td>物品贴图（<code>net_terminal_item.png</code>、<code>xp_exchange_item.png</code>、<code>net_magnet_item.png</code> 等）</td><td>20 个文件</td></tr>
+        <tr><td><code>textures/gui/</code></td><td>面板底图、槽位行、连接条、标签页等（完整路径引用）</td><td>18 个文件</td></tr>
+        <tr><td><code>textures/gui/sprites/widget/</code></td><td>按钮 / 图标 / 模式精灵（短名引用）</td><td>64 个文件</td></tr>
+    </table>
+    <div class="note">带 <code>.png.mcmeta</code> 的贴图为<b>动态贴图</b>（如 <code>net_pathway</code>、<code>net_creater</code>、<code>unstable_space_time_fragment</code>），引用方式与静态贴图一致。</div>
+</div>
+
+<div class="card">
+    <h2>引用方式</h2>
+
+    <h3>1 · 普通纹理：完整路径 + <code>blit</code></h3>
+    <pre><code>// 完整路径包含 textures/ 前缀与 .png 后缀
+private static final ResourceLocation BG = ResourceLocation.parse(
+        "beyonddimensions:textures/gui/top_base.png");
+
+// blit(纹理, x, y, u, v, w, h, 纹理宽, 纹理高)
+guiGraphics.blit(BG, leftPos, topPos, 0, 0, 176, 24, 256, 256);</code></pre>
+    <p>用于面板底图、槽位行、连接条等非精灵贴图。BI 亦可用此方式引用 BD 精灵（见下）。</p>
+
+    <h3>2 · GUI 精灵：短名 + <code>blitSprite</code></h3>
+    <p>文件放在 <code>assets/&lt;ns&gt;/textures/gui/sprites/&lt;path&gt;.png</code>，引用时<b>省略 <code>textures/gui/sprites/</code> 前缀与 <code>.png</code></b>，写作 <code>&lt;ns&gt;:&lt;path&gt;</code>：</p>
+    <pre><code>// 文件：assets/beyonddimensions/textures/gui/sprites/widget/right_tab.png
+private static final ResourceLocation RIGHT_TAB = ResourceLocation.parse(
+        "beyonddimensions:widget/right_tab");
+
+// blitSprite(精灵, x, y, w, h)
+guiGraphics.blitSprite(RIGHT_TAB, leftPos, y, 26, 12);
+
+// 等价短写法（BD 内部常用）
+ResourceLocation.tryBuild("beyonddimensions", "widget/up_arrow");</code></pre>
+
+    <h3>3 · 三态按钮：<code>WidgetSprites</code></h3>
+    <pre><code>WidgetSprites bg = new WidgetSprites(
+        ResourceLocation.tryBuild("beyonddimensions", "widget/slot_button"),
+        ResourceLocation.tryBuild("beyonddimensions", "widget/slot_button_disabled"),
+        ResourceLocation.tryBuild("beyonddimensions", "widget/slot_button_hovered"));
+
+// get(是否可用, 是否悬停) → 选中对应态精灵
+guiGraphics.blitSprite(bg.get(this.active, this.isHoveredOrFocused()), x, y, w, h);</code></pre>
+    <div class="warn"><b>两种写法等价</b>：同一精灵既可 <code>blitSprite("beyonddimensions:widget/slot_button", …)</code>，也可 <code>blit("beyonddimensions:textures/gui/sprites/widget/slot_button.png", …)</code>。BI 多用完整路径 + <code>blit</code> 以保持 1.20.1 / 1.21.1 双分支一致（BI 侧示例见文末）。</div>
+</div>
+
+<div class="card">
+    <h2>BD 内置常量 <code>CommonTextures</code></h2>
+    <p><code>com.wintercogs.beyonddimensions.client.gui.CommonTextures</code> 提供常用贴图路径与尺寸常量，可直接复用：</p>
+    <table>
+        <tr><th>常量</th><th>路径 / 短名</th><th>尺寸</th></tr>
+        <tr><td><code>TOP_BASE_COMMON</code></td><td><code>beyonddimensions:textures/gui/top_base_common.png</code></td><td>176 × 24</td></tr>
+        <tr><td><code>COMMON_CONNECTION</code></td><td><code>…/gui/common_connection.png</code></td><td>176 × 8</td></tr>
+        <tr><td><code>BOTTOM_BASE_COMMON</code></td><td><code>…/gui/bottom_base_common.png</code></td><td>176 × 7</td></tr>
+        <tr><td><code>COMMON_SLOTS</code></td><td><code>…/gui/common_slots.png</code></td><td>176 × 18</td></tr>
+        <tr><td><code>FILTER_SLOTS</code></td><td><code>…/gui/filter_slots.png</code></td><td>176 × 18</td></tr>
+        <tr><td><code>GUI_TEXTURE_PLAYER_INV</code></td><td><code>…/gui/player_inv.png</code></td><td>176 × 89</td></tr>
+        <tr><td><code>NET_FURNACE_BACKGROUND</code></td><td><code>…/gui/net_furnace.png</code></td><td>230 × 210</td></tr>
+        <tr><td><code>RIGHT_TAB</code> / <code>LEFT_TAB</code></td><td><code>beyonddimensions:widget/right_tab</code> / <code>widget/left_tab</code></td><td>26 × 12</td></tr>
+        <tr><td><code>WORK_DONE_V</code></td><td><code>beyonddimensions:widget/work_done_v</code></td><td>14 × 19</td></tr>
+        <tr><td><code>FURNACE_WORK_V</code></td><td><code>beyonddimensions:widget/furnace_work_v</code></td><td>14 × 14</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>面板 / 槽位贴图（<code>textures/gui/</code>）</h2>
+    <table>
+        <tr><th>贴图</th><th>用途</th><th>典型引用方</th></tr>
+        <tr><td><code>top_base.png</code> / <code>top_base_common.png</code></td><td>终端顶部底图</td><td><code>DimensionsNetGUI</code> / <code>CommonTextures</code></td></tr>
+        <tr><td><code>top_slots.png</code> / <code>mid_slots.png</code> / <code>bottom_slots.png</code></td><td>上 / 中 / 下槽位行</td><td><code>DimensionsNetGUI</code>、BI <code>DimensionsStorageGUI</code></td></tr>
+        <tr><td><code>common_slots.png</code></td><td>通用单行槽（18px 高）</td><td>各界面槽位行</td></tr>
+        <tr><td><code>craft_slots.png</code> / <code>filter_slots.png</code></td><td>合成槽 / 过滤槽</td><td><code>DimensionsCraftGUI</code> 等</td></tr>
+        <tr><td><code>common_connection.png</code></td><td>面板间连接条</td><td><code>CommonTextures</code></td></tr>
+        <tr><td><code>player_inv.png</code></td><td>玩家物品栏底图</td><td><code>DimensionsNetGUI</code></td></tr>
+        <tr><td><code>net_control.png</code> / <code>net_energy_storage.png</code> / <code>net_interface.png</code></td><td>控制 / 能量 / 接口界面底图</td><td>对应 GUI</td></tr>
+        <tr><td><code>net_furnace.png</code></td><td>网络熔炉背景</td><td><code>CommonTextures.NET_FURNACE_BACKGROUND</code></td></tr>
+        <tr><td><code>primary_net_switcher_gui.png</code></td><td>主网络切换界面</td><td>主网络切换 GUI</td></tr>
+        <tr><td><code>right_tab.png</code></td><td>右标签页</td><td>标签页组件</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>可复用部件精灵（<code>gui/sprites/widget/</code>）</h2>
+    <table>
+        <tr><th>分组</th><th>文件（短名去 <code>widget/</code> 前缀）</th></tr>
+        <tr><td>按钮底图（三态）</td><td><code>slot_button</code> · <code>slot_button_hovered</code> · <code>slot_button_disabled</code></td></tr>
+        <tr><td>导航箭头 / 标签页</td><td><code>up_arrow</code> · <code>down_arrow</code> · <code>left_tab</code> · <code>right_tab</code> · <code>opposite_arrow</code> · <code>popmode_up</code> · <code>popmode_down</code></td></tr>
+        <tr><td>排序</td><td><code>sort_asc</code> · <code>sort_desc</code> · <code>sort_default</code> · <code>sort_name</code> · <code>sort_quantity</code> · <code>sort_modid</code> · <code>sort_max_stack</code> · <code>sort_creative_tab</code> · <code>sort_inserted_time</code> · <code>sort_modified_time</code> · <code>sort_mode_open</code> · <code>sort_mode_stop</code></td></tr>
+        <tr><td>过滤 / 搜索</td><td><code>ignore_filter</code> · <code>white_filter</code> · <code>black_filter</code> · <code>search_enable</code> · <code>search_disable</code></td></tr>
+        <tr><td>红石控制模式</td><td><code>control_mode_base</code> · <code>control_mode_ignore</code> · <code>control_mode_not_working</code> · <code>control_mode_powered</code> · <code>control_mode_unpowered</code></td></tr>
+        <tr><td>网络接收模式</td><td><code>net_absorb</code> · <code>net_disable</code></td></tr>
+        <tr><td>漏斗（物品 / 流体 / NBT / XP / 范围）</td><td><code>hopper_item_mode_allow</code>/<code>deny</code> · <code>hopper_fluid_mode_allow</code>/<code>deny</code> · <code>hopper_nbt_mode_allow</code>/<code>deny</code> · <code>hopper_xp_mode_allow</code>/<code>deny</code> · <code>hopper_range_mode_lowest</code>/<code>low</code>/<code>mid</code>/<code>high</code>/<code>highest</code>/<code>chunk</code></td></tr>
+        <tr><td>喂食器档位</td><td><code>feeder_mode_hunger_to_eat</code> · <code>feeder_mode_normal</code> · <code>feeder_mode_saturation_keep</code> · <code>feeder_mode_crazy</code></td></tr>
+        <tr><td>进度 / 功能</td><td><code>work_done_v</code> · <code>furnace_work_v</code> · <code>craft_button</code> · <code>unkonw_thing</code></td></tr>
+        <tr><td>文本框</td><td><code>text_field</code> · <code>text_field_highlighted</code></td></tr>
+        <tr><td>中文名遗留项</td><td><code>漏斗图</code> · <code>漏斗允许</code> · <code>漏斗禁止</code>（早期中文命名，保留兼容）</td></tr>
+    </table>
+    <div class="note">精灵统一按 <b>16 × 16</b>（按钮/图标）或原始声明尺寸绘制；按钮类优先用 <code>slot_button</code> 三态，图标叠加在按钮之上。</div>
+</div>
+
+<div class="card">
+    <h2>命名与存放规范</h2>
+    <ul>
+        <li><b>小写蛇形（snake_case）</b>命名，语义前缀 + 变体后缀：<code>slot_button_hovered</code>、<code>feeder_mode_normal</code>、<code>hopper_nbt_mode_deny</code>。</li>
+        <li><b>三态/多态</b>用后缀区分：<code>_hovered</code> / <code>_disabled</code> / <code>_allow|_deny</code> / 档位名。</li>
+        <li><b>可复用部件</b>放 <code>textures/gui/sprites/widget/</code>（走精灵系统）；<b>整块面板底图</b>放 <code>textures/gui/</code>（走完整路径）。</li>
+        <li>新增贴图不建议改动 BD 现有文件；BI 自有贴图放 <code>assets/beyond_integration/…</code>，需要 BD 风格时直接引用 BD 贴图。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>BI 复用示例</h2>
+    <h3>完整路径 + <code>blit</code>（BI 默认写法，双分支一致）</h3>
+    <pre><code>// beyond_integration 侧：复用 BD 槽位按钮
+private static final ResourceLocation SLOT = ResourceLocation.parse(
+        "beyonddimensions:textures/gui/sprites/widget/slot_button.png");
+private static final ResourceLocation SLOT_HOVERED = ResourceLocation.parse(
+        "beyonddimensions:textures/gui/sprites/widget/slot_button_hovered.png");
+
+g.blit(isHovered ? SLOT_HOVERED : SLOT, getX(), getY(), 0, 0, 16, 16, 16, 16);
+g.renderFakeItem(stack, getX() + 1, getY() + 1);</code></pre>
+    <table>
+        <tr><th>BI 类</th><th>复用的 BD 贴图</th></tr>
+        <tr><td><code>client/widget/EnchantIconBtn</code> · <code>EnchantModeBtn</code> · <code>EnergyChargeToggleBtn</code> · <code>EnchantToggleBtn</code></td><td><code>widget/slot_button</code>(+<code>_hovered</code>/<code>_disabled</code>)</td></tr>
+        <tr><td><code>client/widget/RsAutoEatButton</code></td><td><code>widget/slot_button</code>(+<code>_hovered</code>)</td></tr>
+        <tr><td><code>client/gui/DimensionsEnchantMergeGUI</code></td><td><code>widget/slot_button</code> 三态 + <code>widget/up_arrow</code>（另用 BI 自制 <code>standard_background.png</code> / <code>common_slots.png</code> / <code>enchant_merge_entry.png</code>）</td></tr>
+        <tr><td><code>client/gui/extensions/StorageMenuExtension</code> · <code>mixin/DimensionsNetGUIMixin</code></td><td><code>widget/slot_button</code>(+<code>_hovered</code>/<code>_disabled</code>)</td></tr>
+        <tr><td><code>client/gui/DimensionsStorageGUI</code></td><td><code>gui/top_base.png</code> · <code>top_slots.png</code> · <code>mid_slots.png</code> · <code>bottom_slots.png</code> · <code>player_inv.png</code></td></tr>
+    </table>
+
+    <h3>BI 自有贴图（<code>beyond_integration</code>）</h3>
+    <ul>
+        <li><code>textures/gui/</code>：<code>craft.png</code> · <code>anvil.png</code> · <code>anvil_rename.png</code> · <code>smithing.png</code> · <code>stonecutter.png</code> · <code>stonecutter_button.png</code> · <code>grindstone.png</code> · <code>enchant.png</code> · <code>enchant_button.png</code> · <code>enchant_exp_level.png</code> · <code>enchant_merge_entry.png</code> · <code>standard_background.png</code> · <code>common_slots.png</code> · <code>scroll_thumb.png</code> · <code>notfor.png</code>。</li>
+        <li><code>textures/gui/sprites/feeder/</code>：<code>feeder_thirst_high.png</code> · <code>feeder_thirst_normal.png</code> · <code>feeder_thirst_low.png</code> · <code>feeder_thirst_off.png</code> · <code>feeder_ignore_on.png</code> · <code>feeder_ignore_off.png</code>（口渴集成用）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>注意事项</h2>
+    <ul>
+        <li><b>路径大小写</b>：文件名必须全小写；短名引用时不含 <code>textures/gui/sprites/</code> 与 <code>.png</code>。</li>
+        <li><b>精灵 vs 普通纹理</b>：只有位于 <code>textures/gui/sprites/</code> 下、且用 <code>blitSprite</code> 缩放的才是“精灵”；<code>blit</code> 需要显式纹理尺寸参数。</li>
+        <li><b>版本风险</b>：BD 计划更换 UI 框架，届时贴图路径 / 尺寸可能变动；引用 BD 贴图处应集中为常量，便于统一迁移（详见文档 <a href="28-bd-modifications.html">28</a>）。</li>
+        <li><b>复用优先</b>：新增界面优先复用 BD 的 <code>slot_button</code> 三态与模式图标，保持与 BD 原生界面一致的观感。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>参考源文件</h2>
+    <ul>
+        <li>BD：<code>client/gui/CommonTextures.java</code>（常量）、<code>client/gui/CommonTexturesRender.java</code>（<code>blitSprite</code> 用法）、<code>client/gui/widget/shared/IconButton.java</code>（三态按钮范式）。</li>
+        <li>BD 贴图根：<code>assets/beyonddimensions/textures/{block,item,gui}</code>。</li>
+        <li>BI 复用点：<code>client/widget/EnchantIconBtn.java</code>、<code>client/gui/DimensionsStorageGUI.java</code>、<code>client/gui/DimensionsEnchantMergeGUI.java</code>、<code>mixin/DimensionsNetGUIMixin.java</code>。</li>
+        <li>相关文档：<a href="29-bd-api.html">29 · BD API 参考</a>、<a href="28-bd-modifications.html">28 · BD 功能修改项</a>、<a href="27-terminal-enhancements.html">27 · BD 终端界面增强</a>。</li>
+    </ul>
+</div>
+
+<footer>
+    Beyond Integration v0.7.3 · 基于 BD 0.7.30 源码（<code>1.20.1-FORGE</code> / <code>1.21.1_NEOFORGE</code>）· 若与代码不符以源码为准 · 返回 <a href="index.html">索引</a>
+</footer>
+
+</div>
+</body>
+</html>

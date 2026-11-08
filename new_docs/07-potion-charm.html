@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07 · 网络药水护符（四工程）— Beyond Integration new_docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>07 · 网络药水护符（Apotheosis）</h1>
+    <div class="sub">
+        护符入网即对主网络玩家 / 女仆生效；本页给四工程状态与机制，细节（配置、扣费、缓存）见
+        <a href="../docs/36-network-potion-charm.html">docs/36</a>
+    </div>
+</header>
+
+<div class="card">
+    <h2>四工程状态</h2>
+    <table>
+        <tr>
+            <th>能力</th>
+            <th>0.7.30 · 1.20.1</th>
+            <th>0.7.30 · 1.21.1</th>
+            <th>0.8.x · 1.20.1</th>
+            <th>0.8.x · 1.21.1</th>
+        </tr>
+        <tr>
+            <td>后台生效逻辑</td>
+            <td>✅ <code>feature/charm/NetworkPotionCharmHandler</code> 等</td>
+            <td>➖ 无 charm 类</td>
+            <td>✅ 同名落点</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>模式切换（PLAYERS / MAIDS / BOTH / OFF）</td>
+            <td>✅ <code>client/widget/PotionCharmToggleBtn</code>（左键循环）</td>
+            <td>➖</td>
+            <td>⚠ 逻辑在（<code>CyclePotionCharmModePacket</code>）但<b>无发送方、无命令</b></td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>献祭经验修补书解锁</td>
+            <td>✅ 同一按钮 Shift/右键 → <code>SacrificeMendingPacket</code></td>
+            <td>➖</td>
+            <td>⚠ <code>SacrificeMendingPacket</code> 注册但无发送方</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>女仆侧施加</td>
+            <td>✅ <code>maid/MaidPotionCharmHandler</code></td>
+            <td>➖</td>
+            <td>✅ 同名（但模式切不到 MAIDS/BOTH）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>调试：批量造护符</td>
+            <td>✅ <code>/bdtools insert potionCharm &lt;potion|all|positive|negative&gt; [count] [plain|mending|unbreakable] [netId]</code></td>
+            <td>➖</td>
+            <td>✅ 同</td>
+            <td>✅ 同（1.21.1 组件版：药水写 <code>POTION_CONTENTS</code>、启用写 <code>apotheosis:charm_enabled</code> + NBT <code>charm_enabled</code>、unbreakable 写 <code>UNBREAKABLE</code> + NBT <code>Unbreakable</code>、mending 写 <code>ENCHANTMENTS</code>）</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>机制摘要（两条 1.20.1 工程一致）</h2>
+    <ol>
+        <li><b>扫描</b>：网络内所有 <code>charm_enabled=true</code> 且有单条药水效果的药水护符；按<b>效果类型去重</b>：
+            保留最高等级，同等级优先“无法破坏”，其次“自身经验修补”。</li>
+        <li><b>门槛</b>：无法破坏 / 自身经验修补 / 该网络已献祭解锁经验修补。</li>
+        <li><b>施加</b>：每 <code>potion_charm.interval</code>（默认 20 tick）对主网络玩家结算；
+            女仆由饰品 tick 驱动；目标身上该效果剩余 ≤ <code>refresh_lead_ticks</code>（默认 10）才重新给予。
+             <b>施加时长</b> = <code>ceil(护符 NBT 里记录的 duration / 24) + refresh_lead_ticks</code>
+            （再生额外 + <code>50 &gt;&gt; amplifier</code>）——即护符携带的药水时长决定网络版效果的持续时间。
+            注意 <code>refresh_lead_ticks</code> 应 ≥ <code>interval</code>：否则效果可能在两次结算之间过期，
+            出现 1~19 tick 的短暂中断（短时长药水或把间隔调大时可见）。</li>
+        <li><b>扣费</b>：无法破坏免费；经验修补每次扣 <code>potion_charm.mending_xp_cost × 20</code> mB 网络 XP 流体
+            （默认 1 XP → 20 mB），不足则本次不施加。目标已有更强/更久的同效果时 <code>addEffect</code> 会被拒绝，
+            本次不扣费；按 <code>extract</code> 实际取出的量记账（提取规则拒绝时不白记）。</li>
+        <li><b>献祭</b>：消耗网络内一本“单条附魔=经验修补”的附魔书，持久化记录在网络附件
+            （<code>NetworkAmmoData.potionCharmMending</code>）。</li>
+        <li><b>性能</b>：<code>NetRecord</code> 按网络缓存护符状态，<code>core/BdSubscriptionHub</code> 监听 delta，
+            只有护符相关物品增删才重扫；同一网络多玩家只处理一次。</li>
+    </ol>
+</div>
+
+<div class="card">
+    <h2>0.8.x-1.20.1 的入口（已补齐）</h2>
+    <div class="good">
+        <b>已补齐</b>
+        旧线的模式按钮随 BD 0.7 GUI 一起删除后，<code>CyclePotionCharmModePacket</code> 与
+        <code>SacrificeMendingPacket</code> 一度没有发送方。现在由新增的「网络设置」页
+        （<code>client/page/NetSettingsPage.kt</code>，注入 BD <code>NetControlMenu</code>）提供：
+        四态模式循环（仅玩家 → 仅女仆 → 两者 → 关闭）+「献祭经验修补书」按钮 + 解锁状态显示，
+        用的是现有两包，且与附魔分离、自动充电开关放在同一页。
+    </div>
+    <ul>
+        <li>页面状态来自 <code>PotionCharmState</code>，网络 ID 取<b>当前打开的存储/终端界面所连网络</b>（<code>DimensionsNetMenu.networkId()</code>，未同步时回退主网络镜像）；
+            打开页面时发 <code>RequestPotionCharmPacket</code> 拉一次权威值。</li>
+        <li>权限由服务端校验（<code>net.isManager/isOwner</code>），无权限会收到
+            <code>message.beyond_integration.cannot_toggle_potion_charm</code>。</li>
+        <li>三个开关由服务端按菜单网络处理（<code>handler/NetMenuResolver</code>：有菜单取菜单网络，否则回退主网络）。未开启 <code>bd_tweaks.primary_net_sync</code> 且不在网络界面时页面显示“未同步网络”，
+            无法读取/修改（服务端按主网络处理这些开关）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>代码核对</h2>
+    <table>
+        <tr><th>结论</th><th>说明</th></tr>
+        <tr>
+            <td>✅ 文档新增</td>
+            <td>旧 docs 没有药水护符篇；本轮已在 <code>docs/36</code> 与 <code>new_docs/07</code> 补齐</td>
+        </tr>
+        <tr>
+            <td>⚠ 版本范围</td>
+            <td>1.21.1_NEOFORGE <b>没有</b>该功能（无 <code>charm</code> 相关类；Apoth 在 1.21.1 只用于附魔台）</td>
+        </tr>
+        <tr>
+            <td>⚠ 入口缺口</td>
+            <td>0.8.x-1.20.1 缺 UI/命令，模式与献祭不可用（与能量充能、磁铁/漏斗档位是同一类问题）</td>
+        </tr>
+        <tr>
+            <td>?</td>
+            <td><code>PotionCharmSyncPacket</code> 在 0.8.x 仍会推送到 <code>SuperbAmmoCache</code>，
+                但没有界面读取；若补页面可直接复用这份缓存</td>
+        </tr>
+        <tr>
+            <td>⚠ 细节</td>
+            <td><b>护符记录的效果时长</b>：apotheosis 的 <code>PotionCharmItem</code> 用
+                <code>PotionUtils.getMobEffects</code> 从物品 NBT 读一条带 <code>duration</code> 的
+                <code>MobEffectInstance</code>；网络版施加时长 = <code>ceil(duration/24) + refresh_lead_ticks</code>，
+                与原版饰品栏护符的 <code>ceil(duration/24) + criticalDuration</code>（5 或 210）逻辑一致，
+                但 BI 用可配置 <code>refresh_lead_ticks</code> 取代固定值。</td>
+        </tr>
+        <tr>
+            <td>⚠ 提示</td>
+            <td><b>效果不在 HUD 显示</b>：施加用 <code>MobEffectInstance(..., false, false)</code>（与 Apoth 原版一致），
+                无图标、无粒子；移速/攻击/回血等属性仍然生效，不要据此判断“未生效”。</td>
+        </tr>
+        <tr>
+            <td>?</td>
+            <td>同效果去重时是否比较时长：<code>isBetter</code> 只比 amplifier 与“无法破坏/Mending”，
+                <b>不比 duration</b>；同效果同等级的两个护符，选中哪个取决于扫描顺序（可能拿到时长较短的那件）。
+                若要“取时长最长者”，需在 <code>isBetter</code> 里加 duration 比较。</td>
+        </tr>
+    </table>
+</div>
+
+<footer>
+    <a href="index.html">← 返回 new_docs 索引</a> · 07 · 药水护符 · 上一篇
+    <a href="06-xp-rod.html">06 经验棒</a> · 下一篇 <a href="08-jei-emi.html">08 JEI / EMI</a>
+</footer>
+
+</div>
+</body>
+</html>

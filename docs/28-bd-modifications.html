@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>28 · BD 功能修改项 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>28 · BD 功能修改项</h1>
+    <div class="sub">Beyond Integration 通过 Mixin 对主模组 Beyond Dimensions 目标类所作的行为修改与扩展汇总 · 基于 <code>1.20.1-FORGE</code> 与 <code>1.21.1_NEOFORGE</code> 的 <code>beyond_integration.mixins.json</code> 与源码归纳</div>
+</header>
+
+<div class="card">
+    <h2>说明</h2>
+    <ul>
+        <li>本文只列<b>对 BD 目标类（<code>com.wintercogs.beyonddimensions.*</code>）及为 BD 行为而动用的原版类</b>的修改；对第三方模组（TACZ / SW / FTB / ywzj / 哨戒臂 / 女仆 / Thirst / JEI）的 Mixin 不在本文范围。</li>
+        <li>BI 不注册方块 / 物品 / 实体；对 BD 的接入分两类：<b>（A）公开扩展点</b>（插入拦截链、GUI 扩展注册表、补注册同名菜单等，见文档 <a href="26-api-extensions.html">26</a> 与 <a href="22-blacklist.html">22</a>）；<b>（B）Mixin 修改</b>（本文）。</li>
+        <li>BD 类名以 1.20.1-Forge 分支为准，NeoForge 分支同名类位于相同包路径；差异在“双分支”列注明。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>(A) 公开扩展点接入（非 Mixin）</h2>
+    <table>
+        <tr><th>接入点</th><th>BD 类型</th><th>BI 实现</th></tr>
+        <tr><td>插入前置拦截链</td><td><code>UnifiedStorage</code> 的 <code>BeforeInsertHandler</code> 扩展</td><td><code>ItemBlacklistHandler</code> / <code>EnchantmentBookSeparatorHandler</code> / <code>AmmoBoxExtractHandler</code> / <code>SuperbAmmoInsertHandler</code></td></tr>
+        <tr><td>GUI 扩展注册表</td><td><code>IDimensionsNetGUIExtension</code> / <code>BDGUIExtensionRegistry</code></td><td><code>StorageMenuExtension</code> / <code>AmmoPanelExtension</code>（隐藏/自动充电/物品保护/弹药面板/工作站模式按钮）</td></tr>
+        <tr><td>菜单类型补注册</td><td>BD 终端「存储」菜单</td><td>补充注册同名菜单类型并做界面扩展</td></tr>
+        <tr><td>网络订阅</td><td>BD 存储订阅</td><td>统一经 <code>core/subscribe/BdSubscriptionHub</code> 弱引用管理</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>(B) Mixin 修改清单（按 BD 功能归类）</h2>
+
+    <h3>1 · 网络核心（<code>api.dimensionnet.DimensionsNet</code>）</h3>
+    <table>
+        <tr><th>Mixin</th><th>作用</th></tr>
+        <tr><td><code>DimensionsNetMixin</code></td><td>为每个网络附加并持久化扩展数据：虚拟弹药计数（<code>SuperbAmmoAccessor</code>）、附魔分离开关（<code>EnchantSeparationAccessor</code>）、自动充能开关（<code>EnergyChargeAccessor</code>）、工作台激活状态（<code>WorkstationActivationAccessor</code>）、创造弹药计数（<code>TaczCreativeAccessor</code>）、网络名（<code>NetworkNameProvider</code>）。数据经 <code>NetworkDataStore</code> / <code>NetworkAmmoData</code> 统一读写</td></tr>
+    </table>
+
+    <h3>2 · 存储物品与交互</h3>
+    <table>
+        <tr><th>目标类</th><th>Mixin</th><th>作用</th></tr>
+        <tr><td><code>common.item.NetedItem</code></td><td><code>NetedItemMixin</code></td><td>联网物品的终端定位 / 保护等扩展行为</td></tr>
+        <tr><td><code>Item</code>（原版，为 BD 联网物品）</td><td><code>NetedItemClickMixin</code></td><td>容器界面悬停左键双向快速存入 / 取出网络（悬停快速存储）</td></tr>
+        <tr><td><code>NetMagnetItem</code></td><td><code>NetMagnetItemMixin</code> · <code>NetMagnetItemOpenMixin</code></td><td>网络磁铁（物品）自定义档位：物品/流体分开、各自半径与执行间隔、独立节拍；界面入口重定向到 BI 复制界面</td></tr>
+        <tr><td><code>ItemStack</code>（原版，Neo 专属）</td><td><code>PlaceboCacheWriteDisableMixin</code></td><td>禁用 Placebo 缓存写入，规避与 BD 数据附件/缓存的冲突</td></tr>
+    </table>
+
+    <h3>3 · 终端与合成界面</h3>
+    <table>
+        <tr><th>目标类</th><th>Mixin</th><th>作用</th></tr>
+        <tr><td><code>client.gui.DimensionsNetGUI</code></td><td><code>DimensionsNetGUIMixin</code></td><td>左侧按钮栏接管与重排（不依赖 BD <code>LeftButtonSidebar</code>）、左侧溢出列、RI 按钮屏蔽替代、JEI 避让 / 数量角标 / Shift 取物、行数最大值跟随、tooltip 层级</td></tr>
+        <tr><td><code>DimensionsCraftGUI</code></td><td><code>DimensionsCraftGUIMixin</code></td><td>合成台界面扩展（客户端）</td></tr>
+        <tr><td><code>DimensionsTerminalCraftGUI</code></td><td><code>DimensionsTerminalCraftGUIMixin</code></td><td>终端合成界面扩展（客户端）</td></tr>
+        <tr><td><code>common.menu.DimensionsCraftMenu</code></td><td><code>BdBucketCraftTransferMixin</code></td><td>桶 / 流体桶合成转换补料</td></tr>
+        <tr><td><code>common.menu.DimensionsCraftMenuTerminal</code></td><td><code>BDMenuAccessor</code></td><td>访问器：读取终端合成菜单内部字段</td></tr>
+        <tr><td><code>common.menu.widget.slot.AutoRefillResultSlot</code></td><td><code>BdBucketAutoRefillMixin</code></td><td>结果槽自动补充（桶/流体桶）</td></tr>
+        <tr><td>BD 桶/流体槽（类集合）</td><td><code>BdBucketFluidSlotMixin</code></td><td>流体槽与桶互转</td></tr>
+        <tr><td><code>integration.module.jei.transfer.TransferHelper</code></td><td><code>BdBucketTransferHelperMixin</code></td><td>BD 自带 JEI 配方转移的桶/流体补料适配</td></tr>
+        <tr><td><code>common.menu.DimensionsNetMenu</code></td><td><code>BDMenuNetAccessor</code></td><td>访问器：向外部（如哨戒机械臂假玩家）暴露网络引用</td></tr>
+    </table>
+
+    <h3>4 · 网络通道过滤与方块配置</h3>
+    <table>
+        <tr><th>目标类</th><th>Mixin</th><th>作用</th></tr>
+        <tr><td><code>NetPathwayBlockEntity</code></td><td><code>NetPathwayBlockEntityFilterMixin</code></td><td><code>net_pathway</code> 标记槽白名单过滤（启用 / 仅接收输入 / 模糊），对外能力暴露裁剪；提供过滤配置菜单</td></tr>
+        <tr><td><code>NetedBlockEntity</code></td><td><code>NetedBlockEntityNetPathwayDataMixin</code></td><td>每方块 NBT 存储过滤开关（随 QuickData 同步）</td></tr>
+        <tr><td><code>Block</code>（原版，为 BD 联网方块）</td><td><code>NetedBlockKeepFilterNbtMixin</code></td><td>破坏时保留方块配置 NBT（不含网络绑定）</td></tr>
+    </table>
+
+    <h3>5 · 经验棒 / 经验兑换（<code>bd_tweaks.xp_rod</code>）</h3>
+    <table>
+        <tr><th>目标类</th><th>Mixin</th><th>作用</th></tr>
+        <tr><td>BD 经验相关工具类</td><td><code>XpUtilMixin</code> · <code>XpExchangeSettingsMixin</code> · <code>XpExchangeItemMixin</code></td><td>解除目标等级上限、分批发放（BATCH）、直设式发放（DIRECT，网络 XP 优先，1 点 = 20 mB）</td></tr>
+        <tr><td>BD 经验兑换 GUI</td><td><code>XpExchangeGUIMixin</code>（客户端）</td><td>经验兑换界面增强</td></tr>
+    </table>
+
+    <h3>6 · 网络熔炉 / 喂食器</h3>
+    <table>
+        <tr><th>目标类</th><th>Mixin</th><th>作用</th></tr>
+        <tr><td><code>BaseNetFurnaceBlockEntity</code></td><td><code>NetFurnaceSmeltSpeedMixin</code></td><td>网络熔炉熔炼速度可配置</td></tr>
+        <tr><td><code>BaseNetFurnaceBlockEntity</code></td><td><code>NetFurnaceWaterPurifyMixin</code></td><td>按标记自动组装水瓶 / 水桶执行 Thirst 提纯</td></tr>
+        <tr><td><code>BaseNetFurnaceBlockEntity$1 / $3</code></td><td><code>NetFurnaceInputFilterWaterMixin</code> · <code>NetFurnaceInputStorageWaterMixin</code></td><td>输入过滤 / 输入存储对纯水流体的支持</td></tr>
+        <tr><td><code>NetFeederItem</code> / <code>NetFeederMenu</code> / <code>NetFeederMenu$1</code> / <code>NetFeederGUI</code></td><td><code>FeederThirstItemMixin</code> · <code>FeederThirstMenuMixin</code> · <code>FeederThirstMenuSlotMixin</code> · <code>FeederThirstGUIMixin</code></td><td>网络喂食器补水档位，只使用标记槽物品 / 流体（需 Thirst）</td></tr>
+    </table>
+
+    <h3>7 · NeoForge 专属</h3>
+    <table>
+        <tr><th>目标类</th><th>Mixin</th><th>作用</th></tr>
+        <tr><td><code>common.item.NetTerminalItem</code></td><td><code>NetTerminalItemMixin</code></td><td>终端熔炼等行为（Neo 端）</td></tr>
+        <tr><td><code>common.block.entity.NetInterfaceBlockEntity</code></td><td><code>NetInterfaceExtractMixin</code></td><td>网络接口按映射提取实体弹药</td></tr>
+        <tr><td><code>ItemStack</code></td><td><code>PlaceboCacheWriteDisableMixin</code></td><td>禁用 Placebo 缓存写入（见上表 2）</td></tr>
+    </table>
+
+    <h3>8 · 网络漏斗（方块磁铁）自定义档位</h3>
+    <p>方块磁铁即 <code>beyonddimensions:net_hopper_block</code>（网络漏斗，物品/经验/流体都能吸）。BI 复用网络磁铁的档位配置（<code>magnet.item_range_tiers</code> / <code>magnet.fluid_range_tiers</code>），把物品/经验与流体分开处理，半径与执行间隔各自独立。</p>
+    <table>
+        <tr><th>目标类</th><th>Mixin</th><th>作用</th></tr>
+        <tr><td><code>common.block.entity.NetHopperBlockEntity</code></td><td><code>NetHopperBlockEntityTierMixin</code></td><td>接管 <code>getTicksPerWork</code> / <code>workStart</code> / <code>workContent</code>：<b>物品/经验用物品档位、流体用流体档位</b>，半径与间隔各自独立；每方块选择存 NBT <code>bi_hopper_tier_item</code> / <code>bi_hopper_tier_fluid</code></td></tr>
+        <tr><td><code>common.menu.NetHopperMenu</code></td><td><code>NetHopperMenuTierMixin</code></td><td>档位索引并入 BD 漏斗菜单的 QuickData 双向同步</td></tr>
+        <tr><td><code>client.gui.NetHopperGUI</code></td><td><code>NetHopperGUITierMixin</code>（客户端）</td><td>隐藏 BD 原“距离按钮”，新增 BI「物品档位 / 流体档位」两个按钮（档位名本地化）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>双分支差异速查</h2>
+    <table>
+        <tr><th>项</th><th>Forge 1.20.1</th><th>NeoForge 1.21.1</th></tr>
+        <tr><td>Mixin 门控</td><td><code>required=false</code>，SW/TACZ 条件注册</td><td><code>required=true</code>，全部无条件注册</td></tr>
+        <tr><td>BD 目标类</td><td>Forge 分支类（<code>com.wintercogs.beyonddimensions.*</code>）</td><td>同类名，<code>targets</code> 写法为主</td></tr>
+        <tr><td>Neo 专属 BD 修改</td><td>无</td><td><code>NetTerminalItemMixin</code> · <code>NetInterfaceExtractMixin</code> · <code>PlaceboCacheWriteDisableMixin</code></td></tr>
+    </table>
+    <div class="warn"><b>BD UI 框架变更预告</b>：Beyond Dimensions 本体计划在下一版本更换 UI 框架；所有依赖 BD 界面的代码（<code>client/gui/**</code>、<code>DimensionsNetGUIMixin</code>、<code>DimensionsStorageMenu</code> 等）已加提示注释，待 BD 正式发布后需统一校对坐标、纹理与按钮布局。</div>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul>
+        <li><code>src/main/resources/beyond_integration.mixins.json</code>（两分支 Mixin 清单）</li>
+        <li><code>mixin/DimensionsNetMixin</code> · <code>DimensionsNetGUIMixin</code> · <code>DimensionsCraftGUIMixin</code> · <code>DimensionsTerminalCraftGUIMixin</code></li>
+        <li><code>mixin/BdBucket*</code> · <code>BDMenuAccessor</code> · <code>BDMenuNetAccessor</code></li>
+        <li><code>mixin/Neted*</code> · <code>NetPathwayBlockEntityFilterMixin</code> · <code>NetMagnetItem*</code> · <code>NetHopperBlockEntityTierMixin</code> · <code>NetHopperMenuTierMixin</code> · <code>NetHopperGUITierMixin</code></li>
+        <li><code>mixin/Xp*</code> · <code>NetFurnace*</code> · <code>FeederThirst*</code> · <code>PlaceboCacheWriteDisableMixin</code>（Neo）</li>
+    </ul>
+</div>
+
+<footer>
+    Beyond Integration v0.7.3 · 文档基于 <code>1.20.1-FORGE</code> 与 <code>1.21.1_NEOFORGE</code> 分支源码 · 若与代码不符以源码为准 · 返回 <a href="index.html">索引</a>
+</footer>
+
+</div>
+</body>
+</html>

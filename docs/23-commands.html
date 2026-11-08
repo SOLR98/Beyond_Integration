@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11 · /bdtools 命令系统 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>11 · /bdtools 命令系统</h1>
+    <div class="sub">维度网络管理命令树、权限模型、中英双语输出</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p><code>/bdtools</code> 是管理 Beyond Dimensions 网络的管理命令集，覆盖：网络查询 / 批量创建 / 资源生成 / 终端发放 / 成员与经理权限管理 / 跨玩家远程打开 GUI / 批量附魔分离。输出支持中英双语（服务端翻译）与 SI 单位数字格式化（K/M/G/T/P/E）。</p>
+</div>
+
+<div class="card">
+    <h2>命令树</h2>
+    <pre><code>/bdtools                          （根命令，需 OP 2 级）
+├── network
+│   ├── list                      列出所有网络（含成员/经理/状态，分页）
+│   ├── info [netId|玩家]          查看网络详情（容量/资源统计）；参数可为网络 ID 或玩家名（查其主网络）
+│   ├── insert item &lt;物品&gt; [数量] [netId]     向网络插入物品
+│   ├── insert tag &lt;#标签&gt; [每种数量] [netId]  按物品标签批量插入（逐种列表输出，空间不足自动跳过）
+│   ├── insert fluid &lt;流体&gt; [mB] [netId]      向网络插入流体
+│   ├── insert energy &lt;FE数量&gt; [netId]        向网络插入能量（数量在前、网络 ID 在后）
+│   ├── workstation reset &lt;工作台ID|all&gt; [netId] 重置工作台献祭激活（单独/全部；ID 带 Tab 补全）
+│   ├── generateResources &lt;netId&gt; 生成网络资源（合成产物）
+│   ├── giveTerminal &lt;player&gt;     发放网络终端物品
+│   ├── giveEnchantedBooks &lt;player&gt; 发放附魔书
+│   └── batchCreate &lt;player&gt; &lt;count&gt; 批量创建网络
+├── member
+│   ├── addMembers &lt;netId&gt; &lt;players&gt;    添加成员
+│   ├── addManagers &lt;netId&gt; &lt;players&gt;  添加经理
+│   ├── removePlayers &lt;netId&gt; &lt;players&gt; 移除成员
+│   └── removeManagers &lt;netId&gt; &lt;players&gt; 移除经理
+├── myNetworks                   查看自己的网络（分页）
+├── open &lt;player&gt;                打开网络 GUI
+├── openAny &lt;netId&gt;              无视权限打开任意网络（查水表）
+└── enchant
+    └── separate [netId]          批量附魔分离</code></pre>
+    <div class="note"><b>工作台激活状态</b>开关启用时 <code>network info</code> 会输出“已激活工作台：…”行（详见文档 10）。</div>
+    <div class="note"><b>完整链路文档</b>见 <code>1.20.1-FORGE/COMMAND_CHAIN.md</code>（命令树、中英双语消息表、分页/按钮辅助文本）。</div>
+</div>
+
+<div class="card">
+    <h2>命令执行流程</h2>
+    <div class="flow">
+        <div class="step io"><span class="tag">注册期</span><b>RegisterCommandsEvent</b>BDNetworkCommands 构建命令树（建议与执行层）</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">执行期</span><b>命令执行</b>CommandUtils 解析参数 / NetworkUtils 取网络</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>PermissionChecker 权限校验</b></div>
+    </div>
+    <div class="flow row">
+        <div class="step"><b>OP 级</b>checkOpPermission 源命令（server/owner）</div>
+        <div class="arrow"></div>
+        <div class="step"><b>网络级</b>owner → addManager 类操作</div>
+        <div class="arrow"></div>
+        <div class="step"><b>网络级</b>owner/manager → 成员管理</div>
+        <div class="arrow"></div>
+        <div class="step"><b>成员级</b>member → 只读/自身网络操作</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><b>执行 BD 操作</b>创建/插入/遍历（最多 10000 网络 ID 扫描）</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>OutputFormatter</b>格式化数字（K/M/G/T/P/E）</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>CommandLang 双语输出</b>成功/失败消息</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>权限模型</h2>
+    <table>
+        <tr><th>权限类</th><th>校验点</th><th>说明</th></tr>
+        <tr><td>OP 2 级</td><td><code>PermissionChecker.checkOpPermission</code></td><td>网络管理类命令（list/info/insert/generateResources/giveTerminal/batchCreate/openAny）</td></tr>
+        <tr><td>Owner-only</td><td><code>checkAddManagerPermission</code></td><td>添加/移除经理（当前 addManagers/removeManagers 实际使用 owner-or-manager 检查，见风险）</td></tr>
+        <tr><td>Owner/Manager</td><td><code>checkNetworkManagementPermission</code></td><td>成员增删、enchant separate</td></tr>
+        <tr><td>Member</td><td><code>NetworkPermission</code> 枚举</td><td>myNetworks / open 自身网络</td></tr>
+    </table>
+    <div class="warn"><b>已知问题（待修复）</b>① addManagers / removeManagers 未使用 owner-only 检查——经理可横向提升权限；② <code>/bdtools enchant separate</code> 无 requires 权限门槛。</div>
+</div>
+
+<div class="card">
+    <h2>实现要点</h2>
+    <table>
+        <tr><th>模块</th><th>类</th><th>职责</th></tr>
+        <tr><td>命令注册</td><td><code>command/BDNetworkCommands</code></td><td>@EventBusSubscriber + RegisterCommandsEvent</td></tr>
+        <tr><td>子命令</td><td><code>command/network/*</code> ×7、<code>command/member/*</code> ×2、<code>EnchantSeparateCommand</code></td><td>各命令实现</td></tr>
+        <tr><td>工具</td><td><code>command/util/</code></td><td>CommandUtils / NetworkUtils / PermissionChecker / OutputFormatter / NetworkPermission</td></tr>
+        <tr><td>文案</td><td><code>command/CommandLang</code></td><td>中英双语消息表（服务端翻译）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/command/BDNetworkCommands.java<span class="fdesc">命令树注册</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/command/network/（NetworkListCommand / NetworkInfoCommand / NetworkInsertCommand / NetworkWorkstationCommand / NetworkGenerateResourcesCommand / NetworkMyNetworksCommand / NetworkOpenCommand / NetworkToolsCommand）</li>
+        <li>src/main/java/com/solr98/beyondintegration/command/member/（MemberAddCommand / MemberRemoveCommand）</li>
+        <li>src/main/java/com/solr98/beyondintegration/command/EnchantSeparateCommand.java / CommandLang.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/command/util/（PermissionChecker / NetworkUtils / CommandUtils / OutputFormatter / NetworkPermission）</li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 11/21 · Beyond Integration v0.6.5
+</footer>
+
+</div>
+</body>
+</html>

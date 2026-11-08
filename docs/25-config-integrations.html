@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>13 · 配置系统与第三方集成 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>13 · 配置系统与第三方集成</h1>
+    <div class="sub">COMMON + CLIENT 两份配置、多语言注释、JEI / Jade / Cloth Config 集成、可选模组共存</div>
+</header>
+
+<div class="card">
+    <h2>配置系统</h2>
+    <p>0.6.x 起配置分为两份文件：</p>
+    <table>
+        <tr><th>文件</th><th>类型</th><th>内容</th></tr>
+        <tr><td><code>beyond_integration-common.toml</code></td><td>COMMON（<code>CommandConfig.SERVER_SPEC</code>）</td><td>服务器逻辑：语言、计费、开关、阈值等 16 个分区</td></tr>
+        <tr><td><code>beyond_integration-client.toml</code></td><td>CLIENT（<code>ClientConfig.CLIENT_SPEC</code>）</td><td>客户端 UI 偏好：枪械台模式、归还方向、附魔预览、工作站顺序</td></tr>
+    </table>
+    <h3>COMMON 配置分区一览</h3>
+    <table>
+        <tr><th>分区</th><th>覆盖项（详见对应文档）</th></tr>
+        <tr><td>language</td><td>命令输出语言 EN_US / ZH_CN</td></tr>
+        <tr><td>network_list</td><td>列表每页最大网络数</td></tr>
+        <tr><td>enchantment_separation</td><td>附魔分离（文档 05）</td></tr>
+        <tr><td>vehicle</td><td>SW 载具充电（文档 16）</td></tr>
+        <tr><td>blacklist</td><td>物品黑名单（文档 22）</td></tr>
+        <tr><td>craft</td><td>合成冷却/递归深度/BD 容器源过滤（文档 15；NeoForge 仅 <code>block_bd_reader</code>）</td></tr>
+        <tr><td>workstations</td><td>启用工作站列表（文档 01）；<code>workstations.activation</code> 工作台献祭激活开关/成本（文档 10）</td></tr>
+        <tr><td>ftb_integration</td><td>FTB Quests 集成总开关（文档 20；检测到 RI 时让路禁用）</td></tr>
+        <tr><td>ammo_extract</td><td>弹药提取映射（文档 13）</td></tr>
+        <tr><td>tacz_ammo</td><td>TACZ 弹药轮询（文档 14）</td></tr>
+        <tr><td>sw_ammo</td><td>SW 弹药轮询（文档 13）</td></tr>
+        <tr><td>energy_ammo</td><td>装备位/饰品/女仆充能（文档 07）</td></tr>
+        <tr><td>anvil</td><td>铁砧计费与解禁增强（文档 01）</td></tr>
+        <tr><td>enchant_table</td><td>网络附魔台（文档 02）</td></tr>
+        <tr><td>enchant_merge</td><td>附魔合并工作站：总开关、拆分原载体消耗、拆分经验（文档 03）</td></tr>
+        <tr><td>bd_tweaks</td><td>经验棒增强 / 终端熔炼 / 桶入网自动分离（含仅限桶物品 + 排除项）/ 网络熔炉熔炼速度 / 主网络 JEI 会话同步 / 网络通道标记槽行数与方块配置保留（文档 08、12、01、27、21、11）</td></tr>
+        <tr><td>auto_totem</td><td>网络图腾通用项（冷却 / 黑名单 / 无敌绕过 / 恢复上限 / 回满，文档 06）</td></tr>
+        <tr><td>revive</td><td>网络图腾强化触发独有项（双实现开关 / 直杀加价 / 死亡时间重置，文档 06；通用项复用 auto_totem）</td></tr>
+        <tr><td>goety_soul</td><td>网络灵魂源（Goety 联动：开关/激活门槛/来源/上限/折扣/复活，文档 32；仅 1.20.1）</td></tr>
+        <tr><td>goety_ritual</td><td>原版仪式环境绕过与额外魂耗、通道替代牢笼（文档 32；仅 1.20.1）</td></tr>
+        <tr><td>irons_mana</td><td>网络魔力源（铁魔法联动：网络支付/回复沉淀/固定回蓝/独立回蓝/上限；仅 1.20.1）</td></tr>
+        <tr><td colspan="2"><b>NeoForge 额外分区</b>：<code>ywzj_vehicle</code>（载具充电/燃料来源，文档 19）；附魔台神化项（<code>apothQuanta</code>/<code>apothArcana</code>）并入 <code>enchant</code> 分区。</td></tr>
+    </table>
+    <h3>CLIENT 配置项</h3>
+    <table>
+        <tr><th>配置</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>tacz_smith_use_network</code></td><td>true</td><td>TACZ 枪械台默认网络材料模式</td></tr>
+        <tr><td><code>tacz_smith_output_to_network</code></td><td>false</td><td>枪械台产物默认输出到网络</td></tr>
+        <tr><td><code>workstation_return_to_storage</code></td><td>false</td><td>工作站归还方向（false = 背包优先）</td></tr>
+        <tr><td><code>enchant_preview_on</code></td><td>true</td><td>附魔台悬停预览（受服务端 previewEnabled 约束）</td></tr>
+        <tr><td><code>workstation_order</code></td><td>["ANVIL","CUT","GRIND","SMITH","CRAFT","ENCHANT"]</td><td>右侧工作站按钮顺序/可见集</td></tr>
+        <tr><td><code>enchant_table_apoth_mode</code>（NeoForge）</td><td>false</td><td>附魔台神化模式偏好（入口暂未启用）</td></tr>
+        <tr><td><code>show_net_sync_status</code></td><td>false</td><td>快捷栏上方主网络同步状态 HUD（文档 33）</td></tr>
+        <tr><td><code>irons_mana_hud</code></td><td>true</td><td>网络魔力独立 HUD（需铁魔法，文档 33）</td></tr>
+        <tr><td><code>hud_layout</code> / <code>hud_visual_edit</code></td><td>空 / true</td><td>统一 HUD 布局（RATIO 比例）与是否允许可视化编辑（文档 33）</td></tr>
+    </table>
+    <div class="warn"><b>已知问题</b>COMMON 类型在 Forge 中双端各读各的文件——专服下客户端与服务端的黑名单/计费设置可能不一致（仅 SERVER 类型会随连接同步）；
+    工作站启用列表已通过 <code>WorkstationActivationSyncPacket</code> 单独下发，客户端按钮与配置界面使用服务端权威值。</div>
+    <div class="note"><b>多语言注释</b><code>core/config/ConfigCommentLang</code> 从 lang 文件读取 <code>beyond_integration.config.comment.*</code>，加载完成后按语言重写配置注释（<code>FMLLoadCompleteEvent → saveIfLanguageChanged</code>）。</div>
+</div>
+
+<div class="card">
+    <h2>Cloth Config 图形界面</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>ModConfigScreen</b>注册 IConfigScreenFactory（若 cloth_config 加载）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>游戏内配置界面</b>分组编辑全部配置项（含「FTB 任务集成」「网络图腾」等分类）；
+        工作站顺序为可拖拽列表（<code>DraggableModeListEntry</code>，按服务端下发列表隐藏禁用项并标记）</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>保存生效</b>（无 cloth 时优雅回退为手动编辑 toml）</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>JEI 集成</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">JEI 点击</span><b>点击合成/切石配方</b>（BDJeiPlugin 注册转移处理器）</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">C2S</span><b>RecipeFillPacket / RecipeFillPayload</b></div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>工作站菜单填充配方</b>（CraftRecipeTransferHandler / CutRecipeTransferHandler）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>网格自动摆放</b>材料取自网络/背包</div>
+    </div>
+    <table>
+        <tr><th>类</th><th>职责</th></tr>
+        <tr><td><code>jei/BDJeiPlugin</code></td><td>@JeiPlugin 注册入口</td></tr>
+        <tr><td><code>jei/CraftRecipeTransferHandler</code></td><td>CRAFTING 配方一键填充</td></tr>
+        <tr><td><code>jei/CutRecipeTransferHandler</code></td><td>STONECUTTING 配方一键填充</td></tr>
+        <tr><td><code>jei/BDSidebarGuiHandler</code></td><td>BD 终端避让：模式按钮列 / SW 弹药面板 / 左侧溢出列</td></tr>
+        <tr><td><code>jei/NetworkCountOverlay</code> + <code>jei/BeyondJeiNetworkHelper</code></td><td>物品条目网络数量角标（按逻辑刻缓存）；数据源优先主网络会话镜像 <code>PrimaryNetClientStorage</code>（须开启 <code>bd_tweaks.primary_net_jei_sync</code>），否则回退终端客户端镜像（27、11）</td></tr>
+        <tr><td><code>mixin/JeiIngredientElementMixin</code>（+<code>NewMixin</code> 新版布局）/ <code>mixin/JeiIngredientBookmarkElementMixin</code>（+<code>NewMixin</code>）/ <code>mixin/JeiFocusInputMixin</code></td><td>角标渲染（物品列表 + 收藏栏）+ tooltip 数量/取物提示 + Shift 点击取物品；新旧 JEI 布局由 MixinPlugin 按类存在性适配（详见文档 27）</td></tr>
+    </table>
+    <div class="warn"><b>RI 让路</b>检测到 rs_integration 加载时，数量角标/点击取物品的全部 Mixin 不应用（<code>MixinPlugin</code> 门控），避免与其同类功能冲突。</div>
+</div>
+
+<div class="card">
+    <h2>Jade 集成（WAILA 高亮）</h2>
+    <h3>Forge 分支</h3>
+    <table>
+        <tr><th>类</th><th>职责</th></tr>
+        <tr><td><code>jade/JadeBDPlugin</code></td><td>@WailaPlugin 注册入口</td></tr>
+        <tr><td><code>BDServerProvider / BDClientProvider</code></td><td>BD 网络方块：显示网络 ID/名称/容量</td></tr>
+        <tr><td><code>BDFluidOverrideProvider</code></td><td>流体展示覆写</td></tr>
+        <tr><td><code>VehicleServerProvider / VehicleClientProvider</code></td><td>SW 载具：网络绑定信息</td></tr>
+    </table>
+    <h3>NeoForge 分支（拆分更细）</h3>
+    <table>
+        <tr><th>类</th><th>职责</th></tr>
+        <tr><td><code>BlockServerProvider / BlockClientProvider</code></td><td>BD 方块：<code>bce_net_id</code> / 自定义名 / 附魔分离状态</td></tr>
+        <tr><td><code>ContainerServerProvider / ContainerClientProvider</code></td><td>SW 容器方块（反射读 <code>Net_id</code>）</td></tr>
+        <tr><td><code>VehicleServerProvider / VehicleClientProvider</code></td><td>载具实体（SW 经 <code>INetCachedVehicle</code>）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>可选模组共存策略</h2>
+    <table>
+        <tr><th>模组</th><th>策略</th><th>说明</th></tr>
+        <tr><td>taczaddon</td><td>版本区间兼容</td><td>Forge：4 个 Mixin（≥1.1.8.1）；NeoForge：3 个 Mixin（≥1.1.8.2）——BD 容器源过滤、合成按钮接管、计数互斥、防计数闪断（见文档 15）</td></tr>
+        <tr><td>curios_for_ammo_box</td><td>独立模组</td><td>与 TACZ 同目标类各自注入，功能相邻需关注注入顺序</td></tr>
+        <tr><td>Apotheosis / Placebo</td><td>PlaceboCacheWriteDisableMixin（NeoForge）</td><td>禁用 Placebo 物品词缀缓存写入，保持 NBT 稳定（整合包稳定性修复）</td></tr>
+        <tr><td>Apotheosis 附魔</td><td>神化附魔菜单（NeoForge）</td><td>菜单/界面/配置已实现，打开入口暂被禁用（见文档 02）</td></tr>
+        <tr><td>ywzj 载具</td><td>专用 Mixin 组（NeoForge）</td><td>绑定/充电/弹药/合成/HUD（见文档 19）；Forge 分支未实现</td></tr>
+        <tr><td>Cloth Config</td><td>条件注册</td><td>缺失时回退手动编辑 toml</td></tr>
+        <tr><td>Maid_Net_Storage</td><td>API 协作</td><td>MNS 检测到 BI 时让位终端定位/图腾等能力，经 <code>MaidNetworkAPI</code> 调用（见文档 26）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/CommandConfig.java<span class="fdesc">COMMON 配置定义</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/ClientConfig.java<span class="fdesc">CLIENT 配置定义</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/core/config/ConfigCommentLang.java<span class="fdesc">注释多语言</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/config/ModConfigScreen.java<span class="fdesc">Cloth 界面</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/jei/BDJeiPlugin.java<span class="fdesc">JEI 入口</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/jade/JadeBDPlugin.java<span class="fdesc">Jade 入口</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/PlaceboCacheWriteDisableMixin.java（NeoForge）</li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 13/21 · Beyond Integration v0.6.5
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01 · 网络工作站 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>01 · 网络工作站（七合一菜单）</h1>
+    <div class="sub">远程使用合成台 / 铁砧 / 切石机 / 砂轮 / 锻造台 / 存储 / 附魔台，材料直接取自维度网络</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>本模组的核心功能之一：无需摆放任何工作站方块，玩家通过 <b>6 个快捷键</b>（默认未绑定，可在控制设置中分配）或网络界面右侧的工作站按钮，即可远程打开基于自己主网络的 7 种工作站界面。材料从网络统一存储（UnifiedStorage）自动补料，产物可选择放入背包或回存网络。所有菜单继承 Beyond Dimensions 的 <code>DimensionsNetMenu</code>，直接操作网络存储，支持物品 / 流体 / 能量三种键类型。</p>
+    <div class="note"><b>注意</b>「存储」菜单没有独立快捷键——它由 BD 原版便携终端打开，本模组仅补充注册了同名菜单类型并做界面扩展（附魔分离开关、自动充电开关、物品保护、弹药面板、工作站模式按钮）。</div>
+    <div class="note"><b>附魔台</b>0.6.5 新增第 7 种工作站，功能较多，独立成篇（见 <a href="02-enchant-table.html">文档 02</a>）。</div>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>快捷键</td><td><code>client/BDKeyBindings</code></td><td>6 个可配置按键：合成/切割/锻造/磨石/铁砧/附魔台</td></tr>
+        <tr><td>打开请求包</td><td><code>network/OpenStorageMenuPacket</code>（Forge）/ <code>network/payload/OpenStorageMenuPayload</code>（NeoForge）</td><td>C2S：携带菜单类型枚举，服务端按玩家主网络打开菜单</td></tr>
+        <tr><td>菜单注册</td><td><code>init/ModMenus</code></td><td>唯一的 DeferredRegister，注册 7 个 MenuType（NeoForge 另有 Apoth 附魔菜单共 8 个）</td></tr>
+        <tr><td>菜单实现</td><td><code>feature/crafting/Dimensions*Menu</code> ×7（Forge）<br><code>init/Dimensions*Menu</code>（NeoForge）</td><td>合成/铁砧/切石/砂轮/锻造/存储/附魔</td></tr>
+        <tr><td>界面实现</td><td><code>client/gui/Dimensions*GUI</code> ×7（+ NeoForge 神化附魔）</td><td>对应 Screen + 自定义贴图渲染</td></tr>
+        <tr><td>界面扩展</td><td><code>client/gui/extension/</code></td><td>附魔/充电开关、物品保护、SW 弹药面板、工作站模式按钮、翻页状态保存</td></tr>
+        <tr><td>辅助包</td><td><code>SetAnvilNamePacket</code> / <code>CleanWorkstationPacket</code> / <code>RecipeFillPacket</code> / <code>ProtectItemPacket</code></td><td>铁砧改名 / 工作台清理 / JEI 配方填充 / 物品保护标记（NeoForge 对应 <code>payload/*</code>）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>打开流程</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>按下快捷键</b>BDKeyBindings.handleTick() <code>consumeClick()</code></div>
+        <div class="arrow"><span class="al">服务端未启用该工作台 → 本地提示不发送</span></div>
+        <div class="step io"><span class="tag">数据包</span><b>OpenStorageMenuPacket</b>sendToServer(type)</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>handle()</b>enqueueWork 切主线程</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>校验</b>workstations.enabled + 玩家主网络</div>
+        <div class="arrow"><span class="al">net == null 或未启用</span></div>
+        <div class="step end"><b>直接返回</b>（无网络不开菜单）</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><span class="tag">服务端</span><b>创建菜单</b>switch(type) → Dimensions*Menu(ModMenus.XXX.get(), id, inv, net.getUnifiedStorage())</div>
+        <div class="arrow"><span class="al">MenuType + 网络存储</span></div>
+        <div class="step io"><span class="tag">同步</span><b>openMenu + 注册表广播</b>客户端绑定对应 Screen</div>
+        <div class="arrow"></div>
+        <div class="step client"><span class="tag">客户端</span><b>渲染工作站 GUI</b>直接显示网络物品/流体/能量</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>各工作站要点</h2>
+    <table>
+        <tr><th>工作站</th><th>特色逻辑</th></tr>
+        <tr><td>合成台 <code>DimensionsCraftMenu</code></td><td>网络自动补料：每次取走产物后从网络/背包补齐 3×3 网格（补料总额恒为 1 组，防复制）；结果计算走 BD 的 <code>slotChangedCraftingGrid</code>；支持 JEI 一键填充（RecipeFillPacket）；Shift 批量合成；桶/流体桶：网络只有流体（+空桶）时自动转换填充与补料（见"桶 / 流体桶支持"节）</td></tr>
+        <tr><td>铁砧 <code>DimensionsAnvilMenu</code></td><td>改名走 SetAnvilNamePacket；费用由服务端重算（不信任客户端）；XP 计费双模式：LEVEL（扣等级，levelCap 上限）/ POINTS（20 点 = 1 级，优先从网络 XP 流体扣，不足补玩家经验）；0.6.x 扩展附魔等级突破与解禁（见下表）；物品保护标记的物品不可覆盖</td></tr>
+        <tr><td>切石机 <code>DimensionsCutMenu</code></td><td>原料耗尽时自动从网络补料；配方索引 DataSlot 同步</td></tr>
+        <tr><td>砂轮 <code>DimensionsGrindMenu</code></td><td>标准砂轮逻辑，自动补料</td></tr>
+        <tr><td>锻造台 <code>DimensionsSmithMenu</code></td><td>模板/底材/附加三槽自动补料</td></tr>
+        <tr><td>存储 <code>DimensionsStorageMenu</code></td><td>BD 终端菜单的扩展壳：附魔分离开关按钮、自动充电开关按钮、物品保护（ProtectItemPacket）、SW 弹药面板（AmmoPanelExtension）</td></tr>
+        <tr><td>附魔台 <code>DimensionsEnchantMenu</code></td><td>网络化附魔：功率来源/预览/刷新/宽松选魔/解限，详见 <a href="02-enchant-table.html">文档 02</a></td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>桶 / 流体桶支持</h2>
+    <table>
+        <tr><th>能力</th><th>状态</th><th>说明</th></tr>
+        <tr><td>桶入网自动分离</td><td style="color:var(--green)">✔ 已实现</td><td><code>bd_tweaks.bucket_separator_enabled</code>（默认开）：含流体桶入网拆为"流体 + 空容器"；关闭后原样入网。配套 <code>bucket_separator_bucket_only</code>（默认开，仅拆 <code>BucketItem</code> 子类，不再自动拆水瓶）与 <code>bucket_separator_excluded_items</code>（排除项，默认含森罗酒馆果汁桶）</td></tr>
+        <tr><td>本模组合成台（3×3）</td><td style="color:var(--green)">✔ 已实现</td><td>JEI 一键填充 / 取走补料 / 自动补料均支持"流体 + 空桶"转换（宽松语义，空桶可选）</td></tr>
+        <tr><td>TACZ 枪械台合成</td><td style="color:var(--green)">✔ 已实现</td><td>材料桶不足时按流体量直接扣除（1 桶 = 1000 mB，空桶有则一并扣）</td></tr>
+        <tr><td>BD 终端合成 JEI 填充</td><td style="color:var(--green)">✔ 已实现</td><td>客户端池注入（<code>TransferHelper</code> 流体虚拟量）+ 服务端 <code>extractFromStorage</code> 流体回退，走 BD 原版流程（缺失高亮 / maxTransfer 倍率保留）</td></tr>
+        <tr><td>BD 工作台自动补料（取走结果）</td><td style="color:var(--green)">✔ 已实现</td><td><code>AutoRefillResultSlot</code> 补扣提取不足时用网络流体替代（1.20.1 生产环境 <code>m_142406_</code> / 开发环境 <code>onTake</code> 双注入，调用 owner <code>AbstractUnorderedStackHandler</code>），合成格桶保留</td></tr>
+        <tr><td>合成格空 / 缺桶自动填充</td><td style="color:#888">— 已忽略</td><td>无配方上下文时的主动填充不在计划内（JEI 填充 / 取走补料 / 自动补料已覆盖实际使用场景）</td></tr>
+    </table>
+    <div class="warn"><b>已知限制</b>流体桶识别依赖 <code>FluidUtil</code> 流体 capability（无 capability 的容器不参与转换）；转换均为"宽松语义"——网络无空桶时仅扣流体生成桶（合成格/取出场景），入网分离仍要求可推导空容器；桶合成转换已覆盖本模组合成台、TACZ 与 BD 原版工作台/终端。</div>
+</div>
+
+<div class="card">
+    <h2>铁砧增强（anvil 分区，0.6.x）</h2>
+    <table>
+        <tr><th>配置</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>costMode</code></td><td>POINTS</td><td>计费模式：LEVEL / POINTS</td></tr>
+        <tr><td><code>levelCap</code></td><td>40</td><td>LEVEL 模式“过于昂贵”上限</td></tr>
+        <tr><td><code>pointsCap</code></td><td>Long.MAX_VALUE</td><td>POINTS 模式费用上限</td></tr>
+        <tr><td><code>breakMaxLevelMode</code></td><td>OFF</td><td>附魔等级突破：OFF 原版封顶 / PLUS 解封顶 / ADDITIVE 同类等级相加</td></tr>
+        <tr><td><code>ignoreConflict</code> / <code>ignoreSupport</code> / <code>unrestricted</code></td><td>false</td><td>无视冲突 / 无视适用性 / 完全解禁</td></tr>
+        <tr><td><code>conflictPenalty</code> / <code>supportPenalty</code></td><td>2 / 5</td><td>每个冲突/违例附魔的固定等级罚金</td></tr>
+        <tr><td><code>conflictPercent</code> / <code>supportPercent</code> / <code>breakLevelPercent</code> / <code>unrestrictedPercent</code></td><td>0 / 0 / 0 / 100</td><td>对应解禁项的百分位费用加成</td></tr>
+    </table>
+    <div class="warn"><b>已知边界</b>POINTS 模式下网络 XP 不足时差额会从玩家经验扣除，玩家经验不足则少收（不阻塞合成），极端情况下收费略低于标价。</div>
+</div>
+
+<div class="card">
+    <h2>配置项（workstations 分区）</h2>
+    <table>
+        <tr><th>配置</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>workstations.enabled</code></td><td>["craft","anvil","cut","grind","smith","enchant"]</td><td>服务端启用的工作站 ID 列表（忽略大小写精确匹配；<code>storage</code> 实为 BD 终端界面，不受本列表控制）</td></tr>
+    </table>
+    <div class="note"><b>客户端偏好</b><code>ClientConfig.workstation_order</code> 控制网络界面右侧工作站按钮的顺序与可见集（客户端顺序 ∩ 服务端启用列表）。</div>
+</div>
+
+<div class="card">
+    <h2>关闭 / 清理流程（物品归还方向）</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">服务端</span><b>菜单 removed() 或清理请求</b>CleanWorkstationPacket / CleanWorkstationPayload</div>
+        <div class="arrow"><span class="al">归还方向</span></div>
+        <div class="step decision"><b>产物归还方向</b>setReturnDir 由客户端偏好决定（背包 / 网络）</div>
+    </div>
+    <div class="flow row">
+        <div class="step"><b>回背包</b>cleanSlotsFromContainer → 背包</div>
+        <div class="arrow"><span class="al">ICleanableWorkstation</span></div>
+        <div class="step"><b>回网络</b>cleanSlotsFrom → 当前主网络存储</div>
+    </div>
+    <div class="warn"><b>已知边界</b>归还目标是「打开时的主网络」还是「当前主网络」取决于调用点——玩家在菜单打开期间切换主网络，归还可能进入新网络（无丢失，归属可能错乱）。</div>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/init/ModMenus.java<span class="fdesc">7 个 MenuType 注册</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/crafting/DimensionsStorageMenu.java<span class="fdesc">存储菜单 + 清理/归还/保护逻辑</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/crafting/DimensionsAnvilMenu.java<span class="fdesc">铁砧计费（LEVEL/POINTS + 解禁增强）</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/crafting/DimensionsCraftMenu.java<span class="fdesc">合成补料/批量合成</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/handler/BucketFluidHelper.java<span class="fdesc">桶/流体桶转换通用工具（填充/替代/拆解/重填）</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/handler/BucketSeparatorHandler.java<span class="fdesc">桶入网自动分离（bd_tweaks.bucket_separator_enabled / bucket_only / excluded_items）</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/BdBucket*.java<span class="fdesc">BD 工作台/终端 JEI 池注入（TransferHelper）、提取回退（extractFromStorage）、取走补扣（AutoRefillResultSlot）与槽位点击组装桶</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/crafting/DimensionsCutMenu.java / DimensionsGrindMenu.java / DimensionsSmithMenu.java / DimensionsEnchantMenu.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/crafting/ICleanableWorkstation.java<span class="fdesc">可清理工作站接口</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/BDKeyBindings.java<span class="fdesc">6 个快捷键</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/gui/Dimensions*GUI.java<span class="fdesc">工作站界面</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/gui/extension/BDGUIExtensionRegistry.java<span class="fdesc">界面扩展注册表</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/network/OpenStorageMenuPacket.java / SetAnvilNamePacket.java / CleanWorkstationPacket.java / RecipeFillPacket.java / ProtectItemPacket.java</li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 01/21 · Beyond Integration v0.6.5
+</footer>
+
+</div>
+</body>
+</html>

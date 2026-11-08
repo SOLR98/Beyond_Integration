@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>09 · 系统与参考（协议 / 配置 / API / Mixin / 文档）— Beyond Integration new_docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>09 · 系统与参考</h1>
+    <div class="sub">
+        网络协议、配置体系、对外 API、BD 修改清单（Mixin）、贴图与文档索引；
+        并给出 0.8.x-1.20.1 的完整待补清单
+    </div>
+</header>
+
+<div class="card">
+    <h2>1. 网络协议</h2>
+    <table>
+        <tr><th>工程</th><th>协议</th><th>注册</th><th>特点</th></tr>
+        <tr>
+            <td><code>0.7.30·1.20.1</code></td>
+            <td>Forge <code>SimpleChannel</code>，约 45 个 <code>*Packet</code></td>
+            <td><code>network/PacketHandler.register()</code>（协议版本 <code>"1"</code>，ID 自增）</td>
+            <td>手写 encode/decode/handle；<code>PacketHandler.sendToPlayer</code> 对假玩家/未连接静默跳过</td>
+        </tr>
+        <tr>
+            <td><code>0.7.30·1.21.1</code></td>
+            <td>Neo <code>CustomPacketPayload</code></td>
+            <td><code>network/PacketHandler.register(RegisterPayloadHandlersEvent)</code></td>
+            <td><code>network/payload/*</code>（record + StreamCodec）</td>
+        </tr>
+        <tr>
+            <td><code>0.8.x·1.20.1</code></td>
+            <td>Forge <code>SimpleChannel</code></td>
+            <td>同名 <code>PacketHandler</code>；新增三组“请求/设置/状态”包</td>
+            <td>喂食器：<code>Request/Set/StateFeederThirst</code>；经验棒：<code>Request/Set/StateXpRepair</code>；
+                均为“设置存物品 NBT → 服务端回推权威值”</td>
+        </tr>
+        <tr>
+            <td><code>0.8.x·1.21.1</code></td>
+            <td>Neo <code>PayloadRegistrar</code></td>
+            <td><code>bi/network/PacketRegistrar.kt</code></td>
+            <td>骨架期仅 <code>OpenWorkstationPayload</code></td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>2. 配置体系</h2>
+    <table>
+        <tr><th>部分</th><th>0.7.30 两线</th><th>0.8.x · 1.20.1</th></tr>
+        <tr>
+            <td>服务端配置</td>
+            <td><code>CommandConfig</code>（<code>SERVER_SPEC</code>，155 字段）</td>
+            <td><code>CommandConfig</code> 157 字段（+ <code>goety_ritual.network_structure</code>、
+                <code>structure_soul_cost</code>）</td>
+        </tr>
+        <tr>
+            <td>客户端配置</td>
+            <td><code>ClientConfig</code>（含 <code>hud_layout</code>）</td>
+            <td>同</td>
+        </tr>
+        <tr>
+            <td>注释/本地化</td>
+            <td><code>core/config/ConfigCommentLang</code> + <code>lang</code> 的
+                <code>beyond_integration.config.*</code></td>
+            <td>同（新增项的注释键同步在 <code>zh_cn</code>/<code>en_us</code>）</td>
+        </tr>
+        <tr>
+            <td>界面</td>
+            <td><code>client/config/ModConfigScreen</code>（Cloth Config，约 1200 行，20 分类）</td>
+            <td>搬回并裁剪工作台相关项；「网络仪式绕过」分类含 <code>network_structure</code>/<code>structure_soul_cost</code></td>
+        </tr>
+        <tr>
+            <td>关键分组</td>
+            <td colspan="2"><code>bd_tweaks</code>（经验棒增强、喂食器、主网同步、附魔分离、能量充能…）、
+                <code>goety_soul</code>、<code>goety_ritual</code>、<code>potion_charm</code>、<code>feeder_thirst</code>、
+                <code>ammo</code> 等</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>3. 对外 API（<code>api/</code> 包）</h2>
+    <table>
+        <tr><th>接口</th><th>0.7.30 两线</th><th>0.8.x · 1.20.1</th><th>说明</th></tr>
+        <tr><td><code>MaidNetworkAPI</code></td><td>✅</td><td>✅</td><td>女仆网络绑定/弹药查询的公开入口</td></tr>
+        <tr><td><code>INetworkAmmoProvider</code></td><td>✅</td><td>✅</td><td>女仆/载具等“从网络取弹药”的统一接口</td></tr>
+        <tr><td><code>IVehicleEnergySystem</code></td><td>✅</td><td>✅</td><td>载具能量系统适配</td></tr>
+        <tr><td><code>IModIntegration</code></td><td>✅</td><td>✅</td><td>可选模组集成的注册/探测约定</td></tr>
+        <tr><td><code>ICraftingIntegration</code></td><td>✅</td><td>🟡 保留但无实现</td><td>工作台集成接口在 0.8.x 悬空（工作台未迁）</td></tr>
+        <tr><td><code>IBeforeInsertExtension</code></td><td>✅</td><td>➖ 已删</td><td>0.8.x 的插入规则改 <code>InsertPlan</code>，不再有对外 SPI</td></tr>
+        <tr><td><code>IDimensionsNetGUIExtension</code></td><td>✅</td><td>➖ 已删</td><td>BD 0.7 的 GUI 扩展点，0.8 用 <code>BdPage</code> 取代</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>4. BD 修改清单（Mixin 分类）</h2>
+    <table>
+        <tr><th>目标类别</th><th>示例</th><th>0.7.30 两线</th><th>0.8.x-1.20.1</th></tr>
+        <tr>
+            <td>BD 网络/存储</td>
+            <td><code>DimensionsNetMixin</code>（药水护符模式）、<code>NetedBlockEntityNetPathwayDataMixin</code>、
+                <code>NetFurnace*Mixin</code>、<code>NetHopperBlockEntityTierMixin</code>、<code>NetMagnetItemMixin</code></td>
+            <td>✅</td><td>✅（注入点需运行期核对）</td>
+        </tr>
+        <tr>
+            <td>BD 界面/菜单</td>
+            <td><code>DimensionsNetGUIMixin</code>、<code>FeederThirstGUIMixin</code>、<code>XpExchangeRepairGUIMixin</code>、
+                <code>NetPathwayBlockEntityFilterMixin</code></td>
+            <td>✅（大量 GUI 注入）</td>
+            <td>➖ 旧 GUI 注入全删；只保留菜单/方块实体层（<code>NetFeederMenuStorageMixin</code>、
+                <code>NetPathwayBlockEntityFilterMixin</code>）</td>
+        </tr>
+        <tr>
+            <td>Compixel（0.8 界面库）</td>
+            <td><code>CompixelIconGuardMixin</code>（图标 resolve 兜底）</td>
+            <td>—</td><td>➕</td>
+        </tr>
+        <tr>
+            <td>联动模组</td>
+            <td>TACZ/SW/铁魔法/Goety/TLM/JEI/RI/ywzj 的目标类</td>
+            <td>✅</td><td>✅（数量随功能增删变化：88 → 69）</td>
+        </tr>
+    </table>
+    <div class="note">
+        <b>数量</b>
+        <code>mixins.json</code>：0.7.30-1.20.1 = 56 + 32 = 88；0.7.30-1.21.1 = 60 + 17 = 77；
+        0.8.x-1.20.1 = 51 + 18 = 69；0.8.x-1.21.1 = 3 + 5 = 8（骨架）。
+    </div>
+</div>
+
+<div class="card">
+    <h2>5. 贴图与界面资源</h2>
+    <ul>
+        <li><b>0.7.30 两线</b>：大量 <code>assets/beyond_integration/textures/gui/*.png</code> 与 BD 的
+            <code>CommonTextures</code> 精灵；自绘 GUI 依赖 BD 0.7 的纹理常量（见 docs/30）。</li>
+        <li><b>0.8.x-1.20.1</b>：界面交给 CompixelUI（BD 的 kit/主题），BI 只提供
+            <code>BdPixelIcon</code> 像素图标与少量自绘（如 <code>BdWrappedText</code> 文本组件）；
+            旧 <code>client/widget</code> 纹理基本不再使用。</li>
+        <li><b>0.8.x-1.21.1</b>：骨架沿用 Compixel（<code>0.1.12</code>）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>6. 0.8.x-1.20.1 待补清单（按优先级）</h2>
+    <ol>
+        <li><b>工作台迁移</b>：附魔台 / 附魔合并 / 砂轮 → BD <code>StorageWorkbenchTypes</code>；同时接回
+            <code>effectiveMaxLevel</code> 的 BI 自定义附魔上限。</li>
+        <li><b>入口补齐</b>（旧 GUI 按钮删除后丢失的开关）：
+            <ul>
+                <li>✅ 能量充能开关与网络药水护符（模式四态 + 献祭）已由新增的「网络设置」页提供
+                    （<code>client/page/NetSettingsPage.kt</code> → BD <code>NetControlMenu</code>，含附魔分离）；</li>
+                <li>磁铁 / 漏斗档位（<code>MagnetMenu</code>/GUI Mixin 已删，档位 NBT 无入口）仍缺。</li>
+            </ul>
+        </li>
+        <li><b>BdPage 页面</b>：磁铁、漏斗（喂食器与经验棒已完成）。</li>
+        <li><b>终端独立界面</b>（目前只有绑定，界面仍用 BD 存储界面）。</li>
+        <li><b>EMI 快捷</b>（旧线有，新线未做）；<b>FTB 集成</b>（四工程都没有，需确认是否还要）。</li>
+        <li><b>运行期核对</b>：<code>NetFurnace*</code>、<code>BdBucket*</code>、<code>NetMagnetItem</code>、
+            <code>DimensionsNetMixin</code>、<code>XpUtilMixin</code>、<code>TypeBucketAccessor</code>、
+            <code>CompixelIconGuard</code>、<code>XpExchangeTargetLimit</code>/<code>ScreenRange</code>。</li>
+    </ol>
+</div>
+
+<div class="card">
+    <h2>7. 文档索引与适用版本</h2>
+    <table>
+        <tr><th>文档</th><th>内容</th><th>适用版本</th><th>状态</th></tr>
+        <tr><td><a href="../docs/index.html">docs/ 01–30</a></td><td>功能明细（多为 0.7.30 线）</td><td>0.7.30 两线为主</td><td>⚠ 0.8.x 有差异，见各篇核对</td></tr>
+        <tr><td><a href="../docs/31-primary-net-sync.html">docs/31</a></td><td>主网同步</td><td>0.7.30 两线 + 0.8.x-1.20.1</td><td>⚠ 原文写“仅 1.20.1-FORGE”，已过时</td></tr>
+        <tr><td><a href="../docs/32-goety-integration.html">docs/32</a></td><td>Goety 灵魂源</td><td>0.7.30 两线</td><td>⚠ 0.8.x 另加“结构补块”</td></tr>
+        <tr><td><a href="../docs/33-hud-layout.html">docs/33</a></td><td>HUD 布局</td><td>三线</td><td>✅</td></tr>
+        <tr><td><a href="../docs/34-branch-diff.html">docs/34</a></td><td>1.20.1 vs 1.21.1 差异</td><td>按 MC 版本</td><td>✅</td></tr>
+        <tr><td><a href="../docs/35-version-matrix.html">docs/35</a></td><td>版本主线矩阵（4 格）</td><td>全部</td><td>✅</td></tr>
+        <tr><td><a href="../docs/36-network-potion-charm.html">docs/36</a></td><td>网络药水护符</td><td>0.7.30-1.20.1 / 0.8.x-1.20.1</td><td>✅（1.21.1 无此功能）</td></tr>
+        <tr><td><a href="../docs/20-ftb-integration.html">docs/20</a></td><td>FTB Quests 集成</td><td>—</td><td>⚠ 代码中不存在（见 05 篇）</td></tr>
+    </table>
+</div>
+
+<footer>
+    <a href="index.html">← 返回 new_docs 索引</a> · 09 · 系统与参考 · 上一篇
+    <a href="08-jei-emi.html">08 JEI / EMI</a>
+</footer>
+
+</div>
+</body>
+</html>

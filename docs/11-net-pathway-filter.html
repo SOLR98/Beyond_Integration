@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>28 · 维度网络通道标记槽过滤 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>28 · 维度网络通道（net_pathway）标记槽过滤</h1>
+    <div class="sub">BD 网络通道的标记槽白名单过滤 + 方块配置保留（含破坏保留 / Shift+左键复制 / 清 NBT 配方）</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>BD 的 <code>net_pathway</code>（维度网络通道）原本直接向邻居暴露网络的全部 <code>UnifiedStorage</code>。本功能给它附加<strong>标记槽白名单过滤</strong>：只有标记槽中的物品（精确资源）对外可见/可操作；<strong>标记为空则不暴露任何物品（严格白名单）</strong>。</p>
+    <ul>
+        <li>每方块开关：<b>启用过滤 / 仅接收输入 / 模糊过滤</b>（模糊 = 匹配时忽略 NBT/组件）。</li>
+        <li>对外能力暴露按白名单裁剪；<code>onlyInput</code> 时邻居只能向网络插入、不能提取。</li>
+        <li>全局配置 <code>bd_tweaks.net_pathway_filter_rows</code>（1~6，默认 3）→ 标记槽数 = 行数×9。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>职责</th></tr>
+        <tr><td><code>mixin/NetPathwayBlockEntityFilterMixin</code></td><td>给 <code>NetPathwayBlockEntity</code> 挂标记槽与开关；<code>getCapability</code> 中按开关替换暴露的 <code>UnifiedStorage</code></td></tr>
+        <tr><td><code>NetPathwayFilteredStorage</code></td><td>白名单过滤的 <code>UnifiedStorage</code> 视图（<code>getStackByKey</code>/<code>getOutStackByKey</code>/<code>insert</code>/<code>extract</code> 受白名单与 <code>onlyInput</code> 限制）</td></tr>
+        <tr><td><code>mixin/NetedBlockEntityNetPathwayDataMixin</code></td><td>持久化标记槽与开关（写入方块实体 NBT）</td></tr>
+        <tr><td><code>NetPathwayFilterMenu</code> / <code>NetPathwayFilterGUI</code></td><td>过滤界面：复用 BD 原版布局（顶栏 + 过滤标记槽 <code>FlagStackTypedSlot</code>×行数×9 + 连接条 + 玩家背包），右侧为 BD <code>RightTabButton</code> 图标开关（启用过滤 / 仅接收输入 / 模糊过滤，QuickData 同步）</td></tr>
+        <tr><td><code>NetPathwayInteractionHandler</code></td><td>交互：手持对应方块物品 <b>Shift+左键</b> → 复制配置（并取消挖掘）；右键网络通道 → 打开过滤界面</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>过滤流程（能力暴露）</h2>
+    <div class="flow row">
+        <div class="step server"><span class="tag">服务端</span>邻居请求能力</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>判断</b>启用过滤？</div>
+        <div class="arrow"></div>
+        <div class="step data"><b>是</b>白名单视图<br><code>NetPathwayFilteredStorage</code></div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">IO</span>返回被裁剪的能力</div>
+    </div>
+    <p style="color:var(--text-dim); font-size:12.5px; margin:8px 0 0;">未启用过滤 → 原样返回网络的 <code>UnifiedStorage</code>（行为与 BD 原版一致）；<b>启用过滤但标记为空 → 白名单为空，邻居看不到任何物品</b>。</p>
+</div>
+
+<div class="card">
+    <h2>方块配置保留（通用，覆盖所有 <code>NetedBlock</code>）</h2>
+    <ul>
+        <li><b>破坏保留</b>（<code>bd_tweaks.neted_block_keep_nbt</code>，默认开）：掉落物保留配置 NBT（标记槽 + 方块配置）。实现：<code>NetedBlockKeepFilterNbtMixin</code> 注入 <code>Block.getDrops(BlockState, ServerLevel, BlockPos, BlockEntity)</code>；剔除内容/计时/经验键，并写入 <code>netId=-1</code>，因此<strong>不保留网络绑定</strong>。</li>
+        <li><b>Shift+左键复制</b>：手持与该方块对应的物品 <b>Shift+左键点击方块</b> → 复制同样的配置到手上物品（同样不含网络绑定，并取消挖掘）；快捷栏上方显示 HUD 提示 <code>hud.beyond_integration.net_copy_config</code>。</li>
+        <li><b>清 NBT 配方</b>：为 8 种基础网络方块提供“自己合成自己”的无序配方（产出为干净物品，无配置 NBT）：<code>net_pathway</code> / <code>net_interface</code> / <code>net_energy_pathway</code> / <code>net_terminal_block</code> / <code>net_pump_block</code> / <code>net_hopper_block</code> / <code>net_furnace_block</code> / <code>net_blast_furnace_block</code>。</li>
+        <li><code>NetedBlockConfigNbt</code>：统一提取“仅配置”的 NBT（破坏/复制共用）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>配置项（bd_tweaks）</h2>
+    <table>
+        <tr><th>键</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>net_pathway_filter_rows</code></td><td>3</td><td>网络通道标记槽行数（1~6，全局；标记槽 = 行数×9）</td></tr>
+        <tr><td><code>neted_block_keep_nbt</code></td><td>true</td><td>维度网络方块破坏时保留配置 NBT（不含网络绑定/内容/进度）</td></tr>
+    </table>
+    <div class="note">过滤开关为<strong>每方块</strong>设置（存入方块实体 NBT，随 QuickData 同步），非全局配置。</div>
+</div>
+
+<div class="card">
+    <h2>相关源文件（Forge 分支）</h2>
+    <ul>
+        <li><code>mixin/NetPathwayBlockEntityFilterMixin</code> / <code>NetedBlockEntityNetPathwayDataMixin</code></li>
+        <li><code>mixin/NetedBlockKeepFilterNbtMixin</code></li>
+        <li><code>feature/netpathway/*</code>（Access / FilteredStorage / InteractionHandler）</li>
+        <li><code>feature/netconfig/NetedBlockConfigNbt</code></li>
+        <li><code>common/menu/NetPathwayFilterMenu</code> / <code>client/gui/NetPathwayFilterGUI</code></li>
+        <li><code>data/beyond_integration/recipes/clear_nbt_*.json</code>（1.21.1 为 <code>recipe/</code>）</li>
+    </ul>
+</div>
+
+<footer>
+    Beyond Integration v0.7.3 · 文档基于 <code>1.20.1-FORGE</code> 与 <code>1.21.1_NEOFORGE</code> 分支源码 · 若与代码不符以源码为准
+</footer>
+
+</div>
+</body>
+</html>

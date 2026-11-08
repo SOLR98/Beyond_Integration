@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beyond Integration — 功能关系网络</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.net-wrap { max-width: 1180px; margin: 0 auto; padding: 24px 24px 80px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; margin: 6px 0 14px; font-size: 13px; color: var(--text-dim); }
+.legend .item { display: flex; align-items: center; gap: 7px; }
+.legend .swatch { width: 26px; height: 0; border-top: 2px solid var(--text-dim); }
+.legend .swatch.dashed { border-top-style: dashed; }
+.legend .dot { width: 12px; height: 12px; border-radius: 3px; border: 2px solid; display: inline-block; }
+.legend .dot.main { border-color: var(--yellow); }
+.legend .dot.bi   { border-color: var(--accent); }
+.legend .dot.feat { border-color: var(--green); }
+.legend .dot.ext  { border-color: var(--purple); }
+.legend .dot.eco  { border-color: var(--accent-2); border-style: dashed; }
+
+.net-card {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    overflow-x: auto;
+}
+.net-card svg { display: block; width: 100%; min-width: 900px; height: auto; }
+
+/* ---------- 节点 ---------- */
+.node rect {
+    fill: var(--card);
+    stroke: var(--text-dim);
+    stroke-width: 1.6;
+    transition: stroke-width .12s, filter .12s, opacity .12s;
+}
+.node .title { fill: var(--text); font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 13.5px; font-weight: 600; text-anchor: middle; }
+.node .sub   { fill: var(--text-dim); font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 10.5px; text-anchor: middle; }
+
+.node.main rect { stroke: var(--yellow); }
+.node.main .title { fill: var(--yellow); }
+.node.bi rect { stroke: var(--accent); }
+.node.bi .title { fill: var(--accent-2); }
+.node.feat rect { stroke: var(--green); }
+.node.feat .title { fill: var(--green); }
+.node.ext rect  { stroke: var(--purple); }
+.node.ext .title { fill: var(--purple); }
+.node.eco rect  { stroke: var(--accent-2); stroke-dasharray: 5 4; }
+.node.eco .title { fill: var(--accent-2); }
+
+/* ---------- 边 ---------- */
+.edge {
+    fill: none;
+    stroke: var(--text-dim);
+    stroke-width: 1.6;
+    opacity: .55;
+    transition: opacity .12s, stroke .12s, stroke-width .12s;
+    marker-end: url(#arrow);
+}
+.edge.hub { stroke: var(--accent); }
+.edge.dashed { stroke-dasharray: 6 5; }
+
+/* ---------- 交互态 ---------- */
+.node.active rect { stroke-width: 3; filter: drop-shadow(0 0 6px rgba(77,163,255,.55)); }
+.node.dimmed { opacity: .18; }
+.node.neighbor rect { stroke-width: 2.6; }
+.edge.active { opacity: 1; stroke-width: 2.4; stroke: var(--accent-2); }
+.edge.dimmed { opacity: .07; }
+
+/* 第三方图层开关 */
+svg.hide-ext .ext { display: none; }
+
+.controls { margin: 10px 0 0; font-size: 13px; color: var(--text-dim); display: flex; gap: 20px; flex-wrap: wrap; }
+.controls label { cursor: pointer; user-select: none; }
+.controls input { vertical-align: middle; margin-right: 5px; }
+
+.hint { font-size: 12.5px; color: var(--text-dim); margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="net-wrap">
+
+<header class="top">
+    <h1>Beyond Integration 功能关系网络</h1>
+    <div class="sub">
+        主模组 <code>Beyond Dimensions</code>（超越维度）· 扩展本体 <code>Beyond Integration</code> · 功能模块与第三方联动
+        <br>本图反映当前（单体）功能结构；后续拆分设想另见 <a href="../计划项目/可能的小玩意/可能的功能拆分/README.md">功能拆分规划（后续可能实施）</a>
+    </div>
+</header>
+
+<div class="card">
+    <h2>图例</h2>
+    <div class="legend">
+        <span class="item"><span class="dot main"></span> 主模组</span>
+        <span class="item"><span class="dot bi"></span> 扩展本体</span>
+        <span class="item"><span class="dot feat"></span> 功能模块</span>
+        <span class="item"><span class="dot ext"></span> 第三方依赖</span>
+        <span class="item"><span class="dot eco"></span> 相关生态（MNS）</span>
+        <span class="item"><span class="swatch"></span> 编译依赖</span>
+        <span class="item"><span class="swatch dashed"></span> 可选 / 运行时 / 软依赖</span>
+    </div>
+    <div class="controls">
+        <label><input type="checkbox" id="toggleExt" checked> 显示第三方依赖</label>
+        <label><input type="checkbox" id="toggleEco" checked> 显示相关生态（MNS）</label>
+    </div>
+    <p class="hint">提示：将鼠标移到任意节点上可高亮其关联节点与连线。</p>
+</div>
+
+<div class="net-card">
+<svg id="net" viewBox="0 0 1160 900" role="img" aria-label="Beyond Integration 功能关系网络图">
+    <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#93a0b8"></path>
+        </marker>
+    </defs>
+
+    <!-- ===================== 边 ===================== -->
+    <!-- BD -> BI -->
+    <path class="edge hub" data-from="bd" data-to="bi" d="M190,482 L250,482"></path>
+
+    <!-- BI -> 功能模块 -->
+    <path class="edge hub" data-from="bi" data-to="f_workstation" d="M420,485 C455,485 455,67 490,67"></path>
+    <path class="edge hub" data-from="bi" data-to="f_enchant" d="M420,485 C455,485 455,177 490,177"></path>
+    <path class="edge hub" data-from="bi" data-to="f_survival" d="M420,485 C455,485 455,287 490,287"></path>
+    <path class="edge hub" data-from="bi" data-to="f_combat" d="M420,485 C455,485 455,397 490,397"></path>
+    <path class="edge hub" data-from="bi" data-to="f_maid" d="M420,485 C455,485 455,507 490,507"></path>
+    <path class="edge hub" data-from="bi" data-to="f_ftb" d="M420,485 C455,485 455,617 490,617"></path>
+    <path class="edge hub" data-from="bi" data-to="f_core" d="M420,485 C455,485 455,727 490,727"></path>
+
+    <!-- 功能模块 -> 第三方 -->
+    <path class="edge ext" data-from="f_workstation" data-to="jei" d="M790,67 C825,67 825,54 860,54"></path>
+    <path class="edge ext" data-from="f_enchant" data-to="apoth" d="M790,177 C825,177 825,132 860,132"></path>
+    <path class="edge ext dashed" data-from="f_combat" data-to="jade" d="M790,397 C825,397 825,210 860,210"></path>
+    <path class="edge ext" data-from="f_combat" data-to="tacz" d="M790,397 C825,397 825,288 860,288"></path>
+    <path class="edge ext" data-from="f_combat" data-to="sw" d="M790,397 C825,397 825,366 860,366"></path>
+    <path class="edge ext dashed" data-from="f_combat" data-to="ywzj" d="M790,397 C825,397 825,444 860,444"></path>
+    <path class="edge ext" data-from="f_maid" data-to="tlm" d="M790,507 C825,507 825,522 860,522"></path>
+    <path class="edge ext" data-from="f_maid" data-to="sentry" d="M790,507 C825,507 825,600 860,600"></path>
+    <path class="edge ext" data-from="f_ftb" data-to="ftb" d="M790,617 C825,617 825,678 860,678"></path>
+    <path class="edge ext dashed" data-from="f_ftb" data-to="ri" d="M790,617 C825,617 825,756 860,756"></path>
+    <path class="edge eco dashed" data-from="f_core" data-to="mns" d="M790,727 C825,727 825,834 860,834"></path>
+
+    <!-- ===================== 节点：主模组 / 扩展本体 ===================== -->
+    <g class="node main" data-id="bd" transform="translate(30,450)">
+        <rect width="160" height="64" rx="10"></rect>
+        <text class="title" x="80" y="28">Beyond Dimensions</text>
+        <text class="sub" x="80" y="47">超越维度 · 主模组</text>
+    </g>
+
+    <g class="node bi" data-id="bi" transform="translate(250,445)">
+        <rect width="170" height="80" rx="10"></rect>
+        <text class="title" x="85" y="30">Beyond Integration</text>
+        <text class="sub" x="85" y="49">BD 扩展本体（单体）</text>
+        <text class="sub" x="85" y="66">api / 持久化 / 包 / 订阅</text>
+    </g>
+
+    <!-- ===================== 节点：功能模块 ===================== -->
+    <g class="node feat" data-id="f_workstation" transform="translate(490,40)">
+        <rect width="300" height="54" rx="8"></rect>
+        <text class="title" x="150" y="23">网络工作站</text>
+        <text class="sub" x="150" y="40">合成·铁砧·切石·砂轮·锻造·存储·附魔台</text>
+    </g>
+
+    <g class="node feat" data-id="f_enchant" transform="translate(490,150)">
+        <rect width="300" height="54" rx="8"></rect>
+        <text class="title" x="150" y="23">附魔与经验</text>
+        <text class="sub" x="150" y="40">附魔分离·批量合并·经验棒增强</text>
+    </g>
+
+    <g class="node feat" data-id="f_survival" transform="translate(490,260)">
+        <rect width="300" height="54" rx="8"></rect>
+        <text class="title" x="150" y="23">生存与能量</text>
+        <text class="sub" x="150" y="40">网络图腾·充能·终端熔炼·悬停存储</text>
+    </g>
+
+    <g class="node feat" data-id="f_combat" transform="translate(490,370)">
+        <rect width="300" height="54" rx="8"></rect>
+        <text class="title" x="150" y="23">武器与载具联动</text>
+        <text class="sub" x="150" y="40">TACZ 供弹·SW 虚拟弹药·载具充电</text>
+    </g>
+
+    <g class="node feat" data-id="f_maid" transform="translate(490,480)">
+        <rect width="300" height="54" rx="8"></rect>
+        <text class="title" x="150" y="23">女仆与哨戒臂联动</text>
+        <text class="sub" x="150" y="40">女仆饰品·能量·图腾·哨戒臂供弹</text>
+    </g>
+
+    <g class="node feat" data-id="f_ftb" transform="translate(490,590)">
+        <rect width="300" height="54" rx="8"></rect>
+        <text class="title" x="150" y="23">FTB 与平台集成</text>
+        <text class="sub" x="150" y="40">任务奖励·JEI·Jade·RI·神化适配</text>
+    </g>
+
+    <g class="node feat" data-id="f_core" transform="translate(490,700)">
+        <rect width="300" height="54" rx="8"></rect>
+        <text class="title" x="150" y="23">核心与扩展框架</text>
+        <text class="sub" x="150" y="40">api·持久化·网络包·订阅·命令·GUI 扩展</text>
+    </g>
+
+    <!-- ===================== 节点：第三方 ===================== -->
+    <g class="node ext" data-id="jei" transform="translate(860,30)">
+        <rect width="250" height="48" rx="8"></rect>
+        <text class="title" x="125" y="21">JEI</text>
+        <text class="sub" x="125" y="37">配方查看 / 数量角标</text>
+    </g>
+
+    <g class="node ext" data-id="apoth" transform="translate(860,108)">
+        <rect width="250" height="48" rx="8"></rect>
+        <text class="title" x="125" y="21">Apotheosis</text>
+        <text class="sub" x="125" y="37">神化 / 附魔上限（可选）</text>
+    </g>
+
+    <g class="node ext" data-id="jade" transform="translate(860,186)">
+        <rect width="250" height="48" rx="8"></rect>
+        <text class="title" x="125" y="21">Jade</text>
+        <text class="sub" x="125" y="37">方块 / 载具信息提示</text>
+    </g>
+
+    <g class="node ext" data-id="tacz" transform="translate(860,264)">
+        <rect width="250" height="48" rx="8"></rect>
+        <text class="title" x="125" y="21">TACZ</text>
+        <text class="sub" x="125" y="37">枪械（+ taczaddon / TUD）</text>
+    </g>
+
+    <g class="node ext" data-id="sw" transform="translate(860,342)">
+        <rect width="250" height="48" rx="8"></rect>
+        <text class="title" x="125" y="21">SuperbWarfare</text>
+        <text class="sub" x="125" y="37">枪械 / 载具弹药</text>
+    </g>
+
+    <g class="node ext" data-id="ywzj" transform="translate(860,420)">
+        <rect width="250" height="48" rx="8"></rect>
+        <text class="title" x="125" y="21">ywzj / Limitless</text>
+        <text class="sub" x="125" y="37">载具（仅 NeoForge）</text>
+    </g>
+
+    <g class="node ext" data-id="tlm" transform="translate(860,498)">
+        <rect width="250" height="48" rx="8"></rect>
+        <text class="title" x="125" y="21">Touhou Little Maid</text>
+        <text class="sub" x="125" y="37">女仆（+ Curios）</text>
+    </g>
+
+    <g class="node ext" data-id="sentry" transform="translate(860,576)">
+        <rect width="250" height="48" rx="8"></rect>
+        <text class="title" x="125" y="21">Create Sentry Arm</text>
+        <text class="sub" x="125" y="37">哨戒机械臂</text>
+    </g>
+
+    <g class="node ext" data-id="ftb" transform="translate(860,654)">
+        <rect width="250" height="48" rx="8"></rect>
+        <text class="title" x="125" y="21">FTB Quests</text>
+        <text class="sub" x="125" y="37">任务 / 奖励（+ Library）</text>
+    </g>
+
+    <g class="node ext" data-id="ri" transform="translate(860,732)">
+        <rect width="250" height="48" rx="8"></rect>
+        <text class="title" x="125" y="21">RS Integration</text>
+        <text class="sub" x="125" y="37">反射兼容 / 加载时让路</text>
+    </g>
+
+    <g class="node eco" data-id="mns" transform="translate(860,810)">
+        <rect width="250" height="48" rx="8"></rect>
+        <text class="title" x="125" y="21">Maid_Net_Storage</text>
+        <text class="sub" x="125" y="37">女仆玩法层（依赖 BI）</text>
+    </g>
+
+</svg>
+</div>
+
+<footer>
+    Beyond Integration 功能关系网络 · 当前单体功能结构 ·
+    <a href="../计划项目/可能的小玩意/可能的功能拆分/README.md">功能拆分规划（后续可能实施）</a> ·
+    <a href="index.html">返回文档索引</a>
+</footer>
+
+</div>
+
+<script>
+(function () {
+    var svg = document.getElementById('net');
+    var nodes = Array.prototype.slice.call(document.querySelectorAll('.node'));
+    var edges = Array.prototype.slice.call(document.querySelectorAll('.edge'));
+
+    function nodeById(id) {
+        return document.querySelector('.node[data-id="' + id + '"]');
+    }
+
+    function clearStates() {
+        nodes.forEach(function (n) { n.classList.remove('active', 'dimmed', 'neighbor'); });
+        edges.forEach(function (e) { e.classList.remove('active', 'dimmed'); });
+    }
+
+    nodes.forEach(function (n) {
+        n.addEventListener('mouseenter', function () {
+            var id = n.dataset.id;
+            clearStates();
+            nodes.forEach(function (x) {
+                if (x === n) { x.classList.add('active'); }
+                else { x.classList.add('dimmed'); }
+            });
+            edges.forEach(function (e) {
+                if (e.dataset.from === id || e.dataset.to === id) {
+                    e.classList.add('active');
+                    var otherId = e.dataset.from === id ? e.dataset.to : e.dataset.from;
+                    var other = nodeById(otherId);
+                    if (other) { other.classList.remove('dimmed'); other.classList.add('neighbor'); }
+                } else {
+                    e.classList.add('dimmed');
+                }
+            });
+        });
+        n.addEventListener('mouseleave', clearStates);
+    });
+
+    var toggleExt = document.getElementById('toggleExt');
+    toggleExt.addEventListener('change', function () {
+        svg.classList.toggle('hide-ext', !toggleExt.checked);
+    });
+
+    var toggleEco = document.getElementById('toggleEco');
+    toggleEco.addEventListener('change', function () {
+        document.querySelectorAll('.node.eco').forEach(function (n) {
+            n.style.display = toggleEco.checked ? '' : 'none';
+        });
+        document.querySelectorAll('.edge.eco').forEach(function (e) {
+            e.style.display = toggleEco.checked ? '' : 'none';
+        });
+    });
+})();
+</script>
+</body>
+</html>

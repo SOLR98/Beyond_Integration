@@ -1,0 +1,9 @@
+{
+  "mod_data_type": "tacz_unidict_modifier_data",
+  "modifierId": "tud:rand_mod_e4b8f1",
+  "modifierMap": {
+    "minecraft:skeleton": 1.15,
+    "minecraft:spider": 1.05,
+    "arthropod": 0.9
+  }
+}

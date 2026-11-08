@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06 · 经验棒（修复 / 等级上限 / 给予方式）— Beyond Integration new_docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>06 · 经验棒</h1>
+    <div class="sub">
+        BD 经验棒（<code>xp_exchange_item</code>）的三类 BI 增强：自动修复、目标等级上限、经验给予方式（BATCH / DIRECT）；
+        以及「自动修复」只在两条 1.20.1 工程存在的事实
+    </div>
+</header>
+
+<div class="card">
+    <h2>四工程状态总表</h2>
+    <table>
+        <tr>
+            <th>能力</th>
+            <th>0.7.30 · 1.20.1</th>
+            <th>0.7.30 · 1.21.1</th>
+            <th>0.8.x · 1.20.1</th>
+            <th>0.8.x · 1.21.1</th>
+        </tr>
+        <tr>
+            <td>自动修复（开关 / 档位 / 五范围）</td>
+            <td>✅ <code>feature/xp/{XpRepairSettings,XpRepairTier,XpRepairTiers}</code> +
+                <code>handler/XpAutoRepairHandler</code> + GUI 按钮</td>
+            <td colspan="1">➖ <b>无</b>（无 <code>XpRepair*</code>、无 autoRepair）</td>
+            <td>✅ <code>client/page/XpRepairPage.kt</code>（BdPage）+ 三包同步</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>目标等级上限（<code>max_target_level</code>）</td>
+            <td>✅ <code>XpExchangeSettingsMixin</code></td>
+            <td>✅ 同</td>
+            <td>✅ <code>XpTargetLevels</code> + 3 个 Mixin（Settings / Menu / ScreenRange）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>给予方式（BATCH / DIRECT）</td>
+            <td>✅ <code>XpDirectGranter</code>/<code>XpGrantHelper</code></td>
+            <td>✅ 同</td>
+            <td>✅ 同（页面显示当前方式）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>女仆饰品（修复女仆装备）</td>
+            <td>✅ <code>maid/XpExchangeBauble</code>（TLM <code>IMaidBauble</code>）</td>
+            <td>?</td>
+            <td>✅ 同（“女仆饰品”开关走女仆 API）</td>
+            <td>➖</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>1. 自动修复机制</h2>
+    <ul>
+        <li><b>触发</b>：<code>XpExchangeItemMixin</code> 在 BD <code>XpExchangeItem.inventoryTick</code> 的 TAIL 调用
+            <code>XpAutoRepairHandler.onInventoryTick</code>；只在服务端执行。</li>
+        <li><b>门槛</b>：配置总开关 <code>xp_repair_enabled</code> 打开 + 该经验棒 NBT 开关打开 + 绑定了网络。</li>
+        <li><b>目标</b>：只修<b>带经验修补（Mending）</b>且已损耗的物品；按范围收集并去重：
+            护甲四槽 / 背包 / 主手与副手 / Curios 饰品 / 女仆饰品槽（女仆场景）。</li>
+        <li><b>档位</b>：服务端配置 <code>xp_repair_tiers = 名称:百分比:间隔</code>（默认 low:5:20 / normal:10:10 / high:20:5 / max:50:1）；
+            物品 NBT 存档位索引；<code>interval &gt; 1</code> 时按 <code>player.tickCount % interval</code> 限频。</li>
+        <li><b>修复量</b>：修复模式 <code>xp_repair_mode</code>：
+            <code>PERCENT</code>（每次修最大耐久的百分比）或 <code>ABSOLUTE</code>（固定 <code>xp_repair_absolute</code> 点）。</li>
+        <li><b>计费</b>：每 1 点网络经验修 2 点耐久；经验取自网络 XP 流体（1 XP = 20 mB），批量提取、用不完回插。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>2. 设置存放与同步（两条 1.20.1 工程的差别）</h2>
+    <table>
+        <tr><th>环节</th><th>0.7.30 · 1.20.1</th><th>0.8.x · 1.20.1</th></tr>
+        <tr>
+            <td>存放</td>
+            <td colspan="2">经验棒物品 NBT：<code>beyond_integration:xp_repair_enabled</code>、<code>…_tier_index</code>、
+                <code>…_range_{armor,inventory,hands,curios,maid}</code></td>
+        </tr>
+        <tr>
+            <td>同步</td>
+            <td><code>XpExchangeMenuMixin</code>：走 BD 菜单的 QuickData 读写（<code>writeToTag</code>/<code>readFromTag</code>）</td>
+            <td>三包：<code>RequestXpRepairPacket</code>（打开界面请求）、<code>SetXpRepairPacket</code>（全量提交）、
+                <code>XpRepairStatePacket</code>（回推权威值 + 档位列表 + 修复模式 + 等级上限 + 给予方式）+
+                <code>client/XpRepairClientState</code></td>
+        </tr>
+        <tr>
+            <td>界面</td>
+            <td><code>client/widget/XpRepairTierButton</code> / <code>XpRepairRangeButton</code> +
+                <code>XpExchangeRepairGUIMixin</code>（在 BD 0.7 经验棒界面追加按钮）</td>
+            <td><code>client/page/XpRepairPage.kt</code>：BdPage 注入 BD 0.8 经验棒界面；
+                档位用 <code>BdChoiceSetting</code>+<code>BdCycler</code>（独占一行，因为 <code>BdCycler</code> 自身
+                <code>fillMaxWidth</code>），目标等级用 <code>BdNumberEditor</code></td>
+        </tr>
+        <tr>
+            <td>打开时拉取</td>
+            <td>—（QuickData 随菜单同步）</td>
+            <td><code>ClientSetup</code>：<code>ScreenEvent.Init.Post</code> 里判断
+                <code>instanceof XpExchangeScreen</code> → reset + request</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>3. 目标等级上限（<code>xp_rod.max_target_level</code>）</h2>
+    <table>
+        <tr><th>路径</th><th>0.7.30 两线</th><th>0.8.x · 1.20.1</th></tr>
+        <tr>
+            <td>数据净化 <code>sanitizeTargetLevel</code></td>
+            <td>✅ <code>XpExchangeSettingsMixin</code> clamp 到配置上限（默认 238609312）</td>
+            <td>✅ 同（并统一走 <code>feature/xp/XpTargetLevels.max()</code>）</td>
+        </tr>
+        <tr>
+            <td>菜单请求 <code>XpExchangeMenu.requestTarget</code></td>
+            <td>🟡 仍用 BD 常量 21863 校验（输入框上限与提交上限不一致）</td>
+            <td>✅ <code>XpExchangeTargetLimitMixin</code>：HEAD 接管，按 <code>XpTargetLevels.max()</code> 校验后自行请求</td>
+        </tr>
+        <tr>
+            <td>服务端动作 <code>SET_TARGET</code></td>
+            <td>🟡 常量 21863</td>
+            <td>✅ 类初始化末尾替换处理器（同一上限校验，回推时不再拒）</td>
+        </tr>
+        <tr>
+            <td>BD 界面输入范围 <code>TARGET_RANGE</code></td>
+            <td>🟡 常量 21863</td>
+            <td>✅ <code>XpExchangeScreenRangeMixin</code> 在 <code>XpExchangeScreenKt.&lt;clinit&gt;</code> 末尾重设</td>
+        </tr>
+        <tr>
+            <td>BI 页面输入范围</td>
+            <td>—</td>
+            <td>✅ <code>XpRepairStatePacket.maxTargetLevel</code>（服务端配置）→ <code>BdNumberEditor</code> 范围</td>
+        </tr>
+    </table>
+    <div class="warn">
+        <b>待确认</b>
+        0.8.x 的输入框范围取自客户端本地 SERVER 配置；连远程服且本地配置更小时，界面范围会小于服务器上限
+        （服务端仍会按自己的配置 clamp，不会出错）。
+    </div>
+</div>
+
+<div class="card">
+    <h2>4. 给予方式（BATCH / DIRECT）</h2>
+    <ul>
+        <li><code>xp_rod.grant_mode</code>（默认 <code>BATCH</code>）：</li>
+        <li><b>BATCH</b>：BD 原逻辑分批 <code>giveExperiencePoints</code>（BI 已把上限放宽到 238609312）；
+            <code>xp_rod.grant_batch_size</code> 控制每批大小。</li>
+        <li><b>DIRECT</b>：<code>XpDirectGranter</code> 在 <code>keepXpLevel</code> HEAD 接管——等级计算 + 直接设定 + 经验补差；
+            <code>XpGrantHelper</code> 提供共用的等级/经验换算。</li>
+        <li>0.8.x-1.20.1 的页面只<b>显示</b>当前方式（服务端配置，玩家不可改）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>5. 女仆饰品</h2>
+    <ul>
+        <li><code>maid/XpExchangeBauble implements IMaidBauble</code>：经验棒放进女仆饰品槽后由 TLM 每 tick 调用 <code>onTick</code>。</li>
+        <li><code>collectTargets</code> 读女仆的装备 / 女仆背包 / 主手副手 / Curios / <b>女仆饰品槽</b>；
+            最后一个由 <code>XpRepairSettings.isMaidEnabled</code> 控制（页面文案“女仆饰品”）。</li>
+        <li>TLM 的 <code>MAID_MENDING_BLOCKLIST_ITEM</code> 标签内的物品会被跳过。</li>
+        <li>女仆还会维持经验棒的目标等级（<code>keepMaidXpLevel</code>，120 XP/级）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>6. 代码核对</h2>
+    <table>
+        <tr><th>结论</th><th>旧说法</th><th>代码事实</th></tr>
+        <tr>
+            <td>⚠ 仅 1.20.1</td>
+            <td>docs/12「经验棒增强」未区分版本</td>
+            <td><b>1.21.1_NEOFORGE 没有自动修复</b>（无 <code>XpRepair*</code> / autoRepair 代码）；
+                只有等级上限与给予方式</td>
+        </tr>
+        <tr>
+            <td>✅ 0.8.x 新增</td>
+            <td>docs/12 只写“等级上限提升、分批发放、直设发放”</td>
+            <td>0.8.x-1.20.1 另有 BdPage 设置页、三包同步、等级上限三处补全、页内显示给予方式</td>
+        </tr>
+        <tr>
+            <td>⚠ 入口语义</td>
+            <td>旧线通过 BD 界面按钮切换档位/范围</td>
+            <td>0.8.x 改为独立 BdPage 页签（旧按钮与 <code>XpExchangeRepairGUIMixin</code>/<code>XpExchangeMenuMixin</code> 已删）</td>
+        </tr>
+        <tr>
+            <td>⚠ TODO</td>
+            <td>附魔书合并上限</td>
+            <td><code>EnchantmentBookSeparatorHandler.effectiveMaxLevel</code> 仍是原版 <code>getMaxLevel()</code>（见 03 篇）</td>
+        </tr>
+        <tr>
+            <td>?</td>
+            <td>女仆饰品修复在 1.21.1</td>
+            <td>1.21.1 无 <code>XpExchangeBauble</code> 文件名命中；是否内联在别处待确认（大概率无）</td>
+        </tr>
+    </table>
+</div>
+
+<footer>
+    <a href="index.html">← 返回 new_docs 索引</a> · 06 · 经验棒 · 上一篇
+    <a href="05-linkage-features.html">05 联动模组功能</a> · 下一篇 <a href="07-potion-charm.html">07 网络药水护符</a>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>功能与实现总览 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>功能与实现总览</h1>
+    <div class="sub">按模块归纳全部 33 篇文档的功能点 / 关键实现（类与 Mixin）/ 主要配置 / 双分支差异 · 基于 <code>1.20.1-FORGE</code> 与 <code>1.21.1_NEOFORGE</code> 源码</div>
+</header>
+
+<div class="card">
+    <h2>统计与结论</h2>
+    <table>
+        <tr><th>项</th><th>Forge 1.20.1</th><th>NeoForge 1.21.1</th><th>来源</th></tr>
+        <tr><td>功能文档</td><td colspan="2">33 篇（01–33）</td><td><code>docs/</code></td></tr>
+        <tr><td>Mixin 总数</td><td>78（通用 46 + 客户端 32）</td><td>75（通用 54 + 客户端 21）</td><td><code>beyond_integration.mixins.json</code></td></tr>
+        <tr><td>数据包总数</td><td>40（SimpleChannel，SW/TACZ 条件注册）</td><td>41（CustomPacketPayload，全部无条件）</td><td><code>network/PacketHandler</code></td></tr>
+    </table>
+    <div class="note">Beyond Integration <b>不注册任何方块 / 物品 / 实体</b>；仅注册终端熔炼配方序列化器与口渴集成的 4 档纯净水流体（<code>FluidType</code>/<code>Fluid</code>，无方块 / 桶）。核心桥接机制见 <a href="index.html">索引“快速了解”</a> 与 <a href="功能关系网络.html">功能关系网络</a>。</div>
+</div>
+
+<div class="card">
+    <h2>功能篇</h2>
+    <p class="sub" style="margin:0 0 10px;">远程工作站、附魔链路、网络资源与维度网络增强。</p>
+
+    <h3><a href="01-network-workstations.html">01 · 网络工作站</a></h3>
+    <ul>
+        <li><b>功能</b>：6 个快捷键 / 终端按钮远程打开 7 种工作站（合成台 / 切石机 / 锻造台 / 砂轮 / 铁砧 / 存储 / 附魔台），材料从主网络自动补料，产物可回背包或回网络；桶与流体桶自动转换补料；铁砧支持改名与服务端重算费用（LEVEL / POINTS 双模式）。</li>
+        <li><b>实现</b>：<code>init/ModMenus</code> · <code>feature/crafting/Dimensions*Menu</code>(×7) · <code>client/gui/Dimensions*GUI</code> · <code>client/BDKeyBindings</code> · <code>network/OpenStorageMenuPacket</code> · <code>handler/BucketFluidHelper</code> · <code>BucketSeparatorHandler</code>；Mixin <code>BdBucket*</code> 系列、<code>DimensionsCraftGUIMixin</code>、<code>DimensionsTerminalCraftGUIMixin</code>。</li>
+        <li><b>配置</b>：<code>workstations.enabled</code>；<code>bd_tweaks.bucket_separator_enabled</code>；<code>anvil.*</code>；客户端 <code>workstation_order</code>。</li>
+        <li><b>双分支</b>：NeoForge 菜单位于 <code>init/</code>、包为 <code>payload/OpenStorageMenuPayload</code>，并额外有 Apotheosis 附魔菜单（入口暂未启用）。</li>
+    </ul>
+
+    <h3><a href="02-enchant-table.html">02 · 网络附魔台</a></h3>
+    <ul>
+        <li><b>功能</b>：第 7 种工作站，不依赖书架；功率来自 FIXED / NETWORK_XP / PLAYER_LEVEL；三槽预览、刷新、宽松选魔、忍冲突 / 反复附魔 / 免燃料 / 解限 / 费比缩放 / 宝藏附魔。</li>
+        <li><b>实现</b>：<code>feature/crafting/DimensionsEnchantMenu</code> · <code>client/gui/DimensionsEnchantGUI</code> · <code>network/RefreshEnchantPacket</code> / <code>EnchantCluesPacket</code> · <code>client/widget/EnchantIconBtn</code>（无 Mixin）。</li>
+        <li><b>配置</b>：<code>enchant_table.*</code>；客户端 <code>enchant_preview_on</code>；Neo 额外 <code>apothQuanta</code>/<code>apothArcana</code> 与 <code>enchant_table_apoth_mode</code>。</li>
+        <li><b>双分支</b>：Neo 有神化附魔菜单 / 界面（入口暂未启用），包为 <code>payload/</code>。</li>
+    </ul>
+
+    <h3><a href="03-enchant-merge.html">03 · 批量附魔工作站</a></h3>
+    <ul>
+        <li><b>功能</b>：第 8 种工作站 <code>enchant_merge</code>；从网络单附魔书批量合并到装备；逐项滑条选级、冲突即时刷新、精确等级优先、高等级书递归拆分、取高合并、悬浮预览。</li>
+        <li><b>实现</b>：<code>DimensionsEnchantMergeMenu</code> · <code>client/gui/DimensionsEnchantMergeGUI</code> · <code>network/SubmitEnchantMergePacket</code>/<code>Payload</code> · 复用 <code>EnchantmentBookSeparatorHandler</code>（无 Mixin）。</li>
+        <li><b>配置</b>：<code>enchant_merge.enable</code>/<code>consume_original_book</code>/<code>split_xp_cost</code>；<code>workstations.activation.costs</code>。</li>
+        <li><b>双分支</b>：注册入口 <code>ClientRegistrar</code>（Forge）vs <code>ClientEventHandler</code>（Neo），包路径不同。</li>
+    </ul>
+
+    <h3><a href="04-enchant-pipeline.html">04 · 附魔链路总览</a></h3>
+    <ul>
+        <li><b>功能</b>：总览附魔三链路——分离（多→单）→ 同类同级自动升级 → 工作站批量合并到装备的流程与计费对照。</li>
+        <li><b>实现</b>：文档型总览，核心实现同 05 / 03（<code>EnchantmentBookSeparatorHandler</code> + <code>DimensionsEnchantMergeMenu</code>）。</li>
+        <li><b>配置</b>：见 05 / 03。</li>
+        <li><b>双分支</b>：铁砧费用为 Forge 稀有度系数 vs Neo <code>getAnvilCost()</code>；<code>cost_formula</code> 标注为 Forge。</li>
+    </ul>
+
+    <h3><a href="05-enchantment-separation.html">05 · 附魔分离器</a></h3>
+    <ul>
+        <li><b>功能</b>：多附魔书入网自动拆为单附魔书（扣网络 XP，20 mB/点 + 普通书 (N−1)）；命令批量分离；总开关 + 每网络开关；费用公式；容量预检回滚；保护标记跳过；可选同类同级自动升合并。</li>
+        <li><b>实现</b>：<code>feature/enchant/EnchantmentBookSeparatorHandler</code> · <code>FormulaParser</code> · <code>NetworkAmmoData</code> · <code>client/widget/EnchantToggleBtn</code> · <code>Toggle/EnchantSeparationSync/RequestEnchantSeparation</code> 包 · <code>command/EnchantSeparateCommand</code>（无 Mixin）。</li>
+        <li><b>配置</b>：<code>enchantment_separation.*</code>（<code>enable</code>/<code>base_cost</code>/…/<code>merge_same_level</code>/<code>use_formula</code>/<code>cost_formula</code>）；网络级 NBT <code>enchantSeparation</code>。</li>
+        <li><b>双分支</b>：分离核心路径 <code>feature/enchant/</code>（Forge）vs <code>handler/</code>（Neo）。</li>
+    </ul>
+
+    <h3><a href="06-auto-totem.html">06 · 网络图腾</a></h3>
+    <ul>
+        <li><b>功能</b>：致命伤害自动从主网络取不死图腾（效果对齐原版）；仅网络来源；强化触发（事件 + Mixin 双实现，setHealth 直杀额外加价）；女仆死亡救援独立；消耗提示改 HUD。</li>
+        <li><b>实现</b>：<code>AutoTotemHandler</code> · <code>ReviveSupport</code> · <code>ReviveFingerprintHandler</code> · <code>SetHealthReviveHandler</code>；Mixin <code>LivingEntityTotemReviveMixin</code>；HUD <code>HudHintPacket</code>/<code>HudHintPayload</code> + <code>client/HudHintState</code>。</li>
+        <li><b>配置</b>：<code>auto_totem.*</code>、<code>revive.*</code>。</li>
+        <li><b>双分支</b>：无。</li>
+    </ul>
+
+    <h3><a href="07-energy-charge.html">07 · 网络能量充能</a></h3>
+    <ul>
+        <li><b>功能</b>：网络 FE 作为无线充电宝，周期为盔甲 / 手持 / Curios / 女仆饰物 / 载具充电；RATE / PERCENTAGE / PERCENTAGE_PLUS_RATE；每网络开关；未接收电量回插网络。</li>
+        <li><b>实现</b>：<code>EnergyAmmoChargeHandler</code> · <code>ChargePlatform</code> · <code>EnergyChargeAccessor</code> · <code>Toggle/EnergyChargeSync/RequestEnergyCharge</code> 包 · <code>EnergyChargeState</code>/<code>Btn</code>；Mixin <code>VehicleEnergyChargeMixin</code> · <code>AmmoConsumerMixin</code> · <code>DimensionsNetMixin</code>。</li>
+        <li><b>配置</b>：<code>energy_ammo.*</code>（<code>charge_enabled</code>/<code>interval</code>/<code>rate</code>/<code>mode</code>/<code>whitelist</code>/<code>curios</code>/<code>maid_baubles</code>）。</li>
+        <li><b>双分支</b>：Forge <code>feature/ammo/sw</code> + <code>ForgeChargePlatform</code>；Neo <code>handler/</code> + <code>NeoChargePlatform</code>，支持流体燃料。</li>
+    </ul>
+
+    <h3><a href="08-furnace-terminal.html">08 · 终端熔炼</a></h3>
+    <ul>
+        <li><b>功能</b>：联网便携终端作熔炉输入，取出时批量烧炼全网络可烧炼物品，经验按 20 mB/点折算入网，终端本身不消耗。</li>
+        <li><b>实现</b>：<code>TerminalSmeltRecipe</code>/<code>Serializer</code> · <code>FurnaceTerminalSmelter</code> · <code>FurnaceTerminalEventHandler</code>；Mixin <code>NetedItemMixin</code>（保护标记产物）。</li>
+        <li><b>配置</b>：<code>bd_tweaks.furnace_terminal_smelt_all</code>、<code>xp_rod_enabled</code>。</li>
+        <li><b>双分支</b>：包路径与配方目录 <code>recipes/</code> vs <code>recipe/</code>；仅 <code>RecipeType.SMELTING</code>。</li>
+    </ul>
+
+    <h3><a href="09-hover-insert.html">09 · 悬停快速存储</a></h3>
+    <ul>
+        <li><b>功能</b>：容器界面悬停槽位左键，在光标与联网终端间双向快速存入 / 取出；绿色「+」提示；服务端成员权限校验；精确 <code>ItemStackKey</code>；<code>safeTake</code> 防结果槽刷取。</li>
+        <li><b>实现</b>：<code>HoverInsertHandler</code> · <code>client/HoverStoreOverlay</code> · <code>NetworkIdTooltipHandler</code>（Neo：<code>ItemTooltipHandler</code>）；Mixin <code>NetedItemClickMixin</code>。</li>
+        <li><b>配置</b>：无。</li>
+        <li><b>双分支</b>：tooltip 类不同，其余一致。</li>
+    </ul>
+
+    <h3><a href="10-workstation-activation.html">10 · 工作台献祭激活</a></h3>
+    <ul>
+        <li><b>功能</b>：可选平衡项——使用工作台需先献祭对应原版工作台（网络级，一次激活全网可用），合成台 / 终端除外；服务端权威校验；启用列表随包下发；命令重置。</li>
+        <li><b>实现</b>：<code>WorkstationActivation</code> · <code>NetworkAmmoData</code> · <code>Activate/Request/Sync</code> 包 · <code>WorkstationActivationCache</code>；Mixin <code>DimensionsNetMixin</code>。</li>
+        <li><b>配置</b>：<code>workstations.activation.enable</code> / <code>costs</code>。</li>
+        <li><b>双分支</b>：Neo 网络包位于 <code>payload/</code>，其余一致。</li>
+    </ul>
+
+    <h3><a href="11-net-pathway-filter.html">11 · 维度网络通道过滤</a></h3>
+    <ul>
+        <li><b>功能</b>：<code>net_pathway</code> 标记槽白名单（启用 / 仅接收输入 / 模糊），空标记不暴露任何物品；对外能力暴露裁剪；标记槽行数 1~6；方块配置破坏保留 / Shift+左键复制 / 清 NBT 配方。</li>
+        <li><b>实现</b>：<code>NetPathwayFilteredStorage</code> · <code>NetPathwayFilterMenu</code>/<code>GUI</code> · <code>NetPathwayInteractionHandler</code> · <code>NetedBlockConfigNbt</code>；Mixin <code>NetPathwayBlockEntityFilterMixin</code> · <code>NetedBlockEntityNetPathwayDataMixin</code> · <code>NetedBlockKeepFilterNbtMixin</code>。</li>
+        <li><b>配置</b>：<code>bd_tweaks.net_pathway_filter_rows</code>、<code>bd_tweaks.neted_block_keep_nbt</code>。</li>
+        <li><b>双分支</b>：清 NBT 配方目录 <code>recipes/</code> vs <code>recipe/</code>；过滤开关为每方块 NBT（随 QuickData 同步）。</li>
+    </ul>
+
+    <h3><a href="12-xp-rod.html">12 · 经验棒增强</a></h3>
+    <ul>
+        <li><b>功能</b>：解除目标等级上限（默认 238609312）；BATCH 分批发放防跳变；DIRECT 直设（网络 XP 优先，1 点 = 20 mB，二分反解，零头回插）。</li>
+        <li><b>实现</b>：<code>XpGrantHelper</code> · <code>XpDirectGranter</code>；Mixin <code>XpUtil</code> · <code>XpExchangeSettings</code> · <code>XpExchangeItem</code> · <code>XpExchangeGUI</code>。</li>
+        <li><b>配置</b>：<code>bd_tweaks.xp_rod_enabled</code>/<code>max_target_level</code>/<code>grant_batch_size</code>/<code>grant_mode</code>。</li>
+        <li><b>双分支</b>：无。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>网络弹药系</h2>
+    <p class="sub" style="margin:0 0 10px;">网络弹药与网络绑定相关联动；16、19 为<b>载具支持</b>。</p>
+
+    <h3><a href="13-sw-virtual-ammo.html">13 · SW 虚拟弹药系统</a></h3>
+    <ul>
+        <li><b>功能</b>：SW 弹药 / 弹药盒 / 弹药箱入网折算 5 类虚拟弹药；射击优先扣网络，不足补扣玩家；创造箱无限；轮询差分推送 + 扣弹即推；HUD 显示网络名 / 弹药 / ∞。</li>
+        <li><b>实现</b>：<code>SuperbAmmoInsertHandler</code> · <code>NetworkAmmoData</code> · <code>SwAmmoTracker</code>/<code>PollingService</code> · <code>client/SuperbAmmoCache</code>；Mixin <code>DimensionsNetMixin</code> · <code>AmmoConsumerMixin</code> · <code>GunDataCountMixin</code>（Neo <code>GunDataMixin</code>） · <code>VehicleAmmo</code>/<code>NetworkSync</code>/<code>HudNetwork</code> · <code>AmmoBarOverlay</code>。</li>
+        <li><b>配置</b>：<code>sw_ammo.ammo_poll_enabled</code> / <code>interval_ticks</code>；<code>ammo_extract.mappings</code>。</li>
+        <li><b>双分支</b>：类路径 <code>feature/</code> vs <code>handler/</code>；SW 系 6 包仅 Forge 条件注册。</li>
+    </ul>
+
+    <h3><a href="14-tacz-network-ammo.html">14 · TACZ 网络供弹与装填</a></h3>
+    <ul>
+        <li><b>功能</b>：弹药盒入网拆箱按弹药 ID 计数；射击 / 装填自动从网络取弹；创造弹药无限；接管直读背包枪械 R 键换弹全链路；HUD；查询缓存 + 10 tick 差分；Tacz-Unidict 兼容。</li>
+        <li><b>实现</b>：<code>AmmoBoxExtractHandler</code> · <code>TaczAmmoExtractor</code> · <code>NetworkAwareAmmoHandler</code> · <code>TaczAmmoTracker</code>/<code>PollingService</code> · <code>TaczAmmoCache</code> · <code>compat/tud/TudAmmoCompat</code>；Mixin <code>AbstractGunItem</code> · <code>ModernKineticGunScriptAPI</code> · <code>GunAnimationStateContext</code> · <code>LocalPlayerShoot</code> · <code>ReloadKey</code> · <code>LocalPlayerReload</code> · <code>LivingEntityReload</code>（Forge） · <code>GunHudOverlay</code> · <code>GunDataCount</code>。</li>
+        <li><b>配置</b>：<code>tacz_ammo.ammo_poll_enabled</code> / <code>interval_ticks</code>。</li>
+        <li><b>双分支</b>：换弹接管 Mixin 标注为 Forge；TACZ 系 5 包 Forge 条件注册。</li>
+    </ul>
+
+    <h3><a href="15-tacz-network-crafting.html">15 · TACZ 枪械台网络合成</a></h3>
+    <ul>
+        <li><b>功能</b>：材料槽显示网络存量「+N」；一键 / Shift 批量（≤64）用「背包 + 网络」混合取料合成；产物可回存，余量归还；配方驱动定向扫描；完成 CraftToast 角标；taczaddon 重构版兼容（模式互斥 / 按钮接管）。</li>
+        <li><b>实现</b>：<code>mixin/GunSmithTableScreenMixin</code> · <code>feature/crafting/TaczCraftManager</code> · <code>RecipeMaterialScanner</code> · <code>NetworkCraftingHelper</code> · <code>network/TaczCraftPacket</code> · <code>NetworkItemCountsPacket</code> · <code>client/CraftToast</code>；兼容 Mixin <code>Taczaddon*</code>（Forge 4 / Neo 3）。</li>
+        <li><b>配置</b>：<code>craft.cooldown_ms</code> / <code>max_depth</code> / <code>block_bd_reader</code>；客户端 <code>tacz_smith_use_network</code> / <code>tacz_smith_output_to_network</code>。</li>
+        <li><b>双分支</b>：taczaddon 注入点与数量不同，版本门控 Forge ≥1.1.8.1 / NeoForge ≥1.1.8.2。</li>
+    </ul>
+
+    <h3><a href="16-vehicle-network.html">16 · 载具绑定与网络充电（SW）</a></h3>
+    <ul>
+        <li><b>功能</b>：手持联网物品右键 SW 载具绑定（NBT <code>Net_id</code>）；周期抽取网络 FE 充电（RATE / PERCENTAGE）；武器消耗网络弹药；驾驶 HUD；快照差分推送与持久化。</li>
+        <li><b>实现</b>：<code>VehicleInteractHandler</code> · <code>VehicleNetCache</code> · <code>INetCachedVehicle</code>；Mixin <code>VehicleNet</code> · <code>VehicleEnergyCharge</code> · <code>VehicleNetworkSync</code> · <code>VehicleAmmo</code> · <code>VehicleHudNetwork</code> · <code>VehicleClientInteract</code>。</li>
+        <li><b>配置</b>：<code>vehicle.charge_mode</code>/<code>energyChargeRate</code>/<code>chargeInterval</code>/<code>chargePercentage</code>。</li>
+        <li><b>双分支</b>：类路径 <code>feature/vehicle</code> vs <code>handler/</code>；ywzj 载具支持仅 Neo（见 19）。</li>
+    </ul>
+
+    <h3><a href="17-sentry-arm.html">17 · 哨戒机械臂联动</a></h3>
+    <ul>
+        <li><b>功能</b>：手持联网物品右键底座绑定并把物品加入弹药箱；装弹从网络直取（≤9000）；假玩家第 9 格塞网络标记使 TACZ/SW 感知网络；NBT 持久化；Neo 无 Sable 兼容修复。</li>
+        <li><b>实现</b>：<code>SentryNetIdAccessor</code> · <code>SentryFakePlayerNetMarker</code>（Neo：<code>FakePlayerNetMarker</code>） · <code>IFakePlayerNetId</code>；Mixin <code>SentryArmBlock</code> · <code>SentryArmNet</code> · <code>SentryArmReload</code> · <code>SentryFakePlayerSync</code> · <code>BDMenuNetAccessor</code> · <code>SentryAeronauticsFix</code>（Neo）。</li>
+        <li><b>配置</b>：无。</li>
+        <li><b>双分支</b>：标记类路径不同；Neo 含兼容修复。</li>
+    </ul>
+
+    <h3><a href="18-maid-integration.html">18 · 女仆联动</a></h3>
+    <ul>
+        <li><b>功能</b>：BD 终端注册为女仆饰物；射击消耗网络弹药；装备 / 饰物按配置从网络充能；死亡网络图腾救援；网络定位缓存 5 秒（主要服务于网络弹药与网络绑定接口）。</li>
+        <li><b>实现</b>：<code>maid/MaidBaubleExtension</code> · <code>MaidNetworkHelper</code>/<code>Cache</code> · <code>MaidEnergyChargeHandler</code> · <code>MaidAutoTotemHandler</code> · <code>api/MaidNetworkAPI</code>；Mixin <code>MaidCacheCleanup</code> · <code>AmmoConsumer</code> · <code>GunDataCount</code>。</li>
+        <li><b>配置</b>：<code>energy_ammo.charge_maid_baubles</code>。</li>
+        <li><b>双分支</b>：无。</li>
+    </ul>
+
+    <h3><a href="19-ywzj-vehicle.html">19 · ywzj 载具支持（仅 NeoForge）</a></h3>
+    <ul>
+        <li><b>功能</b>：绑定网络（NBT <code>bce_net_id</code>）；能量充电（FE / 流体）；武器装填从网络取弹；一键最大合成补料；驾驶 HUD。</li>
+        <li><b>实现</b>：<code>handler/VehicleNetStorage</code> · <code>YwzjVehicleSyncHandler</code> · <code>client/YwzjVehicleCache</code> · <code>NetworkOverlay</code> · <code>YwzjVehicleDataResponsePacket</code>；Mixin <code>ywzj_vehicle/VehicleNet</code> · <code>EnergyCharge</code> · <code>AmmoReload</code> · <code>MachineMaxCraft</code> · <code>OverlayRegistration</code>。</li>
+        <li><b>配置</b>：<code>ywzj_vehicle.*</code>。</li>
+        <li><b>双分支</b>：仅 1.21.1-NeoForge 实现；1.20.1-Forge 无。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>联动篇</h2>
+    <p class="sub" style="margin:0 0 10px;">弹药/绑定之外的第三方集成：FTB、Thirst、Goety。</p>
+
+    <h3><a href="20-ftb-integration.html">20 · FTB Quests 集成</a></h3>
+    <ul>
+        <li><b>功能</b>：检测 / 消耗 / XP / 流体 / 能量任务读写主网络；多候选选择提交 GUI；奖励领取选择 GUI 与单条 Shift 入网；tooltip 网络数量；检测到 RI 时让路。</li>
+        <li><b>实现</b>：<code>FtbIntegrationHelper</code> · <code>FtbTaskNetworkScanner</code> · <code>FtbRewardClaimer</code> · <code>Ftb*Service</code> · <code>Ftb*Screen</code> · 6 个 FTB 数据包；Mixin <code>Ftb*</code> 共 11 个 + <code>MixinPlugin</code>。</li>
+        <li><b>配置</b>：<code>ftb_integration.*</code>。</li>
+        <li><b>双分支</b>：汇总 / 监听注入点、通知与奖励入口不同（Forge <code>FtbInventorySummaryMixin</code>+收集奖励按钮 vs Neo <code>FtbPlayerInventorySummaryMixin</code>+奖励选择界面）。</li>
+    </ul>
+
+    <h3><a href="21-thirst-integration.html">21 · 口渴（Thirst）集成</a></h3>
+    <ul>
+        <li><b>功能</b>：喂食器补水档位；只消耗标记槽物品 / 流体；4 档纯净水流体（仅流体，无方块 / 桶）；终端取水打纯度；网络熔炉按标记执行 Thirst 熔炼提纯（可配速度）；机械动力（Create）灌装配方 + 沙滤提纯。</li>
+        <li><b>实现</b>：<code>FeederThirstHandler</code>/<code>Mode</code>/<code>Settings</code> · <code>ThirstCompat</code> · <code>PurityTagger</code> · <code>BucketSeparatorHandler</code> · <code>NetFurnaceWaterPurify</code>；Mixin <code>FeederThirstItem</code>/<code>Menu</code>/<code>MenuSlot</code>/<code>GUI</code> · <code>NetFurnaceWaterPurify</code>/<code>InputFilterWater</code>/<code>InputStorageWater</code>/<code>SmeltSpeed</code> · <code>SandFilterWaterCompat</code>；数据包 <code>create:filling</code> 配方。</li>
+        <li><b>配置</b>：<code>[feeder_thirst]</code> 区 + <code>bd_tweaks.net_furnace_smelt_speed</code>。</li>
+        <li><b>双分支</b>：Capability vs DataAttachment、NBT vs <code>CUSTOM_DATA</code>、<code>ForgeEventFactory</code> vs <code>EventHooks</code>。</li>
+    </ul>
+
+    <h3><a href="32-goety-integration.html">32 · Goety 联动（网络灵魂源）</a></h3>
+    <ul>
+        <li><b>功能</b>：把维度网络作为与「方舟 / 图腾」并列的独立灵魂源（<b>原版优先</b>：消耗先 Arca/图腾、不足补网络，吸收先填满原版、溢出才入网）；灵魂源激活仪式；牢笼魂源（终端 / 连接宝石 / 通道替代牢笼）；击杀溢出沉淀与手动转化；网络复活（原版无法复活时兜底，可落点为方舟）与折扣；HUD 追加第三条网络灵魂条；原版仪式环境绕过（触发方块）。</li>
+        <li><b>实现</b>：<code>SoulEnergyType</code>/<code>SoulEnergyStackKey</code>/<code>SoulEnergyAccess</code>/<code>SoulVanillaSource</code>/<code>SoulKeyRegistration</code> · <code>SoulSourceRitual</code>/<code>ModRitualFactories</code>/<code>SoulArkActivation</code> · <code>NetworkSoulSource</code>/<code>SoulGainHandler</code>/<code>SoulManualConvert</code>；Mixin <code>CursedCageBlock</code>/<code>CursedCageBlockEntity</code> · <code>DarkAltarBlockEntity</code> · <code>SEHelper</code> · <code>SoulRevive</code> · <code>RitualRequirements</code> · <code>SoulEnergyGui</code>；数据包灵魂源仪式配方。</li>
+        <li><b>配置</b>：<code>[goety_soul]</code>（enabled/require_activation/source_kill/kill_ratio/source_manual/direct_main_net/max_souls/network_discount/network_revive/network_revive_to_arca/debug）· <code>[goety_ritual]</code>（env_bypass/pathway_count/connect_count/radius/pathway_cage）。</li>
+        <li><b>分支</b>：<b>仅 1.20.1-FORGE</b>（Goety 仅此分支）。</li>
+    </ul>
+
+    <h3><a href="36-network-potion-charm.html">36 · 网络药水护符（Apotheosis）</a></h3>
+    <ul>
+        <li><b>功能</b>：网络里的药水护符对「主网络玩家 / 绑定网络的女仆」生效；效果按类型去重（最高等级，同级优先无法破坏）；门槛为无法破坏 / 自身经验修补 / 网络献祭解锁；无法破坏免费，其余每次扣网络 XP 流体（默认 1 XP = 20 mB）。</li>
+        <li><b>实现</b>：<code>NetworkPotionCharmHandler</code>（按网络缓存 + <code>BdSubscriptionHub</code> 订阅 delta，仅护符变动才重扫）· <code>PotionCharmMode</code> · <code>ApothCharmSupport</code> · <code>PotionCharmAccessor</code> + <code>DimensionsNetMixin</code> · <code>MaidPotionCharmHandler</code>；包 <code>CyclePotionCharmModePacket</code>/<code>SacrificeMendingPacket</code>/<code>PotionCharmSyncPacket</code>/<code>RequestPotionCharmPacket</code>；命令 <code>insert potionCharm</code>。</li>
+        <li><b>配置</b>：<code>[potion_charm]</code>（enabled / interval / refresh_lead_ticks / mending_xp_cost）。</li>
+        <li><b>两条 1.20.1 线</b>：旧线有 <code>PotionCharmToggleBtn</code>（BD 网络界面按钮，循环模式 + 献祭）；<b>新线（NEW_FORGE_1.20.1）按钮随旧 GUI 删除，包无发送方 → 只能以默认「仅玩家、未解锁经验修补」运行</b>，待补 BdPage 页面。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>系统与开发篇</h2>
+    <p class="sub" style="margin:0 0 10px;">拦截链、命令、协议、配置、API、终端增强与 BD 修改清单。</p>
+
+    <h3><a href="22-blacklist.html">22 · 物品黑名单与插入拦截链</a></h3>
+    <ul>
+        <li><b>功能</b>：在 BD <code>UnifiedStorage.insert()</code> 前置链注册 4 个处理器——黑名单拒绝、附魔分离、TACZ 拆箱、SW 折算；返回 <code>cancel</code> 决定吞掉 / 替换插入。</li>
+        <li><b>实现</b>：<code>ItemBlacklistHandler</code> · <code>EnchantmentBookSeparatorHandler</code> · <code>AmmoBoxExtractHandler</code> · <code>SuperbAmmoInsertHandler</code> · <code>ItemProtectExtension</code> + <code>ProtectItemPacket</code>（无 Mixin，BD 官方扩展点）。</li>
+        <li><b>配置</b>：<code>blacklist.enable</code> / <code>items</code>。</li>
+        <li><b>双分支</b>：处理器位于 <code>handler/</code>（Neo）；保护包为 <code>ProtectItemPayload</code>。</li>
+    </ul>
+
+    <h3><a href="23-commands.html">23 · /bdtools 命令系统</a></h3>
+    <ul>
+        <li><b>功能</b>：网络查询 / 批量创建 / 资源生成 / 终端发放 / 成员与经理权限 / 远程开 GUI / 批量附魔分离；OP 权限分级；中英双语 + SI 数字格式化。</li>
+        <li><b>实现</b>：<code>BDNetworkCommands</code> · <code>command/network/*</code> · <code>command/member/*</code> · <code>EnchantSeparateCommand</code> · <code>PermissionChecker</code> · <code>OutputFormatter</code> · <code>CommandLang</code>（无 Mixin）。</li>
+        <li><b>配置</b>：无。</li>
+        <li><b>双分支</b>：无。</li>
+    </ul>
+
+    <h3><a href="24-networking.html">24 · 网络数据包架构</a></h3>
+    <ul>
+        <li><b>功能</b>：Forge 用 <code>SimpleChannel</code> 按模组条件注册；NeoForge 用 <code>CustomPacketPayload</code> 全部无条件注册；<code>handle</code> 统一 <code>enqueueWork</code> 切主线程。</li>
+        <li><b>实现</b>：<code>network/PacketHandler</code> + 各 <code>*Packet</code>（Forge）/ <code>network/payload/*</code>（Neo）。</li>
+        <li><b>配置</b>：无。</li>
+        <li><b>双分支</b>：Forge <b>40 包</b>（含 SW / TACZ 条件注册）；NeoForge <b>41 包</b>（全部无条件）。<span style="color:#c62828;">（文档 24 正文旧值 25 / 26 已过时）</span></li>
+    </ul>
+
+    <h3><a href="25-config-integrations.html">25 · 配置系统与第三方集成</a></h3>
+    <ul>
+        <li><b>功能</b>：COMMON + CLIENT 两份配置（多语言注释）、Cloth Config 图形界面；JEI / Jade 集成；可选模组共存与让路策略。</li>
+        <li><b>实现</b>：<code>CommandConfig</code> · <code>ClientConfig</code> · <code>ConfigCommentLang</code> · <code>ModConfigScreen</code> · <code>BDJeiPlugin</code> · <code>Craft/CutRecipeTransferHandler</code> · <code>NetworkCountOverlay</code> · <code>JadeBDPlugin</code> · Provider 系列；Mixin <code>JeiIngredient*</code> · <code>JeiFocusInput</code> · <code>PlaceboCacheWriteDisable</code>（Neo） · <code>MixinPlugin</code>。</li>
+        <li><b>配置</b>：<code>beyond_integration-common.toml</code> 各分区；<code>beyond_integration-client.toml</code>。</li>
+        <li><b>双分支</b>：ywzj / 神化 / Placebo / CLIENT 条目差异。</li>
+    </ul>
+
+    <h3><a href="26-api-extensions.html">26 · API 与扩展点</a></h3>
+    <ul>
+        <li><b>功能</b>：<code>IModIntegration</code> 按 modId 条件注册；业务扩展点；BD GUI 扩展注册表；女仆网络 API；统一订阅中心。</li>
+        <li><b>实现</b>：<code>IModIntegration</code> · <code>ICraftingIntegration</code> · <code>INetworkAmmoProvider</code> · <code>IVehicleEnergySystem</code> · <code>IBeforeInsertExtension</code> · <code>IDimensionsNetGUIExtension</code> · <code>BDGUIExtensionRegistry</code> · <code>MaidNetworkAPI</code> · <code>BdSubscriptionHub</code> · <code>StorageMenuExtension</code> · <code>AmmoPanelExtension</code>（无 Mixin）。</li>
+        <li><b>配置</b>：无。</li>
+        <li><b>双分支</b>：<code>AmmoPanelExtension</code> 标注为 Forge。</li>
+    </ul>
+
+    <h3><a href="27-terminal-enhancements.html">27 · BD 终端界面增强</a></h3>
+    <ul>
+        <li><b>功能</b>：左侧按钮栏接管重排；RI 原生按钮屏蔽与替代；JEI 避让 / 数量角标 / Shift 取物；行数最大值跟随；主网络 JEI 会话同步。</li>
+        <li><b>实现</b>：<code>mixin/DimensionsNetGUIMixin</code> · <code>client/gui/BeyondSidebarAccess</code> · <code>LeftSidebarLayout</code> · <code>client/PrimaryNetClientStorage</code> · <code>RsAutoEatButton</code> · <code>compat/RsIntegrationCompat</code> · <code>jei/BDSidebarGuiHandler</code> · <code>NetworkCountOverlay</code> · <code>BeyondJeiNetworkHelper</code> · <code>network/ExtractNetworkItemPacket</code>；Mixin <code>DimensionsNetGUI</code> · <code>RsIntegration*</code> · <code>RsAutoEatButtonGuard</code> · <code>Jei*</code>。</li>
+        <li><b>配置</b>：<code>bd_tweaks.primary_net_jei_sync</code>。</li>
+        <li><b>双分支</b>：Neo 取物包位于 <code>payload/</code>；新版 JEI 用 <code>NewMixin</code> 适配。</li>
+    </ul>
+
+    <h3><a href="28-bd-modifications.html">28 · BD 功能修改项</a></h3>
+    <ul>
+        <li><b>功能</b>：汇总 BI 对 BD 目标类的 Mixin 修改与扩展：网络核心（<code>DimensionsNet</code> 扩展数据）、存储物品与交互、终端与合成界面、网络通道过滤与方块配置、经验棒 / 经验兑换、网络熔炉 / 喂食器、网络漏斗（方块磁铁）自定义档位，以及 Neo 专属项。</li>
+        <li><b>实现</b>：<code>DimensionsNetMixin</code> · <code>DimensionsNetGUIMixin</code> · <code>BdBucket*</code> · <code>Neted*</code> · <code>NetPathwayBlockEntityFilterMixin</code> · <code>NetMagnetItem*</code> · <code>NetHopper*TierMixin</code> · <code>Xp*</code> · <code>NetFurnace*</code> · <code>FeederThirst*</code> · <code>PlaceboCacheWriteDisableMixin</code>（Neo）等；另含公开扩展点接入（插入拦截链 / GUI 扩展注册表）。</li>
+        <li><b>配置</b>：见各功能对应分区。</li>
+        <li><b>双分支</b>：Neo 额外 <code>NetTerminalItemMixin</code> · <code>NetInterfaceExtractMixin</code> · <code>PlaceboCacheWriteDisableMixin</code>。</li>
+    </ul>
+
+    <h3><a href="33-hud-layout.html">33 · 通用 HUD 布局框架</a></h3>
+    <ul>
+        <li><b>功能</b>：各 BI 自有 HUD 位置可自定义（相对原版锚点偏移 / 绝对屏幕坐标）；<b>同一编辑界面同屏展示全部可调 HUD</b>，点击选中、拖动移动；布局统一存于客户端配置 <code>hud_layout</code>。</li>
+        <li><b>实现</b>：<code>client/hud/HudElement</code> · <code>HudLayout</code> · <code>HudPreview</code> · <code>BiHuds</code> · <code>client/gui/HudPositionScreen</code> · <code>client/render/SoulHudRenderer</code>（无 Mixin；接入点 <code>SoulEnergyGuiMixin</code> · <code>NetSyncStatusOverlay</code>）。</li>
+        <li><b>配置</b>：CLIENT <code>hud_layout</code>（列表）/ <code>hud_visual_edit</code>；快捷键「打开 HUD 位置调整」。</li>
+        <li><b>双分支</b>：仅客户端；当前接入 <code>soul</code>（网络灵魂条）、<code>net_sync</code>（主网络同步状态，默认关闭）、<code>net_mana</code>（网络魔力，需铁魔法）。</li>
+    </ul>
+
+    <h3><a href="35-version-matrix.html">35 · 版本主线矩阵 · 按联动模组归纳</a></h3>
+    <ul>
+        <li><b>结构</b>：两条主线 <b>BD 0.7.30</b>（旧菜单/GUI 体系）与 <b>BD 0.8.x</b>（CompixelUI + <code>BdPage</code>），每条线下分 <b>1.20.1</b> 与 <b>1.21.1</b> 分支，共 4 个工程：
+            <code>1.20.1-FORGE</code>、<code>1.21.1_NEOFORGE</code>（0.7.30）；<code>NEW_FORGE_1.20.1</code>、<code>NEW_NEOFORGE_1.21.1</code>（0.8.x，均带 <code>NEW_</code> 前缀）。</li>
+        <li><b>覆盖</b>：BD 核心（插入规则 / 工作台 / 通道界面 / 磁铁漏斗喂食器经验棒 / 终端 / 主网同步 / HUD / 命令 / 配置）、Apotheosis、TACZ、Superb Warfare、铁魔法、Goety、Thirst/LSO、女仆、Create 哨戒、载具、JEI/EMI、rs_integration、Jade、经验棒。</li>
+        <li><b>价值</b>：看清每条主线的成熟度（0.7.30 两分支功能最全；0.8.x-1.20.1 已迁大部分逻辑但仍有缺口；0.8.x-1.21.1 目前只有 GUI 骨架），以及跨线搬运的不兼容点。</li>
+        <li><b>与 34 的区别</b>：34 是按 MC 版本对照（1.20.1 vs 1.21.1）的实现差异速查；35 是按 BD 主线 × MC 版本的四格矩阵。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>参考篇</h2>
+
+    <h3><a href="29-bd-api.html">29 · Beyond Dimensions API 参考</a></h3>
+    <ul>
+        <li><b>功能</b>：整理 BD 全部公开 API——网络模型 / 存储与键类型 / 插入与提取拦截链 / 事件 / 物品 / 菜单 / 注册表 / 能力适配 / 网络协议。</li>
+        <li><b>实现</b>：文档参考（核心 <code>DimensionsNet</code> · <code>UnifiedStorage</code> · <code>IStackKey</code> · <code>*Handler</code> · <code>DimensionsNetEvent.*</code> · <code>NetedItem</code> · <code>BDMenus</code> 等；无 Mixin）。</li>
+        <li><b>配置</b>：无（运行时字段 <code>fragmentTransferTime</code> / <code>crystalGenerateTime</code>）。</li>
+        <li><b>双分支</b>：基于 BD <code>0.7.30</code> 源码，事件为 Forge 总线。</li>
+    </ul>
+
+    <h3><a href="30-bd-texture-guide.html">30 · BD 贴图使用指南</a></h3>
+    <ul>
+        <li><b>功能</b>：BD 贴图目录（<code>block</code> / <code>item</code> / <code>gui</code> 与 <code>gui/sprites/widget</code>）、命名规范、普通纹理 / GUI 精灵的引用方式、<code>CommonTextures</code> 常量与可复用部件、BI 复用示例。</li>
+        <li><b>实现</b>：文档参考（<code>CommonTextures</code> · <code>CommonTexturesRender</code> · <code>IconButton</code>；<code>blit</code> 完整路径 / <code>blitSprite</code> 短名两种引用）。</li>
+        <li><b>配置</b>：无。</li>
+        <li><b>双分支</b>：基于 BD <code>0.7.30</code>，两分支贴图同名；BI 统一用完整路径 + <code>blit</code>。</li>
+    </ul>
+</div>
+
+<footer>
+    Beyond Integration v0.7.3 · 归纳自 <code>docs/01–33</code> 与两分支源码 · 统计基于 mixins.json 与 PacketHandler 实测 · 若与代码不符以源码为准 · 返回 <a href="index.html">索引</a>
+</footer>
+
+</div>
+</body>
+</html>
+

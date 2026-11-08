@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06 · 载具绑定与网络充电 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>06 · 载具绑定与网络充电（Superb Warfare）</h1>
+    <div class="sub">SW 载具绑定维度网络、周期性抽取网络 FE 充电、HUD 信息显示</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>玩家手持<b>携带网络 ID 的物品</b>（BD 网络终端 / 接入物品）右键 SW 载具即可完成绑定，此后：</p>
+    <ul>
+        <li><b>周期充电</b>——每 N tick 从绑定网络的统一存储抽取能量（FE）给载具充电，支持固定速率 / 按缺失百分比两种模式</li>
+        <li><b>网络弹药</b>——载具武器射击优先消耗网络虚拟弹药（见文档 13）</li>
+        <li><b>HUD 显示</b>——驾驶时左下角显示网络 ID、网络名、网络弹药、网络能量</li>
+        <li><b>持久化</b>——绑定关系写入载具 NBT（键 <code>Net_id</code>），弹药快照写入 <code>BCE_AmmoList</code>，重启不丢失</li>
+    </ul>
+    <div class="note"><b>其他载具</b>ywzj 载具的网络支持仅存在于 NeoForge 1.21.1 分支，见 <a href="19-ywzj-vehicle.html">文档 19</a>；通用载具（非 SW）的绑定尝试经 <code>VehicleInteractHandler</code> 统一处理。</div>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>绑定交互</td><td><code>feature/vehicle/VehicleInteractHandler</code>（Forge）/ <code>handler/VehicleInteractHandler</code>（NeoForge）</td><td>右键交互事件 → 校验物品网络 ID → 写入载具</td></tr>
+        <tr><td>缓存</td><td><code>feature/vehicle/VehicleNetCache</code>（Forge）/ <code>handler/VehicleNetCache</code>（NeoForge）</td><td>实体 → 网络绑定缓存（含每 tick 弹药快照同步、经 BdSubscriptionHub 订阅）</td></tr>
+        <tr><td>NBT 持久化</td><td><code>mixin/VehicleNetMixin</code></td><td>read/write <code>Net_id</code> / <code>BCE_AmmoList</code>；remove 时解绑</td></tr>
+        <tr><td>能量充电</td><td><code>mixin/VehicleEnergyChargeMixin</code></td><td>baseTick 注入，周期抽取网络 FE（按接收量提取）</td></tr>
+        <tr><td>弹药同步</td><td><code>mixin/VehicleNetworkSyncMixin</code> / <code>VehicleAmmoMixin</code></td><td>有乘客时同步弹药 Map / 弹药判定</td></tr>
+        <tr><td>HUD</td><td><code>mixin/VehicleHudNetworkMixin</code></td><td>左下角网络信息面板 + ITEM 弹药补查</td></tr>
+        <tr><td>客户端交互</td><td><code>mixin/VehicleClientInteractMixin</code></td><td>右键载具时把交互交给服务端网络绑定逻辑</td></tr>
+        <tr><td>接口</td><td><code>handler/INetCachedVehicle</code></td><td>载具网络缓存访问器</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>绑定流程</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>手持网络终端右键载具</b>VehicleClientInteractMixin 返回 SUCCESS</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">交互事件</span><b>PlayerInteractEvent.EntityInteract</b>到达服务端</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>VehicleInteractHandler</b>探测 VehicleEntity + 读手持物品 NetedItem.getNetId</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>netId ≥ 0 且网络存在？</b></div>
+        <div class="arrow"><span class="al">是</span></div>
+        <div class="step server"><b>写入绑定</b>VehicleNetCache.attach + VehicleNetMixin 写 NBT <code>Net_id</code></div>
+        <div class="arrow"></div>
+        <div class="step server"><b>回发全量快照</b>SuperbAmmoStatusResponsePacket</div>
+    </div>
+    <div class="warn"><b>已知边界（待修复）</b>绑定前未校验玩家是否是该网络成员——持有他人终端物品即可把载具绑到他人网络并持续抽取其能量/弹药。</div>
+</div>
+
+<div class="card">
+    <h2>周期充电流程</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">每 tick</span><b>VehicleEntity.baseTick @Inject HEAD</b></div>
+        <div class="arrow"><span class="al">客户端直接返回</span></div>
+        <div class="step decision"><b>到充电间隔？</b>vehicle.chargeInterval</div>
+        <div class="arrow"><span class="al">是</span></div>
+        <div class="step server"><b>查绑定网络</b>VehicleNetCache → DimensionsNet.getNetFromId</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>充电模式</b>vehicle.charge_mode</div>
+    </div>
+    <div class="grid2">
+        <div class="card" style="margin:0;">
+            <h3>RATE 固定速率</h3>
+            <div class="flow" style="align-items:stretch;">
+                <div class="step">transfer = min(charge_rate, 缺失能量)</div>
+                <div class="arrow"></div>
+                <div class="step">cap.receiveEnergy(transfer, simulate=false) 按实际接受量</div>
+                <div class="arrow"></div>
+                <div class="step">从网络 extract 等量 FE</div>
+            </div>
+        </div>
+        <div class="card" style="margin:0;">
+            <h3>PERCENTAGE 百分比</h3>
+            <div class="flow" style="align-items:stretch;">
+                <div class="step">missing% = 1 - energy/maxEnergy</div>
+                <div class="arrow"></div>
+                <div class="step">transfer = max(0, missing%) × 网络 FE × chargePercentage</div>
+                <div class="arrow"></div>
+                <div class="step">按接收量 extract（0.6.x 修复，不再丢失差额）</div>
+            </div>
+        </div>
+    </div>
+    <div class="good"><b>0.6.x 修复</b>充电改为按 <code>receiveEnergy</code> 实际接收量提取，载具电量已满/拒绝部分电量时不会凭空消失 FE。</div>
+</div>
+
+<div class="card">
+    <h2>HUD 显示与弹药同步流程</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端渲染</span><b>VehicleHudOverlay.render</b>（每帧）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>VehicleHudNetworkMixin</b>读取本车绑定网络（VehicleNetCache 客户端侧）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>SuperbAmmoCache.getVehicleCount</b>网络弹药 + 能量</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>绘制面板</b>网络 ID / 名称 / 弹药 / 能量（含 ∞ 标记）</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><span class="tag">服务端同步</span><b>VehicleNetworkSyncMixin</b>（updateBackupAmmoCount 注入）</div>
+        <div class="arrow"><span class="al">仅当有乘客</span></div>
+        <div class="step server"><b>每 tick 刷新快照 + diff</b>变化时推送；上车/换绑发全量，解绑发重置</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>配置项（vehicle 分区）</h2>
+    <table>
+        <tr><th>配置</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>charge_mode</code></td><td>RATE</td><td>充电模式：RATE / PERCENTAGE</td></tr>
+        <tr><td><code>energyChargeRate</code></td><td>500000</td><td>RATE 模式每周期充电量（FE）</td></tr>
+        <tr><td><code>chargeInterval</code></td><td>20</td><td>充电周期（tick）</td></tr>
+        <tr><td><code>chargePercentage</code></td><td>0.0</td><td>PERCENTAGE 模式百分比</td></tr>
+    </table>
+    <div class="note"><b>载具充电不受网络开关控制</b><code>energy_ammo</code> 的网络级自动充电开关仅作用于玩家与女仆路径（见文档 07）。</div>
+</div>
+
+<div class="card">
+    <h2>相关源文件（Forge 分支）</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/feature/vehicle/VehicleInteractHandler.java<span class="fdesc">绑定交互</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/vehicle/VehicleNetCache.java<span class="fdesc">绑定缓存/同步</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/VehicleNetMixin.java<span class="fdesc">NBT 持久化（Net_id / BCE_AmmoList）</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/VehicleEnergyChargeMixin.java<span class="fdesc">周期充电</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/VehicleNetworkSyncMixin.java / VehicleAmmoMixin.java / VehicleHudNetworkMixin.java / VehicleClientInteractMixin.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/handler/INetCachedVehicle.java</li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 06/21 · Beyond Integration v0.6.5
+</footer>
+
+</div>
+</body>
+</html>

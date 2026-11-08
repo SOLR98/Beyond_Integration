@@ -1,0 +1,15 @@
+{
+  "mod_data_type": "tacz_unidict_ammo_data",
+  "ammoId": "tacz:rand_ammo_d91c37",
+  "isItem": false,
+  "damage": 5.0,
+  "igniteEntity": true,
+  "igniteEntityTime": 3,
+  "effectDataList": [
+    {
+      "resourceLocation": "minecraft:glowing",
+      "amplifier": 0,
+      "duration": 10
+    }
+  ]
+}

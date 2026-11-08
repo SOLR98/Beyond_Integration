@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>08 · JEI / EMI（四工程）— Beyond Integration new_docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>08 · JEI / EMI</h1>
+    <div class="sub">
+        网络数量角标、Shift 点击取物、配方转移、EMI 快捷与 rs_integration 让路 ——
+        0.7.30 两线用注入内部类的老方案，0.8.x-1.20.1 换成公开 API + 双布局适配
+    </div>
+</header>
+
+<div class="card">
+    <h2>四工程状态总表</h2>
+    <table>
+        <tr>
+            <th>能力</th>
+            <th>0.7.30 · 1.20.1</th>
+            <th>0.7.30 · 1.21.1</th>
+            <th>0.8.x · 1.20.1</th>
+            <th>0.8.x · 1.21.1</th>
+        </tr>
+        <tr>
+            <td>JEI 数量角标</td>
+            <td>✅ <code>jei/NetworkCountOverlay</code>（挂在 JEI 元素上）</td>
+            <td>✅ 同</td>
+            <td>✅ 同 + 4 个 <code>JeiIngredient*Mixin</code>（旧/新布局双版本）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>Shift 点击取物</td>
+            <td>✅ <code>BDSidebarGuiHandler</code> 内部类注入</td>
+            <td>✅ 同</td>
+            <td>✅ <code>client/JeiExtractInputHandler</code>（公开 API）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>配方转移（合成 / 切石）</td>
+            <td>✅ <code>jei/CraftRecipeTransferHandler</code> + <code>CutRecipeTransferHandler</code></td>
+            <td>✅ 同</td>
+            <td>➖ 交回 BD 0.8.3 自带（<code>integration.module.jei</code>）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>JEI 侧栏避让 / 布局</td>
+            <td>✅ <code>BDSidebarGuiHandler</code></td>
+            <td>✅ 同</td>
+            <td>➖（BD 0.8 界面体系不同；无侧栏可接管）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>EMI 快捷</td>
+            <td>✅ <code>client/EmiBdShortcuts</code> + <code>network/EmiBdActionPacket</code></td>
+            <td>✅ 同（<code>network/payload/EmiBdActionPayload</code>）</td>
+            <td>➖ 只有 <code>compat/EmiBdCompat</code>（EmiLink 冲突守卫）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>遇 rs_integration 让路</td>
+            <td>✅ 按钮与检测（RI 接管自动进食）</td>
+            <td>✅</td>
+            <td>✅ <b>JEI 集成整体禁用</b>（角标/取物/tooltip 全关）</td>
+            <td>➖</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>1. 两种实现路线</h2>
+    <table>
+        <tr><th>路线</th><th>工程</th><th>做法</th><th>代价</th></tr>
+        <tr>
+            <td>注入 JEI 内部类</td>
+            <td><code>0.7.30 两线</code></td>
+            <td><code>BDSidebarGuiHandler</code> 直接挂 JEI 的侧栏/焦点类；角标由
+                <code>NetworkCountOverlay</code> 在 JEI 物品元素上绘制</td>
+            <td>JEI 升级易断（内部类/字段改名）</td>
+        </tr>
+        <tr>
+            <td>公开 API + 少量 Mixin</td>
+            <td><code>0.8.x · 1.20.1</code></td>
+            <td>取物走 <code>IJeiRuntime</code> 的 <code>IIngredientListOverlay.getIngredientUnderMouse</code> /
+                <code>IBookmarkOverlay.getItemStackUnderMouse</code>；
+                角标仍要 4 个 <code>JeiIngredient*Mixin</code>（<code>createRenderOverlay</code> /
+                <code>getTooltip</code> 注入）</td>
+            <td>只剩“元素渲染”这一处仍需 Mixin；但要做 JEI 双布局适配</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>2. 0.8.x-1.20.1 的 JEI 实现细节</h2>
+    <ul>
+        <li><b>文件</b>：<code>jei/{BiJeiPlugin,BeyondJeiNetworkHelper,JeiRuntimeHolder,NetworkCountOverlay}</code> +
+            <code>client/JeiExtractInputHandler</code>。</li>
+        <li><b>数据源</b>：<code>client/PrimaryNetClientStorage</code>（服务端 <code>bd_tweaks.primary_net_sync</code>）；
+            数量按<b>逻辑刻</b>缓存（<code>COUNT_CACHE</code> + <code>cachedTick</code>），同一刻内多帧/tooltip/点击只查一次。</li>
+        <li><b>角标</b>：<code>NetworkCountOverlay</code> 构造时建一次 <code>ItemStackKey</code>，文本与宽度按数量缓存；
+            <code>createRenderOverlay</code> 只在元素进可见槽位时调用（JEI 自己缓存 <code>IDrawable</code>），
+            所以不是每帧 new。</li>
+        <li><b>点击取物</b>：Shift+左键取一组（<code>stack.getMaxStackSize()</code>）/ Shift+右键取 1 个；
+            <code>ScreenEvent.MouseButtonPressed.Pre</code> 以 <code>HIGHEST</code> 注册并取消事件，
+            防止 JEI 继续弹出配方；未开主网同步或无库存时不拦截。</li>
+        <li><b>JEI 双布局</b>：<code>MixinPlugin</code> 用
+            <code>classResourcePresent("mezz.jei.gui.overlay.ingredients.IngredientGridTooltipHelper")</code>
+            判断 15.56+（<code>IngredientGridTooltipHelper</code> 移入 <code>.ingredients</code>），
+            应用 <code>*NewMixin</code> 或原版 <code>*Mixin</code>；编译期用本地
+            <code>libs/jei-1.20.1-forge-15.56.0.205.jar</code>，运行时是 15.20。</li>
+        <li><b>遇 RI 禁用</b>（四处同时生效）：<code>MixinPlugin</code> 拒绝 <code>mezz.jei.</code> 目标、
+            <code>BiJeiPlugin</code> 不保存运行时、<code>JeiExtractInputHandler.register</code> 不注册、
+            <code>BeyondJeiNetworkHelper.isActive/getNetworkCount/requestExtract</code> 兜底返回 false/0/不发包。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>3. EMI</h2>
+    <ul>
+        <li>0.7.30 两线：<code>client/EmiBdShortcuts</code>（EMI ↔ BD 终端快捷）+ <code>EmiBdActionPacket</code>/<code>Payload</code>；
+            检测到 EmiLink 时由 <code>compat/EmiBdCompat</code> 让路（同一批交互不能双挂）。</li>
+        <li>0.8.x-1.20.1：<b>只有</b> <code>compat/EmiBdCompat</code>（常量 + 守卫），没有快捷实现；
+            <code>MixinPlugin</code> 对 <code>dev.emi.emi.</code> 目标在 EmiLink 存在时跳过注入。</li>
+        <li>1.21.1 两线：旧线有 EMI 快捷；新线（骨架）无。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>4. 代码核对</h2>
+    <table>
+        <tr><th>结论</th><th>旧说法</th><th>代码事实</th></tr>
+        <tr>
+            <td>⚠ 仅 0.7.30</td>
+            <td>docs/27「终端界面增强」里的 JEI 侧栏避让 / 数量角标 / Shift 取物</td>
+            <td>0.8.x-1.20.1 没有侧栏可接管；避让与配方转移交回 BD 0.8.3；
+                保留角标 + 取物（公开 API 版）</td>
+        </tr>
+        <tr>
+            <td>✅ 新增</td>
+            <td>—</td>
+            <td>0.8.x-1.20.1 增加了 JEI 双布局适配与“遇 RI 整体禁用”（旧两线没有这套）</td>
+        </tr>
+        <tr>
+            <td>⚠ 缺口</td>
+            <td>docs/27 未区分分支</td>
+            <td>EMI 快捷仅 0.7.30 两线有；0.8.x-1.20.1 无（写文档时容易误认为“已有”）</td>
+        </tr>
+        <tr>
+            <td>?</td>
+            <td>JEI 旧布局在新线是否还支持</td>
+            <td>4 个 Mixin 分旧/新两套并由 <code>MixinPlugin</code> 选择，理论支持 15.20 与 15.56；
+                但 0.8.x 运行时实测仍是 15.20 + 双布局编译，需回归验证一次</td>
+        </tr>
+    </table>
+</div>
+
+<footer>
+    <a href="index.html">← 返回 new_docs 索引</a> · 08 · JEI / EMI · 上一篇
+    <a href="07-potion-charm.html">07 药水护符</a> · 下一篇 <a href="09-system-reference.html">09 系统与参考</a>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11 · 功能变动说明：0.8.0-beta 构建包 → 当前源码 — Beyond Integration new_docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>11 · 功能变动说明</h1>
+    <div class="sub">
+        基准：<code>beyond_integration-1.20.1-forge-0.8.0-beta.jar</code>（0.8.0-beta，2026-10-28 构建）。
+        对比对象：当前 <code>NEW_FORGE_1.20.1</code> 与 <code>NEW_NEOFORGE_1.21.1</code> 源码。
+        本篇只讲<b>功能与行为</b>（玩家 / 服主 / 整合包作者视角），类与方法级清单见
+        <a href="10-code-diff.html">10 · 代码差异</a>。描述以当前源码实际实现为准，未实测项标 <b>?</b>。
+    </div>
+</header>
+
+<div class="card">
+    <h2>1. 变动一览</h2>
+    <table>
+        <tr><th>功能域</th><th>状态</th><th>一句话说明</th></tr>
+        <tr><td>附魔台 / 神化附魔台</td><td><b>新增</b></td><td>网络附魔工作台落地：三档预览、刷新、附魔分离、神化四属性与书架献祭</td></tr>
+        <tr><td>附魔合并</td><td><b>新增</b></td><td>在界面里选装备 → 列出可升级附魔 → 消耗网络 XP 与附魔书合并</td></tr>
+        <tr><td>网络设置页</td><td><b>新增</b></td><td>附魔分离 / 自动充电 / 药水护符目标 / 经验修补献祭，统一挂在存储界面</td></tr>
+        <tr><td>女仆 P 点</td><td><b>新增</b></td><td>拾取入网、玩家 P 点回填、TLM 祭坛合成差额从网络扣</td></tr>
+        <tr><td>TACZ 枪械台合成</td><td><b>新增</b></td><td>背包优先 + 网络补料，产物可入网；与 taczaddon 合成桥兼容</td></tr>
+        <tr><td>TACZ 网络配件</td><td><b>新增</b></td><td>改装界面直接从网络安装/拆卸配件，换下的配件写回网络</td></tr>
+        <tr><td>TACZ 弹药</td><td><b>增强</b></td><td>按背包裁剪的增量快照、指定弹药请求、女仆背包计入、主网络镜像</td></tr>
+        <tr><td>TUD 枪→弹药映射</td><td><b>新增</b></td><td>服务端构建映射表下发，客户端无需本地 TUD 配置</td></tr>
+        <tr><td>JEI 集成</td><td><b>增强</b></td><td>新增客户端总开关；物品角标 + Shift 点击取物</td></tr>
+        <tr><td>装备位自动充电</td><td><b>重构</b></td><td>全局 tick 改为 BD 网络 tick 任务，同网络成员共享调度</td></tr>
+        <tr><td>网络药水护符 / 独立回蓝</td><td><b>重构</b></td><td>同样迁到 BD 网络 tick 任务；护符记录按网络缓存</td></tr>
+        <tr><td>水纯度</td><td><b>新增</b></td><td>带 Purity 的原版水入网自动转 4 档 BI 水；旧数据迁移；拆桶补纯度</td></tr>
+        <tr><td>铁魔法持续施法</td><td><b>修复</b></td><td>中断判定计入网络魔力，不再“网络有蓝却断法”</td></tr>
+        <tr><td>经验棒（女仆）</td><td><b>增强</b></td><td>新增忽略 TLM 经验修补黑名单的开关</td></tr>
+        <tr><td>网络磁铁</td><td><b>移除</b></td><td>物品/流体吸附与 tier 配置整套删除</td></tr>
+        <tr><td>漏斗 tier</td><td><b>移除</b></td><td>Net 漏斗分级逻辑删除</td></tr>
+        <tr><td>工作台献祭激活</td><td><b>移除</b></td><td>“未激活点击 = 献祭”整套机制与配置删除</td></tr>
+        <tr><td>Refined Storage 补丁</td><td><b>移除</b></td><td>自动进食按钮 / 侧栏 / 容器传输修复等 5 个 Mixin 全删</td></tr>
+        <tr><td>铁砧放宽配置</td><td><b>移除并迁移</b></td><td><code>anvil.*</code> 14 项删除，同类能力改由附魔台配置提供</td></tr>
+        <tr><td>调试界面</td><td><b>新增</b></td><td>组件预览、排版与布局预览（调试用）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>2. 新增功能</h2>
+
+    <h3>2.1 附魔台（工作台）</h3>
+    <ul>
+        <li>入口在 BD 存储界面的工作台页（<code>EnchantTableWorkbench.kt</code> / <code>EnchantTableMenu</code>），
+            放入装备后显示三档附魔结果，可悬停查看“前置等级 / 消耗等级 / 青金石 / 经验点数”。</li>
+        <li>支持刷新结果（可配置刷新是否消耗青金石）、关闭预览、附魔分离（消耗经验与空白书，从装备分出附魔书）。</li>
+        <li>服务端可调：功率模式与固定功率、经验/等级换算、无视“已附魔”、无视附魔冲突、免青金石或自动从网络补青金石、
+            解除前置等级门槛（改为按经验点计费）、解除功率上限、费用百分比、允许宝藏附魔、过滤附魔列表、分离总开关。</li>
+        <li>“无视冲突”“解除等级门槛”等原先只能在铁砧配置里调整的放宽项，现在是附魔台自己的配置项。</li>
+    </ul>
+
+    <h3>2.2 神化附魔台（Apotheosis 模式）</h3>
+    <ul>
+        <li>同一工作台的第二种模式：显示并调整 Eterna / Quanta / Arcana / Rectification 四项属性，附“上限”显示。</li>
+        <li>书架扫描：读取网络存档的书架属性；可配置“是否需要献祭书架来提升上限”“是否忽略书架自身的最高值”
+            以及四项属性的硬上限（0–100，默认 100 即不额外限制）。</li>
+        <li>献祭：手持书架点击献祭，按书架能提供的属性提升上限；四项全满或该书架无贡献时会提示不可献祭。</li>
+        <li>另支持书架附魔过滤（读到的黑名单可添加/移除）、宝藏附魔可用状态提示、献祭预览与失败原因提示。</li>
+    </ul>
+
+    <h3>2.3 附魔合并</h3>
+    <ul>
+        <li>在界面中选择网络里的装备，列出“可升级附魔”及 <code>当前 → 目标</code> 等级与总费用，消耗网络 XP 与对应附魔书完成合并。</li>
+        <li>拆分高等级书需要普通书；网络 XP 不足、缺书、无可变化时会给出对应提示。</li>
+        <li>受网络设置里的“附魔分离”影响（入网多附魔书先拆成单书）。</li>
+        <li><b>?</b> 该界面目前是整页页签，配置注释里保留了“待 BD 提供存储界面右栏扩展 API 后改为右侧扩展”的说明。</li>
+    </ul>
+
+    <h3>2.4 网络设置页</h3>
+    <ul>
+        <li>挂在 BD 存储界面上的 BI 设置页，只作用于<b>当前打开的网络</b>；修改需要网络经理或所有者权限。</li>
+        <li>可切换：附魔分离（入网多附魔书自动拆单书，消耗网络 XP）、自动充电（盔甲/手持/Curios/女仆饰品从网络 FE 充电）、
+            网络药水护符的生效目标（点击循环）、经验修补献祭（消耗网络内一本“单条附魔 = 经验修补”的书，永久解锁该网络门槛）。</li>
+        <li>没有可用网络（不在网络终端/存储界面且主网络未同步）时会提示无法读取或修改。</li>
+    </ul>
+
+    <h3>2.5 女仆 P 点（Touhou Little Maid）</h3>
+    <ul>
+        <li>总开关默认关闭；开启后：女仆拾取 P 点时存入网络（默认开）、玩家 P 点从网络自动回填（默认关，
+            间隔 20 tick、单次最多 1.0 P，均可配）。</li>
+        <li>TLM 祭坛合成时本地 P 点不足的差额自动从网络扣，P 点不会额外停在玩家身上。</li>
+    </ul>
+
+    <h3>2.6 TACZ：合成、配件、弹药、TUD</h3>
+    <ul>
+        <li><b>枪械台合成</b>：网络材料模式下，材料先扣背包再扣网络，消耗前先 simulate 预检，产物可入网络或掉落
+            （客户端配置：<code>tacz_smith_use_network</code> 默认开、<code>tacz_smith_output_to_network</code> 默认关）。
+            与 taczaddon 的合成按钮包装做兼容，网络模式不再“点击无反应”。</li>
+        <li><b>网络配件</b>：改装界面新增网络配件槽，可从网络安装配件（换下的旧配件写回网络，失败退背包再失败掉落）、
+            也可把枪上配件拆回网络（先预检，失败不卸）。</li>
+        <li><b>弹药</b>：推送改为按玩家背包裁剪的增量快照（0 值删除），可只请求指定弹药；统计与消耗会计入女仆背包；
+            支持主网络镜像供多客户端共享。</li>
+        <li><b>TUD</b>：仅 TUD 环境生效，服务端遍历枪械索引构建“枪 → 弹药”映射并下发，客户端无需本地 TUD 配置。</li>
+        <li>命令侧新增“整批插入弹药 / 配件”的子命令（具体语法见 <code>NetworkInsertCommand</code>）。</li>
+    </ul>
+
+    <h3>2.7 其他新增</h3>
+    <ul>
+        <li><b>JEI</b>：客户端总开关 <code>jei_integration</code>（默认开）；关闭后本模组不再介入 JEI。</li>
+        <li><b>水纯度</b>：带 <code>Purity</code> 标签的原版水入网时按 1:1 转成 BI 的 4 档水
+            （dirty / slightly_dirty / acceptable / purified），无标签的原版水保持原样；拆桶会补纯度；旧存档数据自动迁移。</li>
+        <li><b>铁魔法</b>：持续施法的中断判定改用“本地蓝 + 网络魔力”，网络蓝充足时不再被误判中断，扣费仍走网络。</li>
+        <li><b>经验棒</b>：新增“女仆修复时忽略 TLM 经验修补黑名单”开关（默认关）。</li>
+        <li><b>调试</b>：组件预览、排版与布局预览两个调试页。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>3. 移除 / 回退</h2>
+    <table>
+        <tr><th>功能</th><th>影响</th></tr>
+        <tr><td>网络磁铁</td><td>物品/流体吸附、tier 范围配置与对应 Mixin 全部消失；<code>CommandConfig</code> 里的 3 个 magnet 配置字段仍在注册，但已无实现读取（死配置）</td></tr>
+        <tr><td>漏斗 tier</td><td>Net 漏斗分级逻辑与 Mixin 删除，漏斗回到基线行为；两分支只剩空目录 <code>feature/hopper</code></td></tr>
+        <tr><td>工作台献祭激活</td><td>“未激活点击 = 献祭”与激活成本配置删除；工作台可用性不再由配置列表控制</td></tr>
+        <tr><td>Refined Storage 补丁</td><td>自动进食按钮接管、侧栏修复、容器传输修复等 5 个客户端 Mixin 全删；<code>RsIntegrationCompat</code> 仍保留但不再注入</td></tr>
+        <tr><td>铁砧放宽配置（<code>anvil.*</code>）</td><td>等级上限突破、无视冲突/适用性、罚金与百分比等 14 项删除；同类能力改到附魔台（<code>enchant_table.*</code>）</td></tr>
+        <tr><td>附魔分离“最大重入次数”配置</td><td>删除，改为附魔台内的分离总开关</td></tr>
+        <tr><td>合成冷却 / 最大深度配置</td><td><code>craft.*</code> 删除（当前源码无对应新键）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>4. 已有功能的行为变化</h2>
+    <table>
+        <tr><th>功能</th><th>变化</th></tr>
+        <tr><td>TACZ 弹药同步</td><td>推送包新增 <code>partial</code> 标记并进入编码（编码顺序 <code>netId, netName, partial, size, (id,count)*</code>）；
+            请求包可携带弹药 ID 列表；<b>跨版本联机不兼容</b></td></tr>
+        <tr><td>枪械 HUD</td><td>渲染逻辑重写（旧版缓存计数/背包弹药回调不复存在），显示以新缓存为准</td></tr>
+        <tr><td>护符 / 回蓝 / 充电</td><td>由全局 tick 事件遍历玩家改为 BD 网络 tick 任务：同一网络只调度一次，主网络之外不再处理；护符记录按网络缓存</td></tr>
+        <tr><td>网络通道过滤</td><td>改为包装 BD 能力视图工厂（<code>NetPathwayCapabilityWrapper</code>），不再依赖方块实体的能力注入点</td></tr>
+        <tr><td>终端通道过滤存储</td><td>内部结构重构（<code>NetPathwayFilteredStorage</code> 去掉旧的键/桶结构），对外行为不变</td></tr>
+        <tr><td>附魔分离</td><td>规则层逻辑与 jar 一致；新增附魔台内开关；原“拦截链最大重入次数”配置不再读取</td></tr>
+        <tr><td>主网同步</td><td>新增外部缓存变更检测（<code>ExtCache</code>），外部操作后更快刷新</td></tr>
+        <tr><td>HUD 文案</td><td>英文 <code>Net: INF ammo</code> → <code>Net: infinity ammo</code>（中文仍为“网络: ∞”）</td></tr>
+        <tr><td>配置界面</td><td>铁砧、工作台两个分类消失；新增附魔台、神化附魔台、女仆 P 点等分类与“隐藏（未完成）”提示的移除</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>5. 配置变动与迁移</h2>
+    <table>
+        <tr><th>类型</th><th>键</th><th>处理建议</th></tr>
+        <tr><td>删除（失效）</td><td><code>anvil.*</code>（14）、<code>workstation.*</code>（5）、<code>craft.*</code>（2）、
+            <code>enchantment_separation.max_reentrancy</code>、<code>hidden.apoth</code></td>
+            <td>升级后旧 <code>beyond_integration-server.toml</code> 里的这些键会被忽略，可手动删掉；
+                原来靠 <code>anvil.*</code> 放宽的行为改到 <code>enchant_table.*</code> 配</td></tr>
+        <tr><td>新增（默认值）</td><td><code>enchant_table.*</code>（含 <code>apothic.*</code>）、<code>maid_power.*</code>
+            （enabled=false / pickup=true / auto_refill=false / interval=20 / max_points=1.0）、
+            <code>bd_tweaks.xp_repair_ignore_maid_blacklist</code>（false）</td>
+            <td>按需开启；女仆 P 点默认关闭，需服主显式打开</td></tr>
+        <tr><td>客户端新增</td><td><code>enchant_level_roman</code>、<code>jei_integration</code>、<code>show_net_sync_status</code>、
+            <code>enchant_merge_rows</code></td><td>默认值可用；JEI 关闭后本模组完全不介入 JEI</td></tr>
+        <tr><td>残留（待确认）</td><td><code>magnet_custom_tiers_enabled</code>、<code>magnet_item_range_tiers</code>、
+            <code>magnet_fluid_range_tiers</code></td><td><b>?</b> 无实现读取，属死配置；确认删字段还是恢复功能</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>6. 升级与兼容</h2>
+    <ul>
+        <li><b>联机必须同版本</b>：TACZ 弹药推送/请求协议已变（新增 <code>partial</code> 与弹药 ID 列表），旧客户端连新服（或反之）会解析错位；
+            新增的 12 个网络包旧端也不存在。</li>
+        <li><b>配置</b>：旧键失效见第 5 节；新增键不配也能跑（默认值已给出）。</li>
+        <li><b>资源</b>：<code>data/</code> 与 <code>assets/</code> 除语言文件外与 jar 字节一致，配方/标签/规则没有结构变化。</li>
+        <li><b>依赖</b>：<code>mods.toml</code> 依赖范围与原包一致（BD ≥ 0.8.3、可选 AE2LT ≥ 1.0.2）；
+            附魔台/神化相关功能依赖对应联动模组存在（Apotheosis、Iron's Spells、TLM、TACZ、TUD、Thirst 等）。</li>
+        <li><b>功能回退</b>：使用网络磁铁/漏斗 tier 的整合包需要另找方案或等待功能恢复；RS 用户不再享受本模组的界面补丁。</li>
+        <li><b>1.21.1</b>：功能集与 1.20.1 相同，差异只在 MC/loader API 与版本专用 Mixin（详见
+            <a href="10-code-diff.html">10 · 代码差异</a>）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>7. 待确认</h2>
+    <table>
+        <tr><th>项</th><th>说明</th></tr>
+        <tr><td>附魔合并界面形态</td><td>整页页签 vs 存储界面右侧扩展，等待 BD API；配置注释里仍标“待 BD 提供”</td></tr>
+        <tr><td>磁铁配置残留</td><td>确认清理还是恢复磁铁功能</td></tr>
+        <tr><td>RS 兼容</td><td>确认是彻底弃用，还是保留 <code>RsIntegrationCompat</code> 仅作 API 兼容占位</td></tr>
+        <tr><td>神化献祭数值</td><td>书架贡献、上限与费用公式以 <code>ApothShelfScanner</code>/<code>ApothStatData</code> 实际实现为准，未逐一实测</td></tr>
+        <tr><td>附魔台三档结果概率</td><td>是否引入自定义概率/权重未在本次比对中确认（<b>?</b>）</td></tr>
+    </table>
+</div>
+
+<footer>
+    <a href="index.html">← 返回 new_docs 索引</a> · 11 · 功能变动说明 ·
+    上一篇 <a href="10-code-diff.html">10 代码差异</a>
+</footer>
+
+</div>
+</body>
+</html>

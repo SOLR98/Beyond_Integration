@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03 · 附魔链路与工作台（四工程对照）— Beyond Integration new_docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>03 · 附魔链路与工作台</h1>
+    <div class="sub">
+        附魔分离 / 同类同级合并 / 批量附魔合并 / 七合一工作台 —— 0.7.30 两线自绘实现，
+        0.8.x-1.20.1 只剩入库规则，0.8.x-1.21.1 处于骨架期
+    </div>
+</header>
+
+<div class="card">
+    <h2>四工程状态总表</h2>
+    <table>
+        <tr>
+            <th>能力</th>
+            <th>0.7.30 · 1.20.1</th>
+            <th>0.7.30 · 1.21.1</th>
+            <th>0.8.x · 1.20.1</th>
+            <th>0.8.x · 1.21.1</th>
+        </tr>
+        <tr><td>附魔分离（入库规则）</td><td>✅ <code>feature/enchant/EnchantmentBookSeparatorHandler</code></td><td>🟡 <code>handler/EnchantmentBookSeparatorHandler</code></td><td>🟡 规则改 <code>InsertPlan</code>（一次到位合并）</td><td>➖</td></tr>
+        <tr><td>附魔分离开关 / 同步</td><td>✅ <code>EnchantSeparationState</code> + 3 包 + 命令</td><td>✅ 同类</td><td>✅ 同名（<code>Toggle/Request/Sync</code> 三包 + <code>EnchantSeparateCommand</code>）</td><td>➖</td></tr>
+        <tr><td>网络附魔台（功率/预览/宽松选魔）</td><td>✅ <code>feature/crafting/DimensionsEnchantMenu</code> + <code>client/gui/DimensionsEnchantGUI</code></td><td>✅ <code>init/DimensionsEnchantMenu</code>；另加 <b>Apoth 附魔台</b></td><td>➖ 工作台未迁</td><td>🟡 骨架 <code>EnchantWorkstationMenu</code></td></tr>
+        <tr><td>批量附魔合并（附魔书 → 装备）</td><td>✅ <code>DimensionsEnchantMergeMenu</code> + GUI + <code>SubmitEnchantMergePacket</code></td><td>✅ 同类</td><td>➖ 无界面</td><td>🟡 骨架 <code>EnchantMergeWorkstationMenu</code></td></tr>
+        <tr><td>七合一工作台（合成/铁砧/切石/砂轮/锻造/附魔/存储）</td><td>✅ 自绘 GUI + 菜单 + 激活体系</td><td>✅ <code>init/Dimensions*Menu</code>（多 Apoth）</td><td>➖ 全删，待 <code>StorageWorkbenchTypes</code></td><td>🟡 <code>BiWorkstationMenu</code>×6 + <code>WorkbenchPage.kt</code></td></tr>
+        <tr><td>TACZ 枪械台网络合成</td><td>✅ <code>TaczCraftManager</code> + <code>TaczCraftPacket</code> + <code>TaczaddonCraftBridgeMixin</code></td><td>✅ 同类</td><td>➖（BD 0.8.3 自带 JEI 集成）</td><td>➖</td></tr>
+        <tr><td>工作台激活（献祭原版工作台）</td><td>✅ <code>feature/workstation/WorkstationActivation</code> + 网络包 + 命令</td><td>✅ 同类（<code>NetworkWorkstationCommand</code>）</td><td>➖ 已删</td><td>➖</td></tr>
+        <tr><td>桶/流体桶合成转换</td><td>✅ <code>BdBucketCraftTransferMixin</code></td><td>✅</td><td>➖（无工作台）</td><td>➖</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>1. 附魔链路（三线共同的部分）</h2>
+    <div class="flow row">
+        <div class="step io"><b>物品入网</b><span class="tag">insert</span></div>
+        <div class="arrow"><span class="al"></span></div>
+        <div class="step decision"><b>附魔分离</b>多附魔书 → 单附魔书 + XP 计费</div>
+        <div class="arrow"><span class="al"></span></div>
+        <div class="step decision"><b>同类同级合并</b>单书合并到更高等级</div>
+        <div class="arrow"><span class="al"></span></div>
+        <div class="step data"><b>批量附魔合并</b>（仅工作台）</div>
+    </div>
+    <ul>
+        <li>前两步是<b>入库规则</b>（0.7.30 拦截式；0.8.x-1.20.1 计划式），三线都有。</li>
+        <li>第三步是<b>工作台交互</b>（消耗附魔书与网络 XP，取高合并），0.8.x-1.20.1 <b>缺失</b>。</li>
+        <li>计费：分离按配置公式（<code>EnchantSeparateCommand</code> 可调），XP 流体 1 点 = 20 mB。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>2. 附魔分离的两种实现</h2>
+    <table>
+        <tr><th>工程</th><th>实现要点</th></tr>
+        <tr>
+            <td><code>0.7.30·1.20.1</code></td>
+            <td><code>feature/enchant/EnchantmentBookSeparatorHandler</code> 挂在
+                <code>UnifiedStorageBeforeInsertHandler</code>；命中后自行提取 XP、产出单书并写存储</td>
+        </tr>
+        <tr>
+            <td><code>0.7.30·1.21.1</code></td>
+            <td>同类逻辑，落点迁到 <code>handler/EnchantmentBookSeparatorHandler</code>（Neo 结构）</td>
+        </tr>
+        <tr>
+            <td><code>0.8.x·1.20.1</code></td>
+            <td><code>feature/enchant/EnchantmentBookSeparatorHandler</code> 改为
+                <code>InsertPlan</code>：<code>convert(1).take(XP).take(空白书).add(单书)</code>；
+                同类同级合并“一次到位”（plan 内算可达最高等级，不再靠产出再入网级联）</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>3. 工作台体系的四种形态</h2>
+    <h3>0.7.30 · 1.20.1：自绘 7 合一 + 激活</h3>
+    <ul>
+        <li>GUI：<code>client/gui/Dimensions{Craft,Anvil,Enchant,EnchantMerge,Grind,Smith,Stonecutter}GUI</code>
+            + <code>Workstation{Render,Transfer}Helper</code> / <code>WorkstationModeConstants</code>。</li>
+        <li>菜单：<code>feature/crafting/Dimensions*Menu</code> + <code>ICleanableWorkstation</code>；<code>NetworkCraftingHelper</code> 负责“背包 + 网络”混合取料。</li>
+        <li>激活：<code>feature/workstation/WorkstationActivation</code> + <code>ActivateWorkstationPacket</code> 等一套网络包 + <code>/bdtools network …</code> 命令。</li>
+        <li>注入：<code>DimensionsCraftGUIMixin</code>、<code>DimensionsTerminalCraftGUIMixin</code>、<code>BDBaseGUIRepairClickMixin</code> 等。</li>
+    </ul>
+    <h3>0.7.30 · 1.21.1：同款，菜单搬到 init，多 Apoth 附魔台</h3>
+    <ul>
+        <li><code>init/Dimensions{Anvil,Craft,Enchant,EnchantMerge,Grind,Smith,ApothEnchant}Menu</code>；
+            附魔台多一种“Apotheosis 模式”（<code>AbstractEnchantTableGUI</code>、
+            <code>DimensionsEnchantApothGUI</code>、<code>EnchantIconBtn</code>/<code>EnchantModeBtn</code>）。</li>
+        <li><code>/bdtools network workstation</code>（<code>NetworkWorkstationCommand</code>）替代 1.20.1 的激活命令。</li>
+    </ul>
+    <h3>0.8.x · 1.20.1：全删，只剩规则</h3>
+    <ul>
+        <li><code>feature/crafting/**</code>、<code>client/gui/Dimensions*GUI</code>、<code>client/widget/**</code>、
+            <code>feature/workstation/**</code>、<code>NetworkActivationCommand</code> 均不存在。</li>
+        <li>保留：附魔分离规则、<code>EnchantSeparationState</code> + 三包 + 命令、<code>api/ICraftingIntegration</code>（接口悬空）。</li>
+        <li>待办：按 BD 0.8 的 <code>StorageWorkbenchTypes</code>（crafting / anvil / smithing / stonecutter，
+            另有 BI 要注册的附魔台 / 附魔合并 / 砂轮）重做；细节见
+            <code>计划项目/待办/2026-10-25-NEW_FORGE适配BD0.8.3记录.md</code> 的「工作台迁移」。</li>
+    </ul>
+    <h3>0.8.x · 1.21.1：骨架期</h3>
+    <ul>
+        <li><code>bi/menu/{WorkstationMenu,AnvilWorkstationMenu,CutWorkstationMenu,EnchantWorkstationMenu,EnchantMergeWorkstationMenu,GrindWorkstationMenu,SmithWorkstationMenu}</code> +
+            <code>bi/workbench/{BiWorkstations,WorkbenchServer,BiWorkbenchInputContainer,…}</code>。</li>
+        <li>界面：<code>bi/gui/WorkbenchPage.kt</code>（BdPage 注入工作台页）、<code>WorkstationLauncherPage.kt</code>、
+            <code>BiStorageScreen.kt</code>；入口包 <code>OpenWorkstationPayload</code>。</li>
+        <li>状态：结构已搭、功能未验收（<code>交接文档-GUI骨架.md</code>）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>4. 代码核对</h2>
+    <table>
+        <tr><th>结论</th><th>旧说法</th><th>代码事实</th></tr>
+        <tr>
+            <td>⚠ 需补</td>
+            <td>docs/03「批量附魔工作站」</td>
+            <td>0.8.x-1.20.1 <b>没有</b> <code>DimensionsEnchantMergeMenu</code>/GUI/网络包；
+                只有入库规则的“同类同级合并”，没有“候选列表 + 等级滑条”的交互</td>
+        </tr>
+        <tr>
+            <td>⚠ 需补</td>
+            <td>docs/04「附魔链路总览」</td>
+            <td>0.8.x-1.20.1 的链路只剩“分离 + 入库合并”两步，第三步批量合并缺失</td>
+        </tr>
+        <tr>
+            <td>⚠ TODO（代码内）</td>
+            <td>docs/12 附魔书合并上限</td>
+            <td><code>EnchantmentBookSeparatorHandler</code> 的
+                <code>effectiveMaxLevel</code> 仍是 <code>Math.max(1, ench.getMaxLevel())</code>，注释留着
+                “TODO 工作台迁移后接回 BI 自定义上限”</td>
+        </tr>
+        <tr>
+            <td>?</td>
+            <td><code>api/ICraftingIntegration</code> 在 0.8.x 的用途</td>
+            <td>接口文件仍在，但工作台实现已删；是否有外部消费者待确认（若无，可考虑删或改为 TODO 占位）</td>
+        </tr>
+        <tr>
+            <td>✅ 确认</td>
+            <td>1.21.1 独有 Apoth 附魔台</td>
+            <td><code>init/DimensionsApothEnchantMenu</code> + <code>client/gui/DimensionsEnchantApothGUI</code>
+                仅 <code>1.21.1_NEOFORGE</code> 存在</td>
+        </tr>
+        <tr>
+            <td>✅ 确认</td>
+            <td>TACZ 枪械台网络合成</td>
+            <td>旧两线有（<code>TaczCraftManager</code>/<code>TaczCraftPacket</code>/<code>TaczaddonCraftBridgeMixin</code>），
+                0.8.x-1.20.1 无</td>
+        </tr>
+    </table>
+</div>
+
+<footer>
+    <a href="index.html">← 返回 new_docs 索引</a> · 03 · 附魔与工作台 · 上一篇
+    <a href="02-bd-core.html">02 BD 核心</a>
+</footer>
+
+</div>
+</body>
+</html>

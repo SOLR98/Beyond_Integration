@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04 · TACZ 枪械台网络合成 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>04 · TACZ 枪械台网络合成</h1>
+    <div class="sub">Gun Smith Table 配方「背包 + 网络」混合取料，支持批量合成、产物回存与 taczaddon 兼容</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>TACZ 原版枪械台只能使用背包材料逐个合成。本模组为枪械台界面添加：</p>
+    <ul>
+        <li><b>网络材料数量显示</b>——每个材料槽位右侧显示「+N」网络存量</li>
+        <li><b>网络合成按钮</b>——点按后从「背包 + 网络」混合取料（单次合成）</li>
+        <li><b>Shift 批量合成</b>——最多 64 次连续合成</li>
+        <li><b>产物回存网络</b>——可切换产物直接存入网络而非掉落/入背包</li>
+        <li><b>CraftToast 通知</b>——合成完成弹出角标提示</li>
+    </ul>
+    <p>合成流程：客户端点击按钮 → <code>TaczCraftPacket(recipeId, count, toNetwork)</code> → 服务端 <code>TaczCraftManager</code> 先模拟扣料再真实扣料 → 产物入背包/网络 → 失败自动回滚。0.6.0 起材料查询改用<b>配方驱动定向扫描</b>（<code>RecipeMaterialScanner</code>），不再全桶遍历。</p>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>界面注入</td><td><code>mixin/GunSmithTableScreenMixin</code></td><td>合成按钮 / 输出目标按钮 / 网络计数绘制 / taczaddon 兼容</td></tr>
+        <tr><td>模式状态</td><td><code>client/GunSmithNetMode</code></td><td>网络模式 / 产物入网状态（与 ClientConfig 持久化联动）</td></tr>
+        <tr><td>合成请求包</td><td><code>network/TaczCraftPacket</code></td><td>C2S：配方 ID + 数量（≤64）+ 产出方向</td></tr>
+        <tr><td>合成管理器</td><td><code>feature/crafting/TaczCraftManager</code></td><td>模拟→扣料→产出 主逻辑（实现 <code>ICraftingIntegration</code>）</td></tr>
+        <tr><td>材料扫描</td><td><code>feature/crafting/RecipeMaterialScanner</code></td><td>通用两阶段定向扫描（IDENTITY / PARTIAL_NBT）</td></tr>
+        <tr><td>材料计算</td><td><code>feature/crafting/NetworkCraftingHelper</code></td><td>背包/网络材料计数与提取</td></tr>
+        <tr><td>材料索引</td><td><code>network/RequestNetworkItemsPacket</code>（TACZ_INDEX）+ <code>NetworkItemCountsPacket</code></td><td>服务端建立材料索引，客户端拉取计数</td></tr>
+        <tr><td>客户端缓存</td><td><code>client/NetworkItemCache</code></td><td>配方→网络材料计数缓存（版本号失效）</td></tr>
+        <tr><td>合成提示</td><td><code>client/CraftToast</code></td><td>合成成功角标</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>枪械台打开 → 显示网络材料流程</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>打开枪械台</b>GunSmithTableScreen 渲染</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">C2S</span><b>RequestNetworkItemsPacket</b>（限频，携带缓存版本）</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>ensureIndex()</b>建立 TACZ_INDEX（配方 → 需求材料清单）</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>配方驱动定向扫描</b>RecipeMaterialScanner：IDENTITY 材料精确键 O(1)；partial_nbt 先定向、不足全桶兜底</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">S2C</span><b>NetworkItemCountsPacket</b>回传计数表（键 <code>"recipeId|idx"</code>）</div>
+        <div class="arrow"></div>
+        <div class="step client"><span class="tag">客户端</span><b>NetworkItemCache.setAll()</b>缓存（版本号 +1）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>renderIngredient 注入</b>每个材料槽右侧绘制「+N」网络存量</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>网络合成流程（核心）</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>点击合成按钮</b>（mixin 修改 OnPress → 不再发 TACZ 原版包）</div>
+        <div class="arrow"><span class="al">Shift 按下 → count=64；否则 1</span></div>
+        <div class="step io"><span class="tag">C2S</span><b>TaczCraftPacket</b>(recipeId, count, toNetwork)</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>TaczCraftManager</b>按 recipeId 取 GunSmithTableRecipe</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>取料来源合并</b>背包 + 当前主网络</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><b>模拟阶段</b>simulate：逐槽检查 inInv + inNet ≥ need</div>
+        <div class="arrow"><span class="al">任一不足 → 回滚，返回失败</span></div>
+        <div class="step server"><b>扣料阶段</b>先扣背包，不足部分从网络 extract</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>产物方向</b>toNetwork ?</div>
+    </div>
+    <div class="flow row">
+        <div class="step server"><b>入网络</b>产物 insert 回统一存储；余量以掉落物归还玩家</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>入背包</b>产物放入玩家背包（背包满则掉落）</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><b>循环计数</b>crafted++，直到 crafted ≥ count 或材料不足</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">S2C</span><b>响应</b>告知客户端合成数量 + 刷新材料计数</div>
+        <div class="arrow"></div>
+        <div class="step client"><span class="tag">客户端</span><b>CraftToast</b>弹出「已合成 ×N」</div>
+    </div>
+    <div class="warn"><b>已知边界</b>① 合成冷却配置 <code>craft.cooldown_ms</code> 已定义但未使用，客户端可连续发包批量消耗网络材料；② 计数快照在发包时生成，多玩家同时合成同网络存在竞态窗口（最终以服务端 simulate 为准，不产生复制）。</div>
+</div>
+
+<div class="card">
+    <h2>taczaddon 兼容</h2>
+    <p>taczaddon 自 <b>1.1.8.1</b> 起进行大幅重构（NeoForge 侧对应 <b>1.1.8.2</b> 起重构），本模组对其重构后的版本系列做兼容注入；旧结构版本（1.1.8 及更早）不注入。设计目标：</p>
+    <ul>
+        <li><b>模式互斥</b>——网络模式下材料计数 = 背包 + 网络（隐藏 addon 的附近容器外部源）</li>
+        <li><b>按钮接管</b>——网络模式下点击合成改走本模组服务端网络合成，不走 addon 外部容器流程</li>
+        <li><b>顺序无关</b>——双方对合成按钮的 Mixin 包装顺序任意均正确工作</li>
+        <li><b>BD 容器源过滤</b>——<code>craft.block_bd_reader</code> 开启时 BD 网络方块不被 addon 当作容器源（避免整网全量槽遍历）</li>
+    </ul>
+    <h3>Forge 1.20.1（4 个兼容 Mixin）</h3>
+    <table>
+        <tr><th>Mixin</th><th>注入点与行为</th></tr>
+        <tr><td><code>TaczaddonBdFilterMixin</code></td><td>addon <code>ContainerItemSource.detectBackend</code> 的 <code>getBlockEntity</code>：BD 方块返回 null</td></tr>
+        <tr><td><code>TaczaddonCraftBridgeMixin</code></td><td><code>GunSmithCraftBridgeState.requestCraft</code> HEAD：网络模式改发 <code>TaczCraftPacket</code> 并取消 addon 发包</td></tr>
+        <tr><td><code>TaczaddonIngredientCountMixin</code></td><td><code>GunSmithExternalSourceState.getExternalDisplayStacks</code> RETURN：网络模式返回空列表</td></tr>
+        <tr><td><code>TaczaddonCompatibilityServiceMixin</code></td><td><code>GunSmithCompatibilityService.applyExternalIngredientCounts</code> RETURN：重新叠加网络数量，防计数闪断</td></tr>
+    </table>
+    <h3>NeoForge 1.21.1（3 个兼容 Mixin）</h3>
+    <table>
+        <tr><th>Mixin</th><th>注入点与行为</th></tr>
+        <tr><td><code>TaczaddonBdFilterMixin</code></td><td>addon <code>NearbyInventorySourceResolver.resolve</code> RETURN：过滤 BD 方块源（覆盖能力/原版容器两条识别路径）</td></tr>
+        <tr><td><code>TaczaddonCraftBridgeMixin</code></td><td><code>GunSmithCraftBridgeState.request</code> HEAD：网络模式改发 <code>TaczCraftPacket</code>（数量封顶 64）</td></tr>
+        <tr><td><code>TaczaddonExternalSourceMixin</code></td><td><code>ClientPayloadHandler.handleContainerReader</code> HEAD：网络模式清空 addon 虚拟容器并取消写入</td></tr>
+    </table>
+    <div class="flow row">
+        <div class="step"><b>材料计数兼容</b>GunSmithTableScreenMixin 用真实背包重算 playerIngredientCount</div>
+        <div class="arrow"><span class="al">共存</span></div>
+        <div class="step"><b>合成按钮链路</b>taczaddon 的合成桥被网络模式接管</div>
+    </div>
+    <div class="note"><b>版本门控</b>兼容 Mixin 由 <code>MixinPlugin</code> 按 addon 版本区间决定是否应用：Forge 接受 1.1.8.1+（含 hotfix），NeoForge 接受 1.1.8.2+；不在区间内时注入全部跳过（无副作用）。</div>
+    <div class="warn"><b>版本风险</b>兼容注入与 addon 字节码结构强绑定（重构后系列已对照源码验证）；addon 再次大改后需回归验证。</div>
+</div>
+
+<div class="card">
+    <h2>配置项</h2>
+    <table>
+        <tr><th>配置</th><th>默认</th><th>说明</th></tr>
+        <tr><td colspan="3"><b>craft 分区（COMMON）</b></td></tr>
+        <tr><td><code>cooldown_ms</code></td><td>1000</td><td>合成请求冷却（已定义未使用）</td></tr>
+        <tr><td><code>max_depth</code></td><td>6</td><td>配方递归深度</td></tr>
+        <tr><td><code>block_bd_reader</code></td><td>true</td><td>阻止 taczaddon 把 BD 方块当容器源</td></tr>
+        <tr><td colspan="3"><b>CLIENT 配置（客户端偏好）</b></td></tr>
+        <tr><td><code>tacz_smith_use_network</code></td><td>true</td><td>枪械工作台默认网络材料模式</td></tr>
+        <tr><td><code>tacz_smith_output_to_network</code></td><td>false</td><td>合成产物默认输出到网络</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/mixin/GunSmithTableScreenMixin.java<span class="fdesc">界面注入（按钮/计数/兼容）</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/GunSmithNetMode.java<span class="fdesc">客户端模式状态</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/network/TaczCraftPacket.java<span class="fdesc">合成请求包</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/crafting/TaczCraftManager.java<span class="fdesc">合成主逻辑</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/crafting/RecipeMaterialScanner.java<span class="fdesc">定向扫描组件</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/crafting/NetworkCraftingHelper.java<span class="fdesc">材料计算/提取</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/network/RequestNetworkItemsPacket.java / NetworkItemCountsPacket.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/client/NetworkItemCache.java / CraftToast.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/TaczaddonBdFilterMixin.java / TaczaddonCraftBridgeMixin.java / TaczaddonIngredientCountMixin.java / TaczaddonCompatibilityServiceMixin.java</li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 04/21 · Beyond Integration v0.6.5
+</footer>
+
+</div>
+</body>
+</html>

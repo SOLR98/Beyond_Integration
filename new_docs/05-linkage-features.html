@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05 · 联动模组功能（铁魔法 / Goety / Thirst / RI / Jade / FTB）— Beyond Integration new_docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>05 · 联动模组功能</h1>
+    <div class="sub">
+        Iron's Spells 网络魔力、Goety 网络灵魂源与仪式补块、Thirst/LSO 喂食器与净水、rs_integration 按钮接管、
+        Jade Provider，以及 FTB 集成在代码中的真实状态
+    </div>
+</header>
+
+<div class="card">
+    <h2>四工程状态总表</h2>
+    <table>
+        <tr>
+            <th>能力</th>
+            <th>0.7.30 · 1.20.1</th>
+            <th>0.7.30 · 1.21.1</th>
+            <th>0.8.x · 1.20.1</th>
+            <th>0.8.x · 1.21.1</th>
+        </tr>
+        <tr><td>铁魔法：网络魔力源</td><td>✅ <code>feature/mana/**</code>（10 类）</td><td>✅ 19 类</td><td>✅ 10 类</td><td>➖</td></tr>
+        <tr><td>Goety：网络灵魂源</td><td>✅ <code>feature/soul/**</code></td><td>✅ 27 类</td><td>✅ 同名（含 <code>SoulKeyMigration</code>）</td><td>➖</td></tr>
+        <tr><td>Goety：仪式环境绕过 / 结构由网络提供</td><td>🟡 环境绕过 ✅ / 结构补块 ➖</td><td>🟡 同左</td><td>➕ 结构补块（<code>RitualTrigger</code>/<code>RitualNetworkStructure</code>）</td><td>➖</td></tr>
+        <tr><td>Thirst / LSO：喂食器</td><td>✅ 枚举档位 + GUI 按钮</td><td>✅ 同类</td><td>🟡 四项阈值页（<code>FeederThirstPage</code>）</td><td>➖</td></tr>
+        <tr><td>Thirst：4 档净水 / 桶装 / 熔炉提纯 / Create 灌装</td><td>✅</td><td>✅</td><td>✅ 同名（含 <code>ThirstCompatLegacy</code>）</td><td>➖</td></tr>
+        <tr><td>rs_integration：自动进食按钮接管 / 让路</td><td>✅ <code>RsIntegration*</code> + <code>client/widget/RsAutoEatButton</code></td><td>✅ 4 类软兼容</td><td>🟡 仅 JEI 遇 RI 禁用 + 入库上报 FTB 桥；RI Mixin 已删</td><td>➖</td></tr>
+        <tr><td>Jade Provider</td><td>✅ 6 类（BD ×3 + 载具 ×2 + 插件）</td><td>✅ 7 类（Block/Container 风格）</td><td>✅ 6 类（同 0.7.30-1.20.1）</td><td>➖</td></tr>
+        <tr><td>FTB Quests 集成</td><td colspan="4">❌ <b>四工程均无独立实现</b>（详见第 6 节；docs/20 待确认）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>1. 铁魔法（Iron's Spells）网络魔力</h2>
+    <ul>
+        <li>服务端：<code>IronsManaHandler</code>（施法时从网络扣魔力）、<code>ManaNetRegenHandler</code>（网络回魔）、
+            <code>ManaHudSyncHandler</code>（HUD 值同步）；3 个 Mixin 注入铁魔法施法/魔力判定。</li>
+        <li>客户端：<code>ManaState</code> + <code>NetManaHudOverlay</code>/<code>NetManaHudRenderer</code>，
+            位置走 <code>HudLayout</code>（元素 <code>net_mana</code>）。</li>
+        <li>协议：<code>ManaSyncPacket</code>（S2C 推送）。</li>
+        <li>差异：1.21.1 把若干处理器拆成更多类（19 个文件），0.8.x-1.20.1 与 0.7.30-1.20.1 一致（10 个）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>2. Goety 网络灵魂源</h2>
+    <h3>三线共同</h3>
+    <ul>
+        <li>灵魂类型/键：<code>SoulEnergyType</code>/<code>SoulEnergyStackKey</code>/<code>SoulKeyRegistration</code>（0.8.x 另有 <code>SoulKeyResolver</code>/<code>SoulKeyMigration</code>）。</li>
+        <li>来源与消耗：<code>NetworkSoulSource</code>（原版优先、不足补网络）、<code>SoulVanillaSource</code>、<code>SoulGainHandler</code>（击杀沉淀）、<code>SoulManualConvert</code>。</li>
+        <li>仪式：<code>SoulSourceRitual</code>/<code>ModRitualFactories</code>、<code>SoulArkActivation</code>、<code>SoulCageContext</code>、<code>RitualEnvSoulCharge</code>。</li>
+        <li>复活：<code>SoulReviveMixin</code> + <code>ReviveFingerprintHandler</code>/<code>SetHealthReviveHandler</code>。</li>
+        <li>HUD：<code>SoulEnergyGuiMixin</code> 注入 Goety <code>SoulEnergyGui.drawHUD</code>，追加第三条网络魂条 + 施法进度 + 增减弹字（0.8.x 拆出 <code>SoulHudRenderer</code>/<code>SoulChangePopups</code>）。</li>
+    </ul>
+    <h3>0.8.x-1.20.1 新增：仪式结构由网络提供</h3>
+    <ul>
+        <li><code>RitualTrigger</code>：统一前置条件（半径内 <code>net_pathway</code> ≥ N 且 <code>dimensional_connect_block</code> ≥ M），
+            环境绕过与补块共用。</li>
+        <li><code>RitualNetworkStructure</code>：原版 <code>RitualChecker.hasBlocks</code> 判定失败时，用网络里的方块物品补<b>缺口</b>；
+            网络清单扫描一次并缓存（网络 ID → 物品集合），数量用精确键查询；花盆拆成“花盆 + 内容物”两组取较小值。</li>
+        <li><code>RitualCheckerMixin</code>（注入 <code>hasBlocks</code> RETURN）+ <code>RitualRequirementsMixin</code>（提示与失败清单）。</li>
+        <li>配置：<code>goety_ritual.network_structure</code>（默认开）、<code>structure_soul_cost</code>（默认 100，每次结构检查最多一次）。</li>
+        <li>细节见 <code>计划项目/待办/2026-10-25-NEW_FORGE适配BD0.8.3记录.md</code>。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>3. Thirst was Reclaimed / Legendary Survival Overhaul</h2>
+    <table>
+        <tr><th>模块</th><th>0.7.30 两线</th><th>0.8.x · 1.20.1</th></tr>
+        <tr>
+            <td>喂食器逻辑</td>
+            <td><code>feature/feeder/{FeederThirstHandler,ThirstBridge,CompositeThirstBridge,ThirstCompat,LsoThirstBackend}</code>；
+                档位是枚举（<code>FeederThirstMode</code>），界面按钮切换</td>
+            <td>同名逻辑；<b>四项阈值</b>（口渴/水饱和/饱食度/饱和度的触发值）+ “饱和维持模式”，
+                界面为 <code>client/page/FeederThirstPage.kt</code>（BdPage）；三包同步
+                <code>Request/Set/State</code></td>
+        </tr>
+        <tr>
+            <td>含水容器补水</td>
+            <td>—</td>
+            <td><code>FeederThirstHandler.findCandidate</code> 接受“容器内可饮用水”；
+                <code>consumeContainer</code> 按容量折算补水并返还空容器；
+                <code>NetFeederMenuStorageMixin</code> 放宽标记槽（桶/瓶/任意带 <code>FLUID_HANDLER_ITEM</code> 的物品）</td>
+        </tr>
+        <tr>
+            <td>4 档净水 / 桶装拆解</td>
+            <td><code>init/ModFluids</code> + <code>BucketSeparatorHandler</code> + <code>client/BDFluidOverrideProvider</code>（Jade）</td>
+            <td>同名；拆解规则改 <code>InsertPlan.convert(1)</code>；<code>BucketFluidHelper</code> 统一桶/瓶组装</td>
+        </tr>
+        <tr>
+            <td>网络熔炉提纯 / Create 灌装与沙滤</td>
+            <td><code>NetFurnaceWaterPurify</code> + 4 个 <code>NetFurnace*Mixin</code> + <code>SandFilterWaterCompatMixin</code> + <code>create:filling</code> 配方</td>
+            <td>同名（0.8.x 多一个 <code>NetFurnaceInputStorageWaterMixin</code>）</td>
+        </tr>
+        <tr>
+            <td>旧 Thirst 兼容</td>
+            <td><code>ThirstCompatLegacy</code>（仅 1.20.1-FORGE）</td>
+            <td>同（0.8.x-1.20.1 保留）</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>4. rs_integration（RI）</h2>
+    <ul>
+        <li>背景：RI 会往 BD 网络界面塞 3 个自动进食按钮并每帧覆盖坐标，与 BI 侧栏按钮重叠。</li>
+        <li>0.7.30-1.20.1：<code>compat/RsIntegrationCompat</code> + <code>mixin/RsIntegrationMachineHubMixin</code> +
+            <code>RsIntegrationAutoEatMixin</code>（接管安装与定位，按钮统一进 BD 左侧栏）+ <code>client/widget/RsAutoEatButton</code>。</li>
+        <li>0.7.30-1.21.1：4 个类（<code>RsAutoEatButton</code>、<code>RsIntegrationCompat</code>、
+            <code>RsAutoEatButtonGuardMixin</code>、<code>RsIntegrationAutoEatMixin</code>），同样接管。</li>
+        <li>0.8.x-1.20.1：<b>已按 0.7.30 的接管方案清理</b>——RI 相关的 5 个 Mixin 已删除：
+            <ul>
+                <li>3 个配置读取安全回退（<code>ContainerTransfer</code> / <code>RSidePanel</code> / <code>SidePanelModule</code>）：
+                    <b>RI 已自行修复该问题</b>，不需要 BI 兜底；</li>
+                <li>2 个失效项（<code>RsIntegrationAutoEatReturnMixin</code>、<code>RsAutoEatButtonGuardMixin</code>）：
+                    它们依赖 0.7.30 的“接管 RI 按钮”体系（<code>DimensionsNetGUIMixin</code>），0.8.x 没有侧栏可接管，实际空转。</li>
+            </ul>
+            现存的联动只有两项：<b>JEI 集成遇 RI 整体禁用</b>（角标/点击取物都不工作，防重复）与
+            <code>MagnetHandler</code> 入库后调用 RI 的
+            <code>ExternalItemProgressBridge.enqueue</code>（FTB 任务进度桥）。
+            <code>RsIntegrationCompat</code> 仍保留（0.7.30 的按钮接管反射助手），0.8.x 只用它的 <code>isLoaded()</code>。</li>
+        <li>0.8.x-1.21.1：无。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>5. Jade</h2>
+    <table>
+        <tr><th>工程</th><th>类</th><th>说明</th></tr>
+        <tr>
+            <td><code>0.7.30·1.20.1</code></td>
+            <td><code>JadeBDPlugin</code>、<code>BDClientProvider</code>、<code>BDServerProvider</code>、
+                <code>BDFluidOverrideProvider</code>、<code>Vehicle{Client,Server}Provider</code></td>
+            <td>BD 方块/实体 + 载具 + 流体覆盖（显示网络桶装流体）</td>
+        </tr>
+        <tr>
+            <td><code>0.7.30·1.21.1</code></td>
+            <td><code>JadeBDPlugin</code>、<code>Block{Client,Server}Provider</code>、<code>Container{Client,Server}Provider</code>、
+                <code>Vehicle{Client,Server}Provider</code></td>
+            <td>Neo 的 Jade API 拆成 Block/Container 两套</td>
+        </tr>
+        <tr>
+            <td><code>0.8.x·1.20.1</code></td>
+            <td>与 0.7.30-1.20.1 相同（6 类）</td>
+            <td>无变化</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>6. FTB Quests：文档与代码不符（重要）</h2>
+    <div class="warn">
+        <b>核对结论</b>
+        <a href="../docs/20-ftb-integration.html">docs/20 · FTB Quests 集成</a> 描述的
+        <code>FtbIntegrationHelper</code>、<code>FtbTaskNetworkScanner</code>、<code>FtbRewardClaimer</code>、
+        <code>Ftb*Service</code>、11 个 <code>Ftb*Mixin</code> 等，在<b>四个工程的当前源码里都不存在</b>
+        （按文件名与内容检索 <code>Ftb</code> / <code>ftbquests</code> / <code>dev.ftb</code> 均无 BI 自有类）。
+    </div>
+    <ul>
+        <li>目前与 FTB 有关的只有一处<b>间接调用</b>：<code>feature/magnet/MagnetHandler</code> 在物品入库后调用
+            rs_integration 的
+            <code>com.huanghuang.rsintegration.compat.ftbquests.ExternalItemProgressBridge.enqueue(sp, stack)</code>
+            （软依赖，由 RI 处理 FTB 任务进度）。</li>
+        <li>结论：docs/20 可能是历史版本/其他分支的实现，当前应视为<b>未实现</b>；若要恢复，需要按 0.7.30 的文档重新实现（并适配 0.8.x）。</li>
+        <li>同一文档体系里，docs/27（终端界面增强）与 docs/28（BD 修改项）在 0.8.x 也需要重写（见 08/09 篇）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>7. 代码核对</h2>
+    <table>
+        <tr><th>结论</th><th>旧说法</th><th>代码事实</th></tr>
+        <tr>
+            <td>⚠ 文档过时</td>
+            <td>docs/20 FTB 集成（双分支实现差异）</td>
+            <td>四工程均无 FTB 集成类；只有 RI 侧的 FTB 桥调用</td>
+        </tr>
+        <tr>
+            <td>✅ 确认</td>
+            <td>docs/32 Goety「仪式环境绕过仅 1.20.1-FORGE」</td>
+            <td>环境绕过 0.7.30 两线都有；「结构由网络提供」是 0.8.x-1.20.1 <b>独有</b>（<code>RitualNetworkStructure</code>）</td>
+        </tr>
+        <tr>
+            <td>✅ 确认</td>
+            <td>docs/21 喂食器“档位”</td>
+            <td>0.7.30 是枚举档位按钮；0.8.x-1.20.1 改为四项阈值 + 饱和维持模式（枚举已删）</td>
+        </tr>
+        <tr>
+            <td>✅ 确认</td>
+            <td>docs/07 能量充能开关按钮</td>
+            <td>0.8.x-1.20.1 按钮已删且无命令（见 04 篇）</td>
+        </tr>
+        <tr>
+            <td>?</td>
+            <td>1.21.1 的 RI 兼容程度</td>
+            <td>有 4 个软兼容类（无 <code>rs_integration</code> 依赖），但 1.21.1 侧 RI 是否存在对应版本模组、按钮是否真能被接管待实测</td>
+        </tr>
+    </table>
+</div>
+
+<footer>
+    <a href="index.html">← 返回 new_docs 索引</a> · 05 · 联动模组功能 · 上一篇
+    <a href="04-network-ammo.html">04 网络弹药</a> · 下一篇 <a href="06-xp-rod.html">06 经验棒</a>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "mod_data_type": "tacz_unidict_ammo_data",
+  "ammoId": "tacz:rand_ammo_2c8e04",
+  "isItem": false,
+  "damage": 11.0,
+  "knockback": 0.2,
+  "explosion": true,
+  "explosionDamage": 8.0,
+  "explosionRadius": 2.5,
+  "explosionDestroyBlock": false,
+  "isTracerAmmo": true
+}

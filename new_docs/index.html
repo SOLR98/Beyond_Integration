@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beyond Integration 文档 · new_docs 索引</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>Beyond Integration · new_docs</h1>
+    <div class="sub">
+        按「基础设施 → 联动模组 → 功能实现」重写归纳的文档；每篇都附<b>代码核对</b>（对照源码标注 ✅ 一致 / ⚠ 旧说法过时 / ? 待确认）。
+        旧版详细文档仍保留在 <a href="../docs/index.html">docs/</a>。
+    </div>
+</header>
+
+<div class="card">
+    <h2>先读这个</h2>
+    <ul>
+        <li><b>本目录不是旧 docs 的拷贝</b>：结构改成以「BD 主线 × MC 版本」的四工程为骨架
+            （<code>0.7.30·1.20.1</code> / <code>0.7.30·1.21.1</code> / <code>0.8.x·1.20.1</code> / <code>0.8.x·1.21.1</code>），
+            每个功能都标出四个工程的实现状态与落点。</li>
+        <li><b>写作顺序</b>（按你的要求）：先<a href="00-infrastructure.html">基础设施</a>，再<a href="01-linkage-mods.html">联动模组清单</a>，
+            然后依次写功能实现篇。</li>
+        <li><b>核对约定</b>：每篇末尾有“代码核对”小节，列出与旧 docs 不一致的地方（附源码路径/结论），
+            不确定的标 <b>?</b> 并留待实测。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>四工程速览</h2>
+    <table>
+        <tr><th>主线</th><th>1.20.1</th><th>1.21.1</th></tr>
+        <tr>
+            <td><b>BD 0.7.30</b></td>
+            <td><code>1.20.1-FORGE</code><br>411 Java · 88 Mixin · BD 发布版</td>
+            <td><code>1.21.1_NEOFORGE</code><br>366 Java · 77 Mixin · BD 发布版</td>
+        </tr>
+        <tr>
+            <td><b>BD 0.8.x</b></td>
+            <td><code>NEW_FORGE_1.20.1</code><br>383 Java + 10 Kotlin · 73 Mixin · BD 本地 0.8.9 · CompixelUI 0.1.18</td>
+            <td><code>NEW_NEOFORGE_1.21.1</code><br>392 Java + 10 Kotlin · 78 Mixin · BD 本地 0.8.9</td>
+        </tr>
+    </table>
+    <div class="note">
+        <b>命名约定</b>
+        BD 0.8.x 的工程都带 <code>NEW_</code> 前缀；详细对照见 <a href="00-infrastructure.html">00 · 基础设施解析</a>。
+    </div>
+</div>
+
+<div class="card">
+    <h2>阅读顺序</h2>
+    <div class="toc-grid">
+
+        <a class="toc-card" href="00-infrastructure.html">
+            <div class="num">00</div>
+            <h3>基础设施解析</h3>
+            <p>四工程总表（MC/loader/JDK/BD 来源/界面依赖/代码量/Mixin 数）· 包与分层 · 入口与生命周期 · 网络层 · 界面基座 · 配置 · Mixin 体系 · 存储与同步基座 · <b>旧 docs 与代码差异核对</b></p>
+        </a>
+
+        <a class="toc-card" href="01-linkage-mods.html">
+            <div class="num">01</div>
+            <h3>联动模组清单</h3>
+            <p>功能联动（BD / Apotheosis / TACZ / SW / 铁魔法 / Goety / Thirst·LSO / 女仆 / Create 哨戒 / 载具 / JEI / EMI / RI / Jade / Curios / FTB）与仅运行依赖两类，附代码证据与四工程状态</p>
+        </a>
+
+        <a class="toc-card" href="02-bd-core.html">
+            <div class="num">02</div>
+            <h3>BD 核心</h3>
+            <p>插入/提取规则、主网同步、存储订阅、通道过滤、终端绑定、HUD 布局、命令、配置（四工程对照 + 代码核对）</p>
+        </a>
+
+        <a class="toc-card" href="03-enchant-workbench.html">
+            <div class="num">03</div>
+            <h3>附魔与工作台</h3>
+            <p>附魔分离（规则两种实现）、附魔台、批量附魔合并、七合一工作台与激活体系（0.7.30 自绘 vs 0.8.x 缺口 / 骨架）</p>
+        </a>
+
+        <a class="toc-card" href="04-network-ammo.html">
+            <div class="num">04</div>
+            <h3>网络弹药 · 载具 · 哨戒</h3>
+            <p>TACZ 供弹、SW 虚拟计数 vs 散装物品、能量充能入口缺口、SW/ywzj 载具、Create 哨戒、女仆接口</p>
+        </a>
+
+        <a class="toc-card" href="05-linkage-features.html">
+            <div class="num">05</div>
+            <h3>联动模组功能</h3>
+            <p>铁魔法网络魔力、Goety 灵魂源与仪式补块、Thirst/LSO 喂食器与净水、RI 按钮接管、Jade；FTB 集成代码中不存在</p>
+        </a>
+
+        <a class="toc-card" href="06-xp-rod.html">
+            <div class="num">06</div>
+            <h3>经验棒</h3>
+            <p>自动修复（仅两条 1.20.1 工程）、目标等级上限（三处 Mixin）、给予方式 BATCH/DIRECT、女仆饰品</p>
+        </a>
+
+        <a class="toc-card" href="07-potion-charm.html">
+            <div class="num">07</div>
+            <h3>网络药水护符</h3>
+            <p>效果去重 / 门槛 / XP 扣费 / 缓存储存；0.8.x-1.20.1 缺入口、1.21.1 无此功能</p>
+        </a>
+
+        <a class="toc-card" href="08-jei-emi.html">
+            <div class="num">08</div>
+            <h3>JEI / EMI</h3>
+            <p>两种实现路线、双布局适配、遇 RI 整体禁用、EMI 快捷仅 0.7.30 两线</p>
+        </a>
+
+        <a class="toc-card" href="09-system-reference.html">
+            <div class="num">09</div>
+            <h3>系统与参考</h3>
+            <p>网络协议、配置体系、API 差异、Mixin 清单、贴图、文档索引与 0.8.x 待补清单</p>
+        </a>
+
+        <a class="toc-card" href="10-code-diff.html">
+            <div class="num">10</div>
+            <h3>代码差异（0.8.0-beta → 当前）</h3>
+            <p>对比 <code>beyond_integration-1.20.1-forge-0.8.0-beta.jar</code>：包/类增删（附魔工作台、女仆 P 点、TACZ 合成与配件、TUD）、磁铁/漏斗 tier/RS 补丁移除、方法级差异、网络包协议变更、Mixin 注册表、配置与语言键增删、构建与兼容性风险</p>
+        </a>
+
+        <a class="toc-card" href="11-feature-changes.html">
+            <div class="num">11</div>
+            <h3>功能变动说明（0.8.0-beta → 当前）</h3>
+            <p>玩家 / 服主视角：附魔台与神化、附魔合并、网络设置页、女仆 P 点、TACZ 合成与配件、TUD、JEI 开关、水纯度、铁魔法修复；磁铁 / 漏斗 tier / 工作台献祭 / RS 补丁移除；行为变化、配置迁移与升级兼容</p>
+        </a>
+
+        <a class="toc-card" href="UI组件指南.md">
+            <div class="num">UI</div>
+            <h3>UI 组件指南（Markdown）</h3>
+            <p>BD 0.8.x 前置的可用组件清单：CompixelUI 基础控件 / Forge 集成层 / BD kit / base 槽位与页面宿主；附 BdPage 模板与 10 条常见坑</p>
+        </a>
+
+    </div>
+</div>
+
+<div class="card">
+    <h2>与旧 docs 的关系</h2>
+    <ul>
+        <li><a href="../docs/index.html">docs/</a>（34 篇 + 2 篇新增）仍是<b>细节最全</b>的版本，但多数篇目只描述 0.7.30 线，
+            0.8.x 的差异零散在多处。</li>
+        <li><code>new_docs</code> 按四工程重写归纳，并在各篇“代码核对”里指出旧 docs 的过时点
+            （已在 <a href="00-infrastructure.html">00</a> 的差异表里先给出 8 条）。</li>
+        <li><code>docs/35</code> 的四格矩阵与 <code>docs/36</code> 的药水护符篇可作为本目录 09 / 07 的素材。</li>
+    </ul>
+</div>
+
+<footer>
+    new_docs · Beyond Integration v0.7.3 · <a href="../docs/index.html">旧版 docs</a>
+</footer>
+
+</div>
+</body>
+</html>

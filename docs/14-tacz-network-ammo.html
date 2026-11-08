@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03 · TACZ 网络供弹与装填 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>03 · TACZ 网络供弹与装填</h1>
+    <div class="sub">TACZ 枪械从网络自动取弹、弹药盒入网拆箱、创造弹药映射、换弹流程接管、查询缓存化</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>TACZ（Timeless and Classics Zero）的弹药体系与 SW 不同：子弹按 <code>ResourceLocation</code> 弹药 ID 数据驱动。本模组实现：</p>
+    <ul>
+        <li><b>弹药盒入网自动拆箱</b>——TACZ 弹药盒/子弹入网时，弹药量按弹药 ID 计入网络虚拟计数，空盒留存物理存储</li>
+        <li><b>射击/装填从网络取弹</b>——背包弹药不足时自动从网络提取对应弹药 ID 的子弹</li>
+        <li><b>创造弹药箱映射</b>——TACZ 创造/全类型创造弹药箱入网后按弹药 ID（或 <code>*</code>）计数，该网络对应弹药视为无限</li>
+        <li><b>换弹流程接管</b>——直读背包型枪械在 TACZ 原版中无法换弹，本模组接管两端换弹入口使其可以装填</li>
+        <li><b>HUD 显示网络弹药量</b>——枪械 HUD 独立显示网络名与网络弹药存量</li>
+        <li><b>热路径缓存化</b>——射击/装填/判定/HUD 全部 O(1) 读查询缓存，仅首次创建做一次全量扫描</li>
+        <li><b>Tacz-Unidict 兼容</b>——通用弹药枪动态弹药解析（TOML/JSON + 枪 NBT），<code>$</code> 物品弹药同样走网络查询/扣除</li>
+    </ul>
+    <div class="note"><b>与 SW 虚拟弹药的区别</b>TACZ 侧不把弹药折算为 5 种固定类型，而是按 TACZ 的弹药 ID（<code>ResourceLocation</code> 字符串）逐类型计数，并单独持久化「创造弹药类型计数」。</div>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>弹药盒拆箱</td><td><code>feature/ammo/tacz/AmmoBoxExtractHandler</code>（Forge）/ <code>handler/AmmoBoxExtractHandler</code>（NeoForge）</td><td>插入拦截：弹药盒→虚拟计数，空盒入库</td></tr>
+        <tr><td>网络弹药提取</td><td><code>feature/ammo/tacz/TaczAmmoExtractor</code></td><td>按弹药 ID 从网络提取子弹 / 判定无限</td></tr>
+        <tr><td>供弹判断</td><td><code>NetworkAwareAmmoHandler</code>（Forge）</td><td>「背包+网络」联合弹药判定</td></tr>
+        <tr><td>追踪器</td><td><code>TaczAmmoTracker</code></td><td>查询缓存 + delta 增量维护 + 5 分钟闲置回收</td></tr>
+        <tr><td>轮询推送</td><td><code>TaczAmmoPollingService</code></td><td>每 10 tick 扫描推送 TaczAmmoPushS2C（无变化不推送）</td></tr>
+        <tr><td>客户端缓存</td><td><code>client/TaczAmmoCache</code></td><td>快照缓存 + 限频请求 + 2 秒超时复位</td></tr>
+        <tr><td>枪械逻辑 Mixin</td><td><code>AbstractGunItemMixin</code> / <code>ModernKineticGunScriptAPIMixin</code> / <code>GunAnimationStateContextMixin</code> / <code>LocalPlayerShootMixin</code></td><td>canReload / hasInventoryAmmo / 扣弹 / 动画状态 / 连发判定</td></tr>
+        <tr><td>换弹接管</td><td><code>ReloadKeyMixin</code> / <code>LocalPlayerReloadMixin</code> / <code>LivingEntityReloadMixin</code>（Forge）</td><td>R 键换弹全链路接管</td></tr>
+        <tr><td>HUD</td><td><code>GunHudOverlayMixin</code> / <code>GunDataCountMixin</code></td><td>枪械 HUD 显示网络弹药</td></tr>
+        <tr><td>网络使用记录</td><td><code>PlayerNetUsageTracker</code></td><td>玩家→网络 ID 使用关系</td></tr>
+        <tr><td>数据包</td><td>RequestAmmoCount / AmmoCountResponse / TaczAmmoPushS2C / RequestNetworkItems / TaczCraftPacket</td><td>5 个包（Forge 条件注册；NeoForge 另行命名）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>弹药盒入网拆箱流程</h2>
+    <div class="flow">
+        <div class="step io"><span class="tag">BD 插入链</span><b>TACZ 弹药盒/子弹入网</b>onBeforeInsert</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>AmmoBoxExtractHandler</b>识别 IAmmoBox / IAmmo</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>类型判断</b></div>
+    </div>
+    <div class="flow row">
+        <div class="step server"><b>弹药盒</b>getAmmoId → 网络计数 <code>merge(ammoId, ammoCount × 盒数)</code></div>
+        <div class="arrow"><span class="al">空盒原样入库</span></div>
+        <div class="step server"><b>散装子弹</b>setAmmoId + setAmmoCount 构造 → 计数</div>
+        <div class="arrow"><span class="al">吞掉原插入</span></div>
+        <div class="step server"><b>创造弹药箱</b>放行物理入库 → delta 订阅按 ammoId / <code>*</code> 计数</div>
+    </div>
+    <div class="flow">
+        <div class="step data"><span class="tag">存档</span><b>NetworkAmmoData</b>读取时：创造计数 → 无限；否则按 ammoId 取数</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>插入余量告警</b>网络容量不足导致弹药/空箱无法全部入库时记录 WARN（不再静默丢失）</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>查询缓存与增量维护（0.6.x）</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">追踪器</span><b>TaczAmmoTracker</b>每个网络维护弹药 ID → 数量缓存</div>
+        <div class="arrow"><span class="al">热路径（射击/装填/判定/HUD）O(1) 读缓存</span></div>
+        <div class="step decision"><b>缓存 miss</b></div>
+    </div>
+    <div class="flow row">
+        <div class="step server"><b>精确键快速路径</b>直接查该弹药键</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>惰性全量回填</b>一次 O(桶) 扫描补齐</div>
+    </div>
+    <div class="flow">
+        <div class="step data"><span class="tag">增量</span><b>BD 存储 delta 订阅</b>之后仅增量维护，不再全量扫描</div>
+        <div class="arrow"><span class="al">创造箱计数单权威</span></div>
+        <div class="step server"><b>只读虚拟计数</b>物理扫描仅首次创建时对账一次</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>5 分钟闲置回收</b>网络销毁 / 停服时清理</div>
+    </div>
+    <div class="good"><b>推送优化</b>轮询快照无变化不推送；扣弹成功后利用 extract 返回值立即 <code>pushSnapshotToPlayer</code>，HUD 实时更新。</div>
+</div>
+
+<div class="card">
+    <h2>Tacz-Unidict（TUD）兼容</h2>
+    <p>TUD（modid: <code>tacz_unidict</code>）通用弹药枪的当前弹药由 TOML 类型映射 / gun_data JSON + 枪 NBT <code>TudCurrentAmmo</code> 动态决定，TACZ 原版静态路径无法解析。本模组经 <code>compat/tud/TudAmmoCompat</code> 调用 <code>AmmoManager.getAmmo(枪)</code> 动态解析；未安装 TUD、白名单枪或无数据时回退原版路径。</p>
+    <ul>
+        <li><b>动态弹药对齐</b>——切换弹药后，网络查询/扣弹/创造箱判定/HUD 快照键自动跟随当前弹药 ID</li>
+        <li><b><code>$</code> 物品弹药支持</b>——普通物品以物品注册名作为弹药 ID，与 TACZ 弹药共用同一套 BD 存储键查询/扣除（1 物品 = 1 发）；HUD 快照按注册名计入</li>
+        <li><b>Mixin 顺序</b>——<code>AbstractGunItemMixin</code> priority=100（低于 TUD 默认 1000），保证 TUD 先执行、本模组读取其返回值作网络补弹基线，避免 <code>$</code> 场景吞弹</li>
+    </ul>
+    <div class="warn"><b>客户端数据</b>TOML 类型映射（COMMON 配置）双端可用；gun_data JSON 为本地配置（不随网络同步），客户端配置缺失时回退原版路径，可能出现 HUD 与实际扣弹不一致。</div>
+</div>
+
+<div class="card">
+    <h2>射击 / 装填从网络取弹流程</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">射击</span><b>扣弹入口</b>AbstractGunItem.findAndExtractInventoryAmmo @Inject HEAD</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>NetworkAwareAmmoHandler</b>背包弹药不足 → 查主网络（按 ammoId）</div>
+        <div class="arrow"><span class="al">网络有货</span></div>
+        <div class="step server"><b>TaczAmmoExtractor.consumeAmmoDirectly</b>扣网络计数 + 生成弹药 ItemStack</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>完成扣弹</b>NetworkAmmoData.markDirty() + 即时推送</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><span class="tag">装填</span><b>换弹补弹</b>defaultReloadFinishing → consumeAmmoFromPlayer（同上网络取弹路径）</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>判断</b>hasInventoryAmmo / canReload 的 RETURN 注入把网络弹药计入「可用弹药」</div>
+    </div>
+    <div class="warn"><b>行为变更</b>网络弹药寻找范围限制为<b>仅玩家主网络</b>（不再遍历其他网络兜底）；载具/女仆来源使用各自绑定的网络，不受影响。</div>
+</div>
+
+<div class="card">
+    <h2>换弹流程接管（R 键）</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>按下 R</b>ReloadKeyMixin @Redirect（onReloadPress）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>LocalPlayerReload.reload() @Inject HEAD</b>（cancellable）</div>
+        <div class="arrow"><span class="al">仅接管 useInventoryAmmo 直读枪</span></div>
+        <div class="step decision"><b>canReload + 状态锁检查</b></div>
+        <div class="arrow"><span class="al">通过</span></div>
+        <div class="step client"><b>lockState + GunReloadEvent(CLIENT) + 发包</b>ClientMessagePlayerReloadGun + doReload</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">C2S</span><b>ClientMessagePlayerReloadGun</b>（TACZ 原版包）</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><span class="tag">服务端</span><b>LivingEntityReload.reload() @Inject HEAD</b>（cancellable）</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>冷却/状态/事件检查</b>（与 TACZ 原逻辑一致）</div>
+        <div class="arrow"><span class="al">通过</span></div>
+        <div class="step server"><b>广播 ServerMessageGunReload + 设置换弹状态 + startReload</b></div>
+        <div class="arrow"></div>
+        <div class="step end"><b>换弹动画开始</b>装填结束后经 defaultReloadFinishing 从网络补弹</div>
+    </div>
+    <div class="note"><b>设计说明</b>TACZ 原版对直读背包枪在换弹入口直接 return（不发包、不进动画），本模组恰好在「原逻辑放行路径」之外接管：直读枪由 Mixin 走完整换弹流程，弹匣枪保持原逻辑。接管代码复刻了 TACZ 1.1.8 的流程（事件→发包→状态→startReload）。</div>
+    <div class="warn"><b>版本风险</b>接管逻辑与 TACZ 内部实现强耦合（@Shadow 字段、事件顺序），TACZ 大版本更新后需回归验证。</div>
+</div>
+
+<div class="card">
+    <h2>轮询推送 → 客户端 HUD 流程</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">每 10 tick</span><b>TaczAmmoPollingService</b>遍历在用网络</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>TaczAmmoTracker.refresh()</b>读查询缓存（countAllAmmoInNetwork / countAmmoByKey）</div>
+        <div class="arrow"><span class="al">与上次快照相同 → 不推送</span></div>
+        <div class="step io"><span class="tag">S2C</span><b>TaczAmmoPushS2CPacket</b>推给网络内玩家</div>
+        <div class="arrow"></div>
+        <div class="step client"><span class="tag">客户端</span><b>TaczAmmoCache.applyPending()</b>volatile 快照 + ConcurrentHashMap</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>GunHudOverlay / 枪械台界面</b>显示网络弹药量</div>
+    </div>
+    <div class="good"><b>客户端健壮性</b>① 请求去重加 2 秒超时复位（服务端无响应不再永久卡死）；② 应用快照时先移除已消失的弹药键（拿空后 HUD 归零，不再误判可换弹/开火）；③ 进服/登出清空缓存防残留。</div>
+</div>
+
+<div class="card">
+    <h2>配置项</h2>
+    <table>
+        <tr><th>配置</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>tacz_ammo.ammo_poll_enabled</code></td><td>true</td><td>轮询推送总开关</td></tr>
+        <tr><td><code>tacz_ammo.ammo_poll_interval_ticks</code></td><td>10</td><td>轮询间隔（1–1200 tick）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>相关源文件（Forge 分支）</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/compat/tud/TudAmmoCompat.java<span class="fdesc">TUD 动态弹药 / $ 物品弹药兼容</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/ammo/tacz/AmmoBoxExtractHandler.java<span class="fdesc">弹药盒拆箱</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/ammo/tacz/TaczAmmoExtractor.java<span class="fdesc">网络取弹/无限判定</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/ammo/tacz/NetworkAwareAmmoHandler.java / NetworkAmmoHandler.java / PlayerNetUsageTracker.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/ammo/tacz/TaczAmmoTracker.java / TaczAmmoPollingService.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/AbstractGunItemMixin.java<span class="fdesc">canReload/hasInventoryAmmo/findAndExtract 注入</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/ReloadKeyMixin.java / LocalPlayerReloadMixin.java / LivingEntityReloadMixin.java<span class="fdesc">换弹接管</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/ModernKineticGunScriptAPIMixin.java / GunAnimationStateContextMixin.java / LocalPlayerShootMixin.java / GunHudOverlayMixin.java / GunDataCountMixin.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/client/TaczAmmoCache.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/network/（TACZ 系 5 包）</li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 03/21 · Beyond Integration v0.6.5
+</footer>
+
+</div>
+</body>
+</html>

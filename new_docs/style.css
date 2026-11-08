@@ -1,0 +1,260 @@
+/* ============================================================
+   Beyond Integration 功能文档 共享样式
+   ============================================================ */
+
+:root {
+    --bg: #0f1420;
+    --bg-soft: #161d2e;
+    --card: #1b2436;
+    --card-2: #212c42;
+    --border: #2e3a55;
+    --text: #d7deeb;
+    --text-dim: #93a0b8;
+    --accent: #4da3ff;
+    --accent-2: #7cc4ff;
+    --green: #3ddc84;
+    --yellow: #ffd166;
+    --red: #ff6b6b;
+    --purple: #b18cff;
+    --mono: "Cascadia Code", Consolas, "JetBrains Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+/* ---------- 布局 ---------- */
+.wrap { max-width: 1080px; margin: 0 auto; padding: 24px 28px 80px; }
+
+header.top {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 0 14px;
+    margin-bottom: 26px;
+}
+header.top h1 {
+    margin: 0;
+    font-size: 26px;
+    color: var(--accent-2);
+    letter-spacing: .5px;
+}
+header.top .sub { color: var(--text-dim); font-size: 13px; margin-top: 6px; }
+header.top .sub code { color: var(--yellow); }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------- 卡片 ---------- */
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin: 18px 0;
+}
+.card h2 {
+    margin: 0 0 12px;
+    font-size: 19px;
+    color: var(--accent);
+    border-left: 4px solid var(--accent);
+    padding-left: 10px;
+}
+.card h3 { font-size: 16px; color: var(--accent-2); margin: 20px 0 8px; }
+.card h4 { font-size: 14px; color: var(--yellow); margin: 14px 0 6px; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+
+/* ---------- 表格 ---------- */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+    font-size: 13.5px;
+}
+th, td {
+    border: 1px solid var(--border);
+    padding: 7px 10px;
+    text-align: left;
+    vertical-align: top;
+}
+th { background: var(--card-2); color: var(--accent-2); white-space: nowrap; }
+tr:nth-child(even) td { background: rgba(255,255,255,.02); }
+
+/* ---------- 代码 ---------- */
+code {
+    font-family: var(--mono);
+    font-size: .9em;
+    background: #0b0f1a;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: #a9d8ff;
+}
+pre {
+    background: #0b0f1a;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 13px;
+}
+pre code { border: none; background: none; padding: 0; color: #c9d6e8; }
+
+/* ---------- 提示框 ---------- */
+.note, .warn, .good {
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-size: 13.5px;
+    border: 1px solid;
+}
+.note { background: rgba(77,163,255,.08); border-color: rgba(77,163,255,.4); }
+.warn { background: rgba(255,209,102,.08); border-color: rgba(255,209,102,.45); }
+.good { background: rgba(61,220,132,.08); border-color: rgba(61,220,132,.4); }
+.note b, .warn b, .good b { display: block; margin-bottom: 2px; }
+
+/* ============================================================
+   流程图（CSS 盒子模型）
+   垂直流程: .flow > .step（盒子）+ .arrow（箭头）
+   水平流程: .flow.row
+   盒子类型: .start .process .decision .io .data .end .server .client
+   ============================================================ */
+
+.flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    margin: 16px 0;
+    padding: 20px 10px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow-x: auto;
+}
+.flow.row { flex-direction: row; justify-content: center; flex-wrap: wrap; }
+
+.step {
+    min-width: 190px;
+    max-width: 340px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: 2px solid var(--accent);
+    background: var(--card);
+    text-align: center;
+    font-size: 13px;
+    position: relative;
+    color: var(--text);
+}
+.step b { display: block; font-size: 13.5px; color: var(--accent-2); margin-bottom: 2px; }
+.step .tag {
+    display: inline-block;
+    font-size: 10.5px;
+    border-radius: 4px;
+    padding: 0 6px;
+    margin-bottom: 4px;
+    background: var(--card-2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+}
+
+/* 类型配色 */
+.step.start { border-color: var(--green); }
+.step.start b { color: var(--green); }
+.step.end   { border-color: var(--green); }
+.step.end b { color: var(--green); }
+.step.decision {
+    border-color: var(--yellow);
+    border-radius: 4px;
+    transform: none;
+}
+.step.decision b { color: var(--yellow); }
+.step.io     { border-color: var(--purple); }
+.step.io b   { color: var(--purple); }
+.step.data   { border-style: dashed; border-color: var(--text-dim); }
+.step.data b { color: var(--text-dim); }
+.step.server { border-color: var(--red); }
+.step.server b { color: var(--red); }
+.step.client { border-color: var(--green); }
+.step.client b { color: var(--green); }
+
+/* 箭头 */
+.arrow {
+    width: 0; height: 26px;
+    border-left: 2px solid var(--accent);
+    position: relative;
+    flex-shrink: 0;
+}
+.arrow::after {
+    content: "";
+    position: absolute;
+    left: -5px; bottom: -2px;
+    border: 5px solid transparent;
+    border-top: 7px solid var(--accent);
+    border-bottom: none;
+}
+.arrow .al {
+    position: absolute;
+    left: 10px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    background: var(--bg-soft);
+    padding: 0 4px;
+}
+.flow.row .arrow { width: 34px; height: 0; border-left: none; border-top: 2px solid var(--accent); }
+.flow.row .arrow::after {
+    left: auto; top: -5px; right: -2px; bottom: auto;
+    border: 5px solid transparent;
+    border-left: 7px solid var(--accent);
+    border-top: none;
+}
+.flow.row .arrow .al { left: 50%; top: 12px; transform: translateX(-50%); }
+
+/* 分支标签 */
+.branch { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 12px; }
+
+/* 文件列表 */
+.files { list-style: none; padding: 0; margin: 8px 0; }
+.files li {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: #0b0f1a;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    margin: 5px 0;
+    color: #a9d8ff;
+    word-break: break-all;
+}
+.files li .fdesc { color: var(--text-dim); font-family: "Segoe UI", sans-serif; margin-left: 8px; font-size: 12px; }
+
+/* 索引页 */
+.toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 18px; }
+.toc-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    transition: border-color .15s, transform .15s;
+}
+.toc-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.toc-card .num { font-family: var(--mono); font-size: 12px; color: var(--yellow); }
+.toc-card h3 { margin: 4px 0 6px; font-size: 16px; color: var(--accent-2); }
+.toc-card p { margin: 0; font-size: 13px; color: var(--text-dim); }
+
+footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 12.5px; }
+
+@media print {
+    .flow { page-break-inside: avoid; }
+    body { background: #fff; color: #222; }
+    .card { border-color: #ccc; }
+}

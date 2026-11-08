@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>14 · BD API 参考 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>14 · Beyond Dimensions API 参考（0.7.30）</h1>
+    <div class="sub">BD 全部公开 API 整理 · 源码版本 beyonddimensions-0.7.30-1.20.1 · 硬依赖（mandatory）</div>
+</header>
+
+<div class="card">
+    <h2>总览</h2>
+    <ul>
+        <li><b>modid</b>：<code>beyonddimensions</code>（<code>BDConstants.MODID</code>）</li>
+        <li><b>事件总线</b>：全部事件经 <b>Forge 总线</b> <code>MinecraftForge.EVENT_BUS.post(...)</code> 派发（非 NeoForge）</li>
+        <li><b>网络通道</b>：<code>BDPackets.INSTANCE</code>，SimpleChannel <code>beyonddimensions:simple_channel</code>，协议版本 "1"</li>
+        <li><b>包结构</b>：<code>api/</code>（稳定 API）与 <code>common/</code>（实现，可参考但随版本变动）</li>
+        <li><b>核心模型</b>：<code>DimensionsNet</code>（网络，SavedData）→ <code>UnifiedStorage</code>（无序统一存储，键值 = <code>IStackKey</code> + long 数量）</li>
+    </ul>
+    <div class="warn"><b>重要</b>① <code>PlayerNetIndex</code> / <code>NetRegistryIndex</code> 为<b>包私有</b>类，非公开 API，只能经 <code>DimensionsNet</code> 静态方法间接访问；② <code>AbstractUnorderedStackHandler</code> 无 <code>getSlotMaxSize()</code> getter——槽位上限以 <code>public int slotMaxSize</code> 字段直接暴露；③ 本版本<b>不存在</b>自定义 "conversion" 配方类型与 <code>IDimensionsNetGUIExtension</code> UI 扩展接口（Beyond Integration 自带的 conversion JSON 是供 BD 消费的 datapack 内容，实际由 BD 内部逻辑处理）。</div>
+    <div class="note"><b>0.7.30 变更</b>相对 0.7.27：存储 UI 左侧按钮改为侧边栏布局；新增物品 ID 搜索（luo-zi 贡献）；经验棒最大目标等级上调为 21863。以上为 BD 自身变化，未破坏本文列出的公开 API；BI 的 <code>bd_tweaks</code> 经验棒增强在此基础上继续放宽上限（默认 238609312，见文档 12）。</div>
+</div>
+
+<div class="card">
+    <h2>核心架构图</h2>
+    <div class="flow">
+        <div class="step data"><b>SavedData</b>DimensionsNet（Id / 自定义名 / Owner / Managers / Players / UnifiedStorage）</div>
+        <div class="arrow"><span class="al">创建：createNewNetForPlayer → 写 NetRegistryIndex + post Created</span></div>
+        <div class="step"><b>运行时索引</b>NetRegistryIndex（包私有）· PlayerNetIndex（包私有）</div>
+        <div class="arrow"><span class="al">查询入口</span></div>
+        <div class="step io"><span class="tag">静态 API</span><b>getNetFromId / getPrimaryNetFromPlayer / getAllNetFromPlayer</b></div>
+        <div class="arrow"><span class="al">成员操作 / 权限查询</span></div>
+        <div class="step"><b>网络对象</b>isOwner / isManager / getPlayers / addManager / destroySelf</div>
+        <div class="arrow"><span class="al">存储读写</span></div>
+        <div class="step"><b>UnifiedStorage</b>insert / extract / getStackByKey / subscribeDelta(Weak) / subscribeAny(Weak)</div>
+    </div>
+    <div class="flow">
+        <div class="step io"><span class="tag">插入</span>UnifiedStorage.insert()</div>
+        <div class="arrow"><span class="al">先走拦截链</span></div>
+        <div class="step"><b>UnifiedStorageBeforeInsertHandler</b>onBeforeInsert（cancel=true 吞掉插入）</div>
+        <div class="arrow"><span class="al">再执行真实插入</span></div>
+        <div class="step"><b>写入存储</b>数量 ≤0 时按 ZeroPolicy 删除键 · net.setDirty() · 广播订阅者</div>
+    </div>
+    <div class="flow">
+        <div class="step io"><span class="tag">提取</span>UnifiedStorage.extract(key, amount, simulate, fuzzy)</div>
+        <div class="arrow"><span class="al">fuzzy=true 走拦截链</span></div>
+        <div class="step"><b>UnifiedStorageBeforeExtractHandler</b>onBeforeExtract</div>
+        <div class="arrow"></div>
+        <div class="step"><b>返回 KeyAmount</b>（@NotNull，缺失键返回 amount=0，永不 null）</div>
+    </div>
+    <div class="note"><b>返回语义陷阱</b>① <code>insert()</code> 返回的 <code>KeyAmount.amount()</code> 是<b>未能插入的余量</b>（leftover），不是插入量；② <code>extract()</code> 返回的是<b>实际提取量</b>；③ 键不存在时两者都返回 amount=0 而非 null。</div>
+</div>
+
+<div class="card">
+    <h2>1. api/dimensionnet 包 — 核心网络 API</h2>
+
+    <h3>1.1 DimensionsNet（extends SavedData）</h3>
+    <table>
+        <tr><th>成员</th><th>签名</th><th>说明</th></tr>
+        <tr><td colspan="3"><b>常量 / 字段</b></td></tr>
+        <tr><td>常量</td><td><code>NO_PRIMARY_NET_ID = -1</code>、<code>MAX_NETWORK_NAME_LENGTH = 48</code></td><td>无主网络哨兵值 / 自定义名长度上限（码点）</td></tr>
+        <tr><td>字段</td><td><code>public boolean deleted</code></td><td>网络已删除标记（随 SavedData 持久化），查询类静态方法会自动过滤</td></tr>
+        <tr><td colspan="3"><b>静态方法（全部 public）</b></td></tr>
+        <tr><td>创建</td><td><code>@Nullable static DimensionsNet createNewNetForPlayer(Player, long defaultSlotCapability, int defaultSlotMaxSize)</code></td><td>仅服务端；创建网络并设玩家为所有者 + 自动设为主网络；<b>玩家已有网络则不新建</b>（返回现有网络）</td></tr>
+        <tr><td>查询</td><td><code>@Nullable static DimensionsNet getNetFromId(int id)</code></td><td>仅服务端；id&lt;0 或已删除返回 null</td></tr>
+        <tr><td>查询</td><td><code>@Nullable static DimensionsNet getPrimaryNetFromPlayer(Player)</code></td><td>仅服务端；经 PlayerNetIndex 取主网络（无则 null）</td></tr>
+        <tr><td>查询</td><td><code>@NotNull static List&lt;DimensionsNet&gt; getAllNetFromPlayer(Player)</code></td><td>仅服务端；全部所属网络（过滤已删除，无则空 List）</td></tr>
+        <tr><td>查询</td><td><code>static boolean hasAnyNet(Player)</code> / <code>hasPrimaryNet(Player)</code></td><td>成员资格 / 主网络判断</td></tr>
+        <tr><td>主网络</td><td><code>static boolean setPrimaryNetForPlayer(Player, @Nullable DimensionsNet)</code></td><td>设置/清除主网络（net=null 清除）</td></tr>
+        <tr><td>主网络</td><td><code>static void clearPrimaryNetForPlayer(Player)</code></td><td>清除主网络</td></tr>
+        <tr><td>存档</td><td><code>static DimensionsNet load(CompoundTag)</code></td><td>SavedData 反序列化工厂（含旧版数据迁移）</td></tr>
+        <tr><td>命名</td><td><code>buildNewNetName(MinecraftServer)</code> / <code>buildNetDataName(int)</code> / <code>getNetworkName(int, @Nullable String)</code></td><td>网络数据名 <code>"BDNet_&lt;id&gt;"</code> / 展示名规则</td></tr>
+        <tr><td colspan="3"><b>实例方法（全部 public）</b></td></tr>
+        <tr><td>基础</td><td><code>int getId()</code> / <code>void setId(int)</code> / <code>Component getNetworkName()</code></td><td>网络 id 与展示名</td></tr>
+        <tr><td>自定义名</td><td><code>String getCustomName()</code> / <code>boolean hasCustomName()</code> / <code>void setCustomName(@Nullable String)</code></td><td>setCustomName 自动 sanitize（去控制字符、截断 48 码点）+ setDirty</td></tr>
+        <tr><td>所有权</td><td><code>UUID getOwner()</code> / <code>void setOwner(UUID)</code></td><td>setOwner 时原所有者自动转管理员；post OwnerChanged</td></tr>
+        <tr><td>管理员</td><td><code>Set&lt;UUID&gt; getManagers()</code> / <code>void addManager(UUID)</code> / <code>void removeManager(UUID)</code></td><td>addManager 自动加入成员并 post MemberChanged；removeManager 不能移除所有者</td></tr>
+        <tr><td>成员</td><td><code>Set&lt;UUID&gt; getPlayers()</code> / <code>void addPlayer(UUID)</code> / <code>void removePlayer(UUID)</code> / <code>void leavePlayer(UUID)</code></td><td>成员管理，均 post MemberChanged（KICKED_*/LEFT_*）</td></tr>
+        <tr><td>权限</td><td><code>boolean isOwner(Player)</code> / <code>isOwner(UUID)</code> / <code>isManager(Player)</code> / <code>isManager(UUID)</code></td><td>权限判断。<b>注意：无 isMember()</b>——成员判断用 <code>getPlayers().contains(uuid)</code></td></tr>
+        <tr><td>权限表</td><td><code>HashMap&lt;UUID, PlayerPermissionInfo&gt; getPlayerPermissionInfoMap(MinecraftServer)</code></td><td>玩家 → 最高权限信息</td></tr>
+        <tr><td>合并</td><td><code>void mergeOtherNet(DimensionsNet)</code></td><td>并入另一网络的成员与存储，另一网络被 destroySelf</td></tr>
+        <tr><td>销毁</td><td><code>void destroySelf()</code></td><td>id 置 -99、清空成员/存储、从 NetRegistryIndex 注销、post Destroyed</td></tr>
+        <tr><td>存储</td><td><code>@NotNull UnifiedStorage getUnifiedStorage()</code></td><td>网络统一存储（读写入口）</td></tr>
+        <tr><td>tick</td><td><code>@SubscribeEvent onServerTick(TickEvent.ServerTickEvent)</code></td><td>按配置周期生成破碎时空结晶（临时网络跳过）</td></tr>
+    </table>
+    <div class="warn"><b>权限模型注意</b>BD 无 <code>isMember</code> API。成员判断请用 <code>getPlayers().contains(uuid)</code> 或 <code>getPlayerPermissionInfoMap(server)</code> 配合 <code>NetPermissionlevel</code>（Member &lt; Manager &lt; Owner）。</div>
+
+    <h3>1.2 UnifiedStorage（extends UnorderedStackHandlerRemoveZero）</h3>
+    <table>
+        <tr><th>成员</th><th>签名</th><th>说明</th></tr>
+        <tr><td>构造器</td><td><code>UnifiedStorage(DimensionsNet, UiTimestampPolicy)</code> / <code>(…, long slotCapacity, int slotMaxSize)</code></td><td>绑定网络创建存储</td></tr>
+        <tr><td>空实现</td><td><code>static UnifiedStorage getEmpty()</code></td><td>0 容量不可用空实例（getNet() 返回 null）</td></tr>
+        <tr><td>网络</td><td><code>@Nullable DimensionsNet getNet()</code></td><td>关联网络反查</td></tr>
+        <tr><td>插入</td><td><code>@NotNull KeyAmount insert(IStackKey&lt;?&gt;, long amount, boolean simulate)</code></td><td>先走 BeforeInsertHandler 链；<b>返回余量</b></td></tr>
+        <tr><td>提取</td><td><code>@NotNull KeyAmount extract(int slot, long, boolean)</code> / <code>extract(IStackKey&lt;?&gt;, long, boolean, boolean fuzzy)</code> / <code>extract(TagKey&lt;?&gt;, long, boolean)</code></td><td>fuzzy 重载走 BeforeExtractHandler 链；<b>返回实际提取量</b></td></tr>
+        <tr><td>查询</td><td><code>getStackByKey(IStackKey)</code> / <code>getStackBySlot(int)</code> / <code>hasStack(IStackKey)</code> / <code>getStorage()</code>（只读视图）/ <code>getOutStackByKey(IStackKey)</code></td><td>缺失键返回 amount=0 的 KeyAmount</td></tr>
+        <tr><td>修改</td><td><code>setAmountByKey(IStackKey, long)</code> / <code>setStackDirectly(int, IStackKey, long)</code> / <code>addStackDirectly(IStackKey, long)</code> / <code>clearStorage()</code></td><td>直接改库存（不触发插入链）</td></tr>
+        <tr><td>容量</td><td><code>public long slotCapacity</code> / <code>public int slotMaxSize</code>（字段！）/ <code>setSlotCapacity(long)</code> / <code>setSlotMaxSize(int)</code> / <code>getSlotCapacity(int)</code> / <code>isFullSlotsSize()</code></td><td>槽容量/槽位大小；<b>无 getSlotMaxSize() getter</b></td></tr>
+        <tr><td>订阅</td><td><code>AutoCloseable subscribeDelta(Object owner, DeltaListener)</code> / <code>&lt;T&gt; subscribeDeltaWeak(T owner, QuadConsumer&lt;T, IStackKey&lt;?&gt;, Long, Boolean&gt;)</code> / <code>subscribeAny(Object, AnyChangeListener)</code> / <code>&lt;T&gt; subscribeAnyWeak(T, Consumer&lt;T&gt;)</code></td><td>delta=键级增量 (key, size, insert)；any=任意变化；<b>均对 owner 弱引用</b>；返回 AutoCloseable 手动退订</td></tr>
+        <tr><td>时间戳</td><td><code>setCreationTime / setLastModifiedTime / getCreationTimeMap / getLastModifiedTimeMap</code></td><td>键级插入/修改时间</td></tr>
+        <tr><td>策略</td><td><code>setUiTimestampPolicy(UiTimestampPolicy)</code>（NONE/AUTO）/ <code>setZeroPolicy(ZeroPolicy)</code>（KEEP_ZERO/REMOVE_ON_ZERO）</td><td>时间戳策略 / 零数量键策略</td></tr>
+        <tr><td>序列化</td><td><code>serializeNBT() / deserializeNBT(CompoundTag)</code></td><td>存档读写</td></tr>
+        <tr><td>其他</td><td><code>boolean isEmpty()</code> / <code>boolean isStackValid(int, IStackKey)</code> / <code>Optional&lt;TypeBucket&gt; getBucket(ResourceLocation type)</code> / <code>protected unzipMatterBall(ItemStackKey, long, boolean)</code></td><td>物质压缩球拆包在插入路径自动处理</td></tr>
+    </table>
+
+    <h3>1.3 record / enum</h3>
+    <table>
+        <tr><th>类型</th><th>定义</th><th>说明</th></tr>
+        <tr><td><code>PrimaryNetOption</code></td><td><code>record(int netId, @NotNull NetPermissionlevel permission, @NotNull String customName)</code></td><td>客户端主网络选择缓存；<code>save()/load(CompoundTag)</code></td></tr>
+        <tr><td><code>PlayerPermissionInfo</code></td><td><code>record(String name, NetPermissionlevel level)</code></td><td>玩家权限信息；<code>encode/decode(FriendlyByteBuf)</code></td></tr>
+        <tr><td><code>NetPermissionlevel</code></td><td><code>enum { Member, Manager, Owner }</code></td><td>权限等级（声明序即升序）</td></tr>
+        <tr><td><code>PrimaryNetSwitchAction</code></td><td><code>enum { CYCLE_NEXT, SET_EXPLICIT, CLEAR_PRIMARY }</code></td><td>主网络切换动作</td></tr>
+        <tr><td><code>NetControlAction</code></td><td><code>enum { SetOwner, SetManager, RemoveManager, RemovePlayer }</code></td><td>网络控制台动作</td></tr>
+        <tr><td><code>PrimaryNetSwitchHelper</code></td><td><code>sortNetIds(Collection)</code> / <code>findNextPrimaryNetId(Collection, int)</code></td><td>主网络循环切换工具</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>2. api/storage 包 — 存储与键类型</h2>
+
+    <h3>2.1 IStackKey&lt;T&gt;（接口，实现须不可变）</h3>
+    <p>网络存储的键：`物品/流体/能量` 的统一抽象。Key = 源对象 + NBT 标签（物品还含 ForgeCaps）。</p>
+    <table>
+        <tr><th>方法</th><th>说明</th></tr>
+        <tr><td><code>ResourceLocation getTypeId()</code></td><td>注册类型 id（如 <code>beyonddimensions:stack_type/item</code>）</td></tr>
+        <tr><td><code>@Nullable KeyAmount fromStackObject(Object)</code> / <code>@Nullable IStackKey&lt;T&gt; fromSourceObject(Object, CompoundTag)</code></td><td>从堆叠/源对象构建</td></tr>
+        <tr><td><code>T getReadOnlyStack()</code> / <code>@NotNull Object getSource()</code> / <code>Class&lt;T&gt; getStackClass()</code> / <code>Class&lt;?&gt; getSourceClass()</code> / <code>String getModId()</code></td><td>对象访问（readOnly 数量恒为 1）</td></tr>
+        <tr><td><code>boolean isEmpty()</code> / <code>IStackKey&lt;T&gt; getEmpty()</code> / <code>T getEmptyStack()</code></td><td>空值语义</td></tr>
+        <tr><td><code>T copyStack()</code> / <code>T copyStackWithCount(long)</code></td><td>复制（数量固定 1 / 指定数量）</td></tr>
+        <tr><td><code>long getVanillaMaxStackSize()</code> / <code>long getCustomMaxStackSize()</code></td><td>堆叠上限（物品=min(原版, custom)；流体=64000；能量=1_000_000）</td></tr>
+        <tr><td><code>boolean hasTag(TagKey&lt;?&gt;)</code> / <code>Stream&lt;? extends TagKey&lt;?&gt;&gt; getTags()</code></td><td>标签匹配</td></tr>
+        <tr><td><code>boolean isSame(IStackKey&lt;?&gt;)</code> / <code>boolean isSameTypeSameComponents(IStackKey&lt;?&gt;)</code></td><td>模糊匹配（忽略 NBT）/ 精确匹配</td></tr>
+        <tr><td><code>serialize/deserialize(FriendlyByteBuf)</code> / <code>serializeNBT()/deserializeNBT(CompoundTag)</code></td><td>网络 / 存档序列化</td></tr>
+        <tr><td><code>@NotNull IStackRender getRender()</code> / <code>T getRenderStack()</code></td><td>客户端渲染（IStackRender 含 render/renderAmount/getCountText/getDisplayName/getTooltipLines/renderTooltip）</td></tr>
+        <tr><td><code>static serializeCommon/deserializeCommon(FriendlyByteBuf)</code> / <code>static serializeNBTCommon/deserializeNBTCommon(CompoundTag)</code></td><td>带 typeId 的通用序列化（写 {type, stack}）</td></tr>
+        <tr><td><code>hashCode() / equals(Object)</code></td><td>强制重写</td></tr>
+    </table>
+
+    <h3>2.2 KeyAmount（record）</h3>
+    <table>
+        <tr><th>成员</th><th>说明</th></tr>
+        <tr><td><code>record KeyAmount(@NotNull IStackKey&lt;?&gt; key, long amount)</code></td><td>存储的最小单位（键 + 数量）</td></tr>
+        <tr><td><code>boolean isEmpty()</code></td><td>amount ≤ 0 或 key 为空</td></tr>
+        <tr><td><code>Object toStack()</code></td><td>实际堆叠副本（超 int 截断）</td></tr>
+        <tr><td><code>static serialize/deserialize(FriendlyByteBuf)</code>、<code>serializeNBT/deserializeNBT(CompoundTag)</code></td><td>序列化（NBT 含新旧格式兼容）</td></tr>
+    </table>
+
+    <h3>2.3 StackKeyRegistry</h3>
+    <table>
+        <tr><th>方法</th><th>说明</th></tr>
+        <tr><td><code>static &lt;T&gt; void registerType(IStackKey&lt;T&gt;)</code></td><td>注册自定义键类型（重复注册抛 IllegalStateException）</td></tr>
+        <tr><td><code>static &lt;T&gt; @NotNull IStackKey&lt;T&gt; getType(ResourceLocation)</code></td><td>取类型（未注册抛 IllegalArgumentException）</td></tr>
+        <tr><td><code>static List&lt;IStackKey&lt;?&gt;&gt; getAllTypes()</code></td><td>全部已注册类型</td></tr>
+    </table>
+
+    <h3>2.4 内置键实现（impl 包）</h3>
+    <table>
+        <tr><th>类</th><th>要点</th></tr>
+        <tr><td><code>ItemStackKey</code></td><td>Key = item + tag + ForgeCaps；<code>ID = beyonddimensions:stack_type/item</code>；<code>EMPTY</code> 静态实例；<code>serializeStackCaps/deserializeStackCaps</code> 静态工具</td></tr>
+        <tr><td><code>FluidStackKey</code></td><td>Key = fluid + tag；<code>ID = beyonddimensions:stack_type/fluid</code>；<code>EMPTY</code> 静态实例；vanilla max stack = 64000</td></tr>
+        <tr><td><code>EnergyStackKey</code></td><td>单例 <code>INSTANCE</code>（能量不区分空/非空）；<code>ID = beyonddimensions:stack_type/energy</code>；源对象接受 EnergyType/Number；vanilla max stack = 1_000_000</td></tr>
+        <tr><td><code>EmptyStackKey</code></td><td>单例 <code>INSTANCE</code>；<code>ID = beyonddimensions:stack_type/empty</code>；嵌套 <code>EmptyStackType.INSTANCE</code></td></tr>
+        <tr><td><code>LongStackKey&lt;T&gt;</code></td><td>抽象基类（能量类键），getVanillaMaxStackSize 恒 Long.MAX_VALUE</td></tr>
+    </table>
+
+    <h3>2.5 handler 包 — 存储实现体系</h3>
+    <table>
+        <tr><th>类</th><th>说明</th></tr>
+        <tr><td><code>IStackHandler</code></td><td>顶层接口（getStorage/insert/extract/订阅之外的全部存储操作）</td></tr>
+        <tr><td><code>AbstractUnorderedStackHandler</code></td><td>无序存储基类（见 1.2 的 UnifiedStorage 条目——订阅 API、时间戳、TypeBucket 均在此定义）</td></tr>
+        <tr><td><code>UnorderedStackHandlerRemoveZero</code></td><td>到 0 即删键（UnifiedStorage 的直接基类）</td></tr>
+        <tr><td><code>UnorderedStackHandlerKeepZero</code></td><td>保留 0 数量键</td></tr>
+        <tr><td><code>StackHandler</code></td><td>有序固定槽位容器（箱子类，带 CODEC 与 SlotBucket）</td></tr>
+        <tr><td><code>TypeBucket</code>（嵌套）</td><td><code>size()/get(int)</code>；<code>getBucket(ResourceLocation type)</code> 按类型分组访问槽</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>3. api/dimensionnet/helper 包 — 插入/提取拦截链</h2>
+    <table>
+        <tr><th>接口</th><th>签名</th></tr>
+        <tr><td><code>BeforeInsertHandler</code>（@FunctionalInterface）</td><td><code>@NotNull BeforeInsertHandlerReturnInfo beforeInsert(@NotNull KeyAmount originalInsert, @NotNull KeyAmount tryInsert, @Nullable DimensionsNet net)</code></td></tr>
+        <tr><td><code>BeforeInsertHandlerReturnInfo</code></td><td><code>record(@NotNull KeyAmount beforeInsert, boolean cancel)</code></td></tr>
+        <tr><td><code>UnifiedStorageBeforeInsertHandler</code></td><td><code>static void addHandler(BeforeInsertHandler)</code> · <code>@NotNull static BeforeInsertHandlerReturnInfo onBeforeInsert(@Nullable KeyAmount, @Nullable DimensionsNet)</code> —— 链式调用全部 handler，任一步 cancel 则整体取消</td></tr>
+        <tr><td><code>BeforeExtractHandler</code>（@FunctionalInterface）</td><td><code>@NotNull BeforeExtractHandlerReturnInfo beforeExtract(@NotNull KeyAmount originalExtract, @NotNull KeyAmount tryExtract, @Nullable DimensionsNet net)</code></td></tr>
+        <tr><td><code>UnifiedStorageBeforeExtractHandler</code></td><td><code>static void addHandler(BeforeExtractHandler)</code> · <code>onBeforeExtract(...)</code> —— 同上</td></tr>
+    </table>
+    <div class="note"><b>Beyond Integration 用法</b>4 个插入拦截器（黑名单 / 附魔分离 / TACZ 弹药盒 / SW 弹药折算）均实现 <code>BeforeInsertHandler</code>，在 <code>commonSetup</code> 经 <code>addHandler</code> 条件注册；<code>cancel=true</code> 时物品被吞（或替换为折算后的 KeyAmount）。</div>
+</div>
+
+<div class="card">
+    <h2>4. api/event 包 — 事件体系</h2>
+    <table>
+        <tr><th>事件</th><th>构造/携带数据</th><th>触发时机</th></tr>
+        <tr><td><code>DimensionsNetEvent.Created</code></td><td><code>(DimensionsNet net)</code></td><td>网络创建完成（可放初始物资/调容量）</td></tr>
+        <tr><td><code>DimensionsNetEvent.Destroyed</code>（⚠️ 直接 extends Event，无 getNet()）</td><td><code>(int destroyedId, String netName, List&lt;KeyAmount&gt; destroyedStorage, UUID owner, Set&lt;UUID&gt; managers, Set&lt;UUID&gt; members)</code>；getter：<code>getDestroyedId()</code> 等</td><td>destroySelf()（合并/销毁器/命令触发）</td></tr>
+        <tr><td><code>DimensionsNetEvent.OwnerChanged</code></td><td><code>(net, UUID beforeOwner, UUID afterOwner)</code></td><td>setOwner</td></tr>
+        <tr><td><code>DimensionsNetEvent.MemberChanged</code></td><td><code>(net, UUID changedPlayer, MemberChangeState state)</code></td><td>成员/管理员变更</td></tr>
+        <tr><td><code>NetedItemEvent.Bound / Unbound</code></td><td><code>(int netId, @NotNull ServerPlayer, @NotNull ItemStack, @NotNull NetedItem)</code></td><td>仅 NetedItem.setNet 主动绑定/解绑</td></tr>
+        <tr><td><code>NetedBlockEvent.Bound / Unbound</code></td><td><code>(int netId, ServerLevel, BlockPos, BlockState, NetedBlock, NetedBlockEntity)</code></td><td>仅服务端；放置绑定 / 移除前解绑</td></tr>
+        <tr><td><code>MemberChangeState</code>（枚举）</td><td colspan="2"><code>JOINED_AS_MEMBER, JOINED_AS_MANAGER, LEFT_AS_MEMBER, LEFT_AS_MANAGER, KICKED_AS_MEMBER, KICKED_AS_MANAGER, PROMOTED_TO_MANAGER, DEMOTED_TO_MEMBER</code></td></tr>
+    </table>
+    <div class="note"><b>事件总线</b>全部经 <code>MinecraftForge.EVENT_BUS</code> 派发（@Mod.EventBusSubscriber(bus = FORGE) 或直接 register）。</div>
+</div>
+
+<div class="card">
+    <h2>5. common/item 包 — 网络接入物品</h2>
+    <table>
+        <tr><th>类</th><th>关键 API</th></tr>
+        <tr><td><code>NetedItem</code>（基类）</td><td><code>static DimensionsNet getNet(ItemStack)</code>（未绑定 null）· <code>static boolean setNet(ItemStack, Player)</code>（切换绑定，无权限 false，post Bound/Unbound）· <code>static int getNetId(ItemStack)</code>（NBT 键 <code>"NetId"</code>，无则 -1）· <code>static void setNetId(ItemStack, int)</code> · <code>protected validToReWrite(net, player)</code>（默认要求 isManager）</td></tr>
+        <tr><td><code>NetTerminalItem</code></td><td>便携终端：右键开 <code>DimensionsCraftMenuTerminal</code>（读 NBT <code>"craft_slots"</code> 9 格合成槽）；<code>contextMap = WeakHashMap&lt;Player, MenuTriggerContext&gt;</code>；stacksTo(1)</td></tr>
+        <tr><td><code>NetDestroyer</code></td><td>5 秒蓄力；仅当绑定网络 == 玩家主网络且玩家是<b>所有者</b>时 destroySelf</td></tr>
+        <tr><td><code>NetCreater</code></td><td>玩家无网络时创建（容量 Long.MAX_VALUE）+ 塞入 64 破碎时空结晶</td></tr>
+        <tr><td><code>NetMemberInviter / NetManagerInviter</code></td><td>implements <code>IAddNetMemberHandler</code>（<code>default boolean AddPlayerToNet(DimensionsNet, Player)</code>）</td></tr>
+        <tr><td><code>BaseMachineItem</code>（抽象）</td><td>机器物品模式 NBT 读写（RedStoneControlMode / FilterMode / Hopper 系列 / FeederMode / FuzzyMode / ReceiveMode 每组 getXxxOrDefault/setXxx/hasXxx）；<code>getFilterSlotsOrDefault/setFilterSlots</code>；子类 NetMagnetItem(36)/NetFeederItem(36)/NetRestockerItem(41) 带 capacity</td></tr>
+        <tr><td><code>XpExchangeItem</code></td><td><code>getConversionRate()</code> = 1 点经验 : 20 mb 经验流体；<code>getXpLevelPerAction</code>；速度/保留模式 NBT</td></tr>
+        <tr><td><code>MatterCompressionBall</code></td><td><code>hasIStackList/getIStackList/setIStackList(ItemStack, List&lt;KeyAmount&gt;)</code> —— 物质压缩球（入网自动拆包）</td></tr>
+        <tr><td><code>UnstableSpaceTimeFragment</code></td><td><code>getRemainingTime(ItemStack)</code></td></tr>
+    </table>
+    <div class="note"><b>Beyond Integration 使用点</b><code>NetedItem.getNetId(stack)</code> 用于哨戒臂绑定、载具绑定、TaczCraftManager 等所有"读取物品网络 ID"场景；<code>beyonddimensions:net_terminal_item</code> 注册为女仆饰品。</div>
+</div>
+
+<div class="card">
+    <h2>6. common/menu 包 — 菜单体系</h2>
+    <table>
+        <tr><th>类</th><th>关键 API</th></tr>
+        <tr><td><code>BDBaseMenu</code>（抽象基类）</td><td>公共字段：<code>final Player player</code>、<code>inventoryStartIndex/inventoryEndIndex</code>、<code>List&lt;SlotGroupSync&gt; slotGroupSyncs</code>；<code>protected addSlotGroupSync</code>；<code>customClickHandler(int slotIndex, KeyAmount, int button, boolean shiftDown)</code>；<code>protected quickMoveHandle(...)</code>；<code>writeAndSendQuickData()/readQuickDataTag(CompoundTag)</code>；<code>@IPNIgnore</code>（IPN 兼容）</td></tr>
+        <tr><td><code>DimensionsNetMenu</code></td><td>公共字段：<code>maxLines=6</code>、<code>lineData/maxLineData</code>、<code>AbstractUnorderedStackHandler storage</code>、<code>@Nullable ClientNetStorage clientNetStorage</code>、<code>boolean hasShiftDown</code>；客户端构造器 <code>(int id, Inventory, FriendlyByteBuf)</code> / 服务端构造器 <code>(MenuType, int, Inventory, AbstractUnorderedStackHandler)</code>；<code>rebuildSlots()</code> / <code>getLines/reduceLines/addLines/setLines</code> / <code>updateViewerStorage(boolean)</code> / <code>buildIndexList/loadIndexList</code> / <code>loadSearchText(String)</code>（自动小写）/ <code>stillValid → true</code></td></tr>
+        <tr><td><code>DimensionsCraftMenu</code></td><td>公共字段：<code>resultSlotIndex</code>、<code>craftSlotStartIndex/craftSlotEndIndex</code>、<code>firstCraftReturnDir</code>；<code>static slotChangedCraftingGrid(menu, level, player, craftSlots, resultSlots, resultSlotIndex)</code>（服务端结果刷新+推送）；<code>static Optional&lt;CraftingRecipe&gt; getRecipe(player, input, level)</code>（Polymorph 优先）；<code>transferRecipe(List&lt;IStackKey&gt;, List&lt;Long&gt;)</code>；<code>cleanCraftSlots(boolean toStorageFirst)</code>（服务端，关闭时清理）</td></tr>
+        <tr><td><code>DimensionsCraftMenuTerminal</code></td><td>终端菜单：关闭时把 9 格合成槽写回 NBT <code>"craft_slots"</code></td></tr>
+        <tr><td>机器菜单</td><td>NetControl / NetEnergy / NetInterfaceBase（<code>fromNetwork</code> 工厂）/ NetInterfaceSettings / NetInterfaceAccess / NetPump / NetHopper / NetFurnace / NetMagnet / NetFeeder / NetRestocker / XpExchange / PrimaryNetSwitcher</td></tr>
+    </table>
+    <div class="note"><b>Beyond Integration 使用点</b>6 个工作站菜单继承 <code>DimensionsNetMenu</code> 服务端构造器（传入 <code>net.getUnifiedStorage()</code>）；合成台复用 <code>slotChangedCraftingGrid</code> 与 <code>transferRecipe</code>（JEI 填充走 BD 的 <code>RecipeFillC2SPacket</code> 语义）。</div>
+</div>
+
+<div class="card">
+    <h2>7. common/init 包 — 注册表</h2>
+    <h3>7.1 BDItems（物品，17 项）</h3>
+    <p><code>net_creater</code>、<code>net_member_inviter</code>、<code>net_manager_inviter</code>、<code>unstable_space_time_fragment</code>、<code>stable_space_time_fragment</code>、<code>space_time_stable_frame</code>、<code>shattered_space_time_crystallization</code>、<code>space_time_bar</code>、<code>net_terminal_item</code>（便携终端）、<code>net_gifter</code>、<code>net_destroyer</code>、<code>matter_compress_ball</code>、<code>net_magnet_item</code>、<code>net_feeder_item</code>、<code>net_restocker_item</code>、<code>xp_exchange_item</code>、<code>test_item_generate</code></p>
+    <h3>7.2 BDBlocks（方块，11 项）</h3>
+    <p><code>net_control</code>、<code>net_interface</code>、<code>net_pathway</code>、<code>net_energy_pathway</code>、<code>net_terminal_block</code>、<code>net_pump_block</code>、<code>net_hopper_block</code>、<code>net_furnace_block</code>、<code>net_blast_furnace_block</code>、<code>net_smoker_block</code>、<code>dimensional_connect_block</code>（方块自动注册同名 BlockItem）</p>
+    <h3>7.3 BDMenus（菜单，14 项）</h3>
+    <p><code>dimensions_net_menu</code>、<code>dimensions_craft_menu</code>、<code>net_control_menu</code>、<code>net_energy_menu</code>、<code>net_interface_menu</code>、<code>dimensions_craft_menu_terminal</code>、<code>net_pump_menu</code>、<code>net_hopper_menu</code>、<code>net_furnace_menu</code>、<code>net_magnet_menu</code>、<code>net_feeder_menu</code>、<code>net_restocker_menu</code>、<code>xp_exchange_menu</code>、<code>primary_net_switcher_menu</code></p>
+    <h3>7.4 BDFluids / 标签 / 标签页</h3>
+    <table>
+        <tr><th>成员</th><th>说明</th></tr>
+        <tr><td><code>BDFluids.XP_FLUID</code></td><td>经验流体 <code>"xp_fluid"</code>（FluidEntry record：type/source/flowing/block/bucket/argbTint）</td></tr>
+        <tr><td><code>BDFluids.ALL</code> / <code>registerSimpleFluid(...)</code></td><td>流体列表 / 注册工具</td></tr>
+        <tr><td><code>BDFluidTags.C_EXPERIENCE</code></td><td><code>forge:experience</code> 流体标签</td></tr>
+        <tr><td><code>BDCreativeModeTabs</code></td><td><code>BEYOND_DIMENSIONS_ITEMS_TAB / BEYOND_DIMENSIONS_BLOCKS_TAB</code></td></tr>
+        <tr><td><code>api/ids</code> 包</td><td><code>BDConstants.MODID</code>、<code>BDItemIds</code>（17+AE2 模块）、<code>BDBlockIds</code>（本体 + 4 模块方块）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>8. 能力适配与包装 API（api/capability/helper）</h2>
+    <table>
+        <tr><th>类</th><th>说明</th></tr>
+        <tr><td><code>CapabilityHelper</code></td><td><code>registerUSHandler(IStackKey, Function&lt;UnifiedStorage,T&gt;)</code> / BiFunction 重载；<code>registerStackTypedHandler(IStackKey, Function&lt;StackHandler,T&gt;)</code> / BiFunction；注册表：BlockCapabilityMap / ItemCapabilityMap / USHandlerMap / CommonHandlerMap</td></tr>
+        <tr><td><code>USHandler</code> / <code>CommonHandler</code>（@FunctionalInterface）</td><td><code>Object apply(UnifiedStorage/StackHandler, CapCtx)</code>；<code>contextual(BiFunction)</code> / <code>contextless(Function)</code> 工厂</td></tr>
+        <tr><td><code>CapCtx</code></td><td><code>record(Level, BlockPos, BlockEntity)</code></td></tr>
+        <tr><td><code>IStackHandlerWrapper&lt;T&gt;</code></td><td>类型化能力包装接口（getStackInSlot/insert/extract/getCapacity/isStackValid/getContainer）</td></tr>
+        <tr><td>wrapper 实现</td><td><code>ItemHandlerWrapper</code>（包 IItemHandler）、<code>FluidHandlerWrapper</code>（包 IFluidHandler）、<code>EnergyHandlerWrapper</code>（包 IEnergyStorage）、<code>StackHandlerWrapperHelper</code></td></tr>
+        <tr><td>有序 handler</td><td><code>ItemStackTypedHandler / FluidStackTypedHandler / EnergyStackTypedHandler</code>（面向 StackHandler，实现 Forge 标准能力接口）</td></tr>
+        <tr><td>无序 handler</td><td><code>ItemUnifiedStorageHandler / FluidUnifiedStorageHandler / EnergyUnifiedStorageHandler</code>（面向 UnifiedStorage）</td></tr>
+    </table>
+    <div class="note"><b>意义</b>BD 网络通过能力注册暴露给其它模组（如 AE2/RS 管道）：对网络调用 <code>ForgeCapabilities.ITEM_HANDLER</code> 即可读写统一存储。</div>
+</div>
+
+<div class="card">
+    <h2>9. 网络协议（BDPackets）</h2>
+    <p>通道 <code>beyonddimensions:simple_channel</code>，协议版本 "1"，全部 record + 静态 encode/decode/handle。</p>
+    <table>
+        <tr><th>方向</th><th>包</th></tr>
+        <tr><td>C2S</td><td><code>OpenNetGuiPacket(UUID, NetMenuType)</code>、<code>CallSeverClickPacket(int, KeyAmount, int, boolean)</code>、<code>NetControlActionPacket(UUID, NetControlAction)</code>、<code>RecipeFillC2SPacket(List&lt;IStackKey&gt;, List&lt;Long&gt;)</code>、<code>ClickTransferCraftButtonPacket(boolean toStorage)</code>、<code>BatchTransferPacket(KeyAmount, boolean)</code>、<code>PickBlockFromNetPacket(ItemStack)</code>、<code>PutHandItemToNetPacket(InteractionHand)</code>、<code>ToggleMagnetPacket</code>、<code>OpenMagnetGuiPacket</code>、<code>OpenPrimaryNetSwitcherPacket</code>、<code>PrimaryNetSwitchActionPacket(PrimaryNetSwitchAction, int)</code>、<code>RenameNetPacket(int, String)</code></td></tr>
+        <tr><td>S2C</td><td><code>PlayerPermissionInfoPacket</code>、<code>DisorderedSlotGroupSyncPacket</code>、<code>OrderedStackTypedSlotPacket</code></td></tr>
+        <tr><td>双端</td><td><code>SetSlotDirectlyPacket(int, KeyAmount)</code>、<code>QuickDataTagPacket(CompoundTag)</code></td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>10. 其他：命令 / 配置 / 工具</h2>
+    <table>
+        <tr><th>项</th><th>说明</th></tr>
+        <tr><td>命令</td><td><code>/bdtools network setOwner|addManager|removeManager|removePlayer|...</code>（OP 2，common/command/ServerCommands.java）——注意与 Beyond Integration 自带的 <code>/bdtools</code> 前缀相同但注册的是不同子命令树</td></tr>
+        <tr><td>运行时配置（public static 字段）</td><td><code>CommonConfigRuntime</code>：uiSortButton 等 ButtonState、uiPageNum(5)、interfaceCanReceiveResource 等、interfaceUsableCapacity(27)；<code>ServerConfigRuntime</code>：fragmentTransferTime(3600)、crystalGenerateTime(600)</td></tr>
+        <tr><td>方块实体</td><td><code>NetedBlockEntity</code>：<code>getNetId()/setNetId(int)/clearNetId()/getNet()/setNetIdFromPlayer(ServerPlayer)/onNetChange()/addNetChangeTask(Runnable)</code></td></tr>
+        <tr><td>工具</td><td><code>BytebufHelper</code>（绕开部分模组网络读写注入的 ItemStack 序列化）、<code>NbtEq</code>（NBT 宽松比较，NaN 视为相等）、<code>CombinedItemHandlerWrapper</code></td></tr>
+        <tr><td>ButtonState 枚举</td><td><code>ENABLED, DISABLED, SORT_DEFAULT, SORT_CREATIVE_TAB, SORT_MAX_STACK, SORT_QUANTITY, SORT_NAME, SORT_MODID, SORT_INSERTED_TIME, SORT_MODIFIED_TIME</code></td></tr>
+        <tr><td>配方</td><td>全部为标准原版配方（crafting_shaped / smelting），无自定义配方类型；<code>BDRecipeProvider(PackOutput)</code> 供 datagen</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>11. Beyond Integration 对接速查</h2>
+    <table>
+        <tr><th>场景</th><th>推荐 API</th></tr>
+        <tr><td>取玩家主网络</td><td><code>DimensionsNet.getPrimaryNetFromPlayer(player)</code>（null 检查）</td></tr>
+        <tr><td>按 ID 取网络</td><td><code>DimensionsNet.getNetFromId(id)</code>（服务端线程）</td></tr>
+        <tr><td>成员校验</td><td><code>DimensionsNet.getAllNetFromPlayer(player).contains(net)</code>（无 isMember API）</td></tr>
+        <tr><td>权限校验</td><td><code>net.isOwner(player) / net.isManager(player)</code></td></tr>
+        <tr><td>读取物品/流体/能量数量</td><td><code>storage.getStackByKey(new ItemStackKey(stack)).amount()</code>、<code>FluidStackKey</code>、<code>EnergyStackKey.INSTANCE</code></td></tr>
+        <tr><td>插入（吞掉后放行）</td><td><code>UnifiedStorageBeforeInsertHandler.addHandler(...)</code> 返回 <code>BeforeInsertHandlerReturnInfo(empty, true)</code></td></tr>
+        <tr><td>提取（精确/模糊）</td><td><code>storage.extract(key, amount, simulate, fuzzy)</code>（amount 返回实际提取量）</td></tr>
+        <tr><td>监听存储变化</td><td>统一走 <code>BdSubscriptionHub.subscribe(net, owner, handler)</code>（本模组封装，勿直接调 BD 订阅）</td></tr>
+        <tr><td>监听网络销毁</td><td><code>DimensionsNetEvent.Destroyed</code> → <code>getDestroyedId()</code>（注意无 getNet()）</td></tr>
+        <tr><td>读取物品网络 ID</td><td><code>NetedItem.getNetId(stack)</code>（NBT 键 "NetId"，无则 -1）</td></tr>
+        <tr><td>经验流体</td><td><code>BDFluids.XP_FLUID.source().get()</code> / <code>BDFluidTags.C_EXPERIENCE</code></td></tr>
+        <tr><td>菜单继承</td><td><code>DimensionsNetMenu(MenuType, int, Inventory, AbstractUnorderedStackHandler)</code> 服务端构造器 + <code>hasShiftDown</code> 字段</td></tr>
+    </table>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 14/21 · 基于 beyonddimensions-0.7.30-1.20.1 源码（libs/）
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>35 · 版本主线矩阵（BD 0.7.30 / 0.8.x × 1.20.1 / 1.21.1）— Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>35 · 版本主线矩阵 · 按联动模组归纳</h1>
+    <div class="sub">
+        两条主线：<b>BD 0.7.30</b>（旧菜单/GUI 体系）与 <b>BD 0.8.x</b>（CompixelUI + BdPage 体系）；
+        每条线下分 <b>1.20.1</b> 与 <b>1.21.1</b> 分支 —— 共 4 个工程
+    </div>
+</header>
+
+<div class="card">
+    <h2>四个工程</h2>
+    <table>
+        <tr>
+            <th>主线</th><th>MC / 加载器</th><th>工程目录</th><th>BD 来源</th><th>界面体系</th><th>定位</th>
+        </tr>
+        <tr>
+            <td rowspan="2"><b>BD 0.7.30</b></td>
+            <td>1.20.1 / Forge 47.4.0</td>
+            <td><code>1.20.1-FORGE</code></td>
+            <td><code>maven.modrinth:6zGxpbt7</code>（0.7.30）</td>
+            <td>BD 0.7 自带 GUI + BI 自绘工作台 / Mixin 注入</td>
+            <td>正式发布线（411 Java，功能最全）</td>
+        </tr>
+        <tr>
+            <td>1.21.1 / NeoForge 21.1.238</td>
+            <td><code>1.21.1_NEOFORGE</code></td>
+            <td><code>curse.maven:beyond-dimensions-1222890:8812500</code></td>
+            <td>BD 0.7 自带 GUI + BI 自绘 / Mixin</td>
+            <td>正式发布线（Neo 移植，含 Apoth 附魔台）</td>
+        </tr>
+        <tr>
+            <td rowspan="2"><b>BD 0.8.x</b></td>
+            <td>1.20.1 / Forge 47.4.0</td>
+            <td><code>NEW_FORGE_1.20.1</code></td>
+            <td><code>NEW_BD/BeyondDimensions-1.20.1-ui-port</code>（0.8.3，本地构建）</td>
+            <td>Kotlin/Compose + <code>BdPage</code> 注入（CompixelUI 0.1.16）</td>
+            <td>适配实验线（312 Java + Kotlin，工作台/部分页面未迁）</td>
+        </tr>
+        <tr>
+            <td>1.21.1 / NeoForge 21.1.238</td>
+            <td><code>NEW_NEOFORGE_1.21.1</code></td>
+            <td><code>NEW_NEOFORGE_1.21.1/new_BD/BeyondDimensions-1.21.1</code>（0.8.0，本地构建）</td>
+            <td>Kotlin/Compose + <code>BdPage</code>（CompixelUI 0.1.12）</td>
+            <td><b>重做中</b>：仅 GUI 骨架（工作台 BdPage + 存储页接入），功能未移植</td>
+        </tr>
+    </table>
+    <div class="note">
+        <b>命名约定</b>
+        BD 0.8.x 的工程都带 <code>NEW_</code> 前缀（<code>NEW_FORGE_1.20.1</code> / <code>NEW_NEOFORGE_1.21.1</code>），
+        对应 <code>NEW_BD/</code> 下的本地 BD 源码；BD 0.7.30 的工程沿用正式命名（<code>1.20.1-FORGE</code> / <code>1.21.1_NEOFORGE</code>）。
+    </div>
+</div>
+
+<div class="card">
+    <h2>图例</h2>
+    <ul>
+        <li><b>✅</b> 有且与主线其它分支一致　<b>🟡</b> 有但实现/落点不同　<b>➖</b> 无
+            <b>➕</b> 该工程独有　<b>⚠</b> 有但缺入口/未完成　<b>?</b> 待确认</li>
+        <li>单元格里给出简短落点；完整细节：0.7.30 线见
+            <code>其他乱七八糟的/分支差异-功能覆盖清单.md</code>、<code>两分支功能实现整理.md</code>；
+            0.8.x-1.20.1 见 <code>计划项目/待办/2026-10-25-NEW_FORGE适配BD0.8.3记录.md</code>；
+            0.8.x-1.21.1 见该工程的 <code>交接文档-GUI骨架.md</code>。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>Beyond Dimensions 核心</h2>
+    <table>
+        <tr>
+            <th>功能项</th>
+            <th>0.7.30 · 1.20.1<br><code>1.20.1-FORGE</code></th>
+            <th>0.7.30 · 1.21.1<br><code>1.21.1_NEOFORGE</code></th>
+            <th>0.8.x · 1.20.1<br><code>NEW_FORGE_1.20.1</code></th>
+            <th>0.8.x · 1.21.1<br><code>NEW_NEOFORGE_1.21.1</code></th>
+        </tr>
+        <tr>
+            <td>存储插入规则（黑名单 / 桶分离 / 附魔分书 / TACZ 拆箱 / SW 折算）</td>
+            <td>✅ <code>api/UnifiedStorageBeforeInsertHandler</code></td>
+            <td>🟡 同机制（Neo API）</td>
+            <td>🟡 <code>UnifiedStorageRules.insertMatching</code> + <code>InsertPlan</code></td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>远程工作台（合成 / 铁砧 / 切石 / 砂轮 / 锻造 / 附魔 / 附魔合并）</td>
+            <td>✅ 自绘 <code>feature/crafting/Dimensions*Menu</code> + <code>client/gui</code></td>
+            <td>🟡 <code>init/Dimensions*Menu</code>（含 Apoth 附魔台）</td>
+            <td>➖ 待按 BD <code>StorageWorkbenchTypes</code> 重做</td>
+            <td>⚠ 骨架：<code>BiWorkstationMenu</code> + <code>WorkbenchPage.kt</code>（BdPage 注入，未完善）</td>
+        </tr>
+        <tr>
+            <td>网络通道（net_pathway）过滤界面</td>
+            <td>✅ <code>client/gui/NetPathwayFilterGUI</code>（BD 0.7 GUI）</td>
+            <td>✅ 同类</td>
+            <td>✅ <code>BdInventoryScreen</code> + <code>SyncSchema</code>/<code>MenuAction</code></td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>磁铁 / 漏斗 / 喂食器 / 经验棒的档位与按钮</td>
+            <td>✅ <code>client/widget/*</code> + GUI Mixin</td>
+            <td>✅ 同类</td>
+            <td>🟡 喂食器 / 经验棒已 BdPage；<b>磁铁 / 漏斗页面未做</b></td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>终端绑定</td>
+            <td>✅ <code>feature/terminal/**</code></td>
+            <td>✅ <code>mixin/NetTerminalItemMixin</code> 等</td>
+            <td>🟡 仅绑定；终端界面仍用 BD 存储界面</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>主网络同步（<code>primary_net_sync</code>）</td>
+            <td>✅ <code>PrimaryNetSyncPacket</code> + <code>core/sync</code></td>
+            <td>🟡 <code>PrimaryNetSyncPayload</code></td>
+            <td>✅ 同名包 + <code>PrimaryNetClientStorage</code></td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>HUD 布局编辑器</td>
+            <td>✅ <code>HudLayout</code> + <code>HudPositionScreen</code></td>
+            <td>✅ 同类</td>
+            <td>🟡 同名落点，接入 soul / net_sync / net_mana</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td><code>/bdtools</code> 命令</td>
+            <td>✅ 含 <code>open craft</code></td>
+            <td>✅ 同类</td>
+            <td>🟡 <code>open</code> 只剩存储 / 终端</td>
+            <td>🟡 <code>GuiCommand</code>（骨架期）</td>
+        </tr>
+        <tr>
+            <td>配置界面（Cloth Config）</td>
+            <td>✅ 完整 20 分类</td>
+            <td>✅ 同类</td>
+            <td>🟡 搬回并裁剪</td>
+            <td>➖</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Apotheosis（神化）</h2>
+    <table>
+        <tr>
+            <th>功能项</th>
+            <th>0.7.30 · 1.20.1</th>
+            <th>0.7.30 · 1.21.1</th>
+            <th>0.8.x · 1.20.1</th>
+            <th>0.8.x · 1.21.1</th>
+        </tr>
+        <tr>
+            <td>网络药水护符（<a href="36-network-potion-charm.html">36</a>）</td>
+            <td>✅ 逻辑 + <code>PotionCharmToggleBtn</code>（模式循环 / 献祭）</td>
+            <td>➖ 无（无 charm 相关类）</td>
+            <td>🟡 逻辑完整；入口由 0.8.x-1.20.1 的「网络设置」页提供（<code>NetSettingsPage</code>）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>Apoth 附魔台菜单</td>
+            <td>➖</td>
+            <td>➕ <code>init/DimensionsApothEnchantMenu</code> + <code>client/gui/DimensionsEnchantApothGUI</code></td>
+            <td>➖</td>
+            <td>➖</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>TACZ / Superb Warfare（网络弹药）</h2>
+    <table>
+        <tr>
+            <th>功能项</th>
+            <th>0.7.30 · 1.20.1</th>
+            <th>0.7.30 · 1.21.1</th>
+            <th>0.8.x · 1.20.1</th>
+            <th>0.8.x · 1.21.1</th>
+        </tr>
+        <tr>
+            <td>TACZ 网络弹药（提取 / 换弹 / 计数 / 弹药箱拆散）</td>
+            <td>✅ <code>feature/ammo/tacz</code></td>
+            <td>✅ <code>handler/Tacz*</code></td>
+            <td>🟡 弹药箱改 <code>InsertPlan.convert()</code></td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>TACZ 枪械工作台 / 合成桥</td>
+            <td>✅ <code>TaczCraftPacket</code> / <code>GunSmithTableScreenMixin</code> 等</td>
+            <td>✅ 同类</td>
+            <td>➖ 已删（BD 0.8.3 自带 JEI 集成）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>SW 网络弹药口径</td>
+            <td>✅ 虚拟计数 <code>NetworkAmmoData.networkAmmo</code></td>
+            <td>✅ 同类</td>
+            <td>🟡 散装弹药物品 + <code>SwAmmoMigration</code></td>
+            <td>➖</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Iron's Spells / Goety / Thirst / 女仆</h2>
+    <table>
+        <tr>
+            <th>功能项</th>
+            <th>0.7.30 · 1.20.1</th>
+            <th>0.7.30 · 1.21.1</th>
+            <th>0.8.x · 1.20.1</th>
+            <th>0.8.x · 1.21.1</th>
+        </tr>
+        <tr>
+            <td>铁魔法：网络魔力源 + 独立 HUD</td>
+            <td>✅ <code>feature/mana/**</code> + 3 Mixin</td>
+            <td>✅ <code>handler</code>/<code>mixin</code>（Mana 19 类）</td>
+            <td>✅ 同名落点</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>Goety：网络灵魂源（牢笼 / 仪式 / 复活 / 击杀沉淀）</td>
+            <td>✅ <code>feature/soul/**</code></td>
+            <td>✅（Soul 27 类）</td>
+            <td>✅ 同名落点</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>Goety：灵魂条第三条 HUD</td>
+            <td>✅ <code>SoulEnergyGuiMixin</code></td>
+            <td>✅</td>
+            <td>🟡 同注入点 + <code>HudLayout</code></td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>Goety：仪式环境绕过 / 结构方块由网络提供</td>
+            <td>🟡 环境绕过 ✅；结构补块 ➖</td>
+            <td>🟡 同 1.20.1 旧线</td>
+            <td>➕ 结构补块 + <code>RitualTrigger</code> 共用判定</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>Thirst / LSO：喂食器补水与进食</td>
+            <td>✅ 枚举档位 + GUI 按钮</td>
+            <td>✅（FeederThirst 8 类）</td>
+            <td>🟡 <code>FeederThirstPage</code> 四项阈值 + 流体/容器标记</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>Thirst：4 档净水 / 桶装拆解 / 熔炉提纯 / Create 灌装</td>
+            <td>✅（含 Create 数据包配方）</td>
+            <td>✅ 同类</td>
+            <td>✅ 同名落点（规则改 <code>InsertPlan</code>）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>女仆：终端佩戴 / 网络弹药 / 充能</td>
+            <td>✅ <code>maid/**</code></td>
+            <td>✅（Maid 7 类）</td>
+            <td>✅ 同名落点</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>女仆：经验棒饰品修复</td>
+            <td>✅ <code>maid/XpExchangeBauble</code></td>
+            <td>?</td>
+            <td>✅ 同（含「女仆饰品」开关说明）</td>
+            <td>➖</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Create 哨戒臂 / 载具 / JEI·EMI / RI / Jade</h2>
+    <table>
+        <tr>
+            <th>功能项</th>
+            <th>0.7.30 · 1.20.1</th>
+            <th>0.7.30 · 1.21.1</th>
+            <th>0.8.x · 1.20.1</th>
+            <th>0.8.x · 1.21.1</th>
+        </tr>
+        <tr>
+            <td>Create 哨戒机械臂（绑定 / 弹药 / 假玩家）</td>
+            <td>✅ <code>SentryArm*Mixin</code></td>
+            <td>✅ 同类</td>
+            <td>✅ 同名（注入点按 TACZ 版本选择）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>Limitless Vehicle 载具（绑定 / 弹药 / 充能 / HUD）</td>
+            <td>✅ <code>feature/vehicle/**</code></td>
+            <td>✅（Vehicle 16 类）</td>
+            <td>✅ 同名落点</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>JEI：网络数量角标 + Shift 点击取物</td>
+            <td>✅ <code>jei/BDJeiPlugin</code> + 注入内部类</td>
+            <td>✅ <code>jei/</code> 6 类</td>
+            <td>✅ 公开 API 版 + 4 个 <code>JeiIngredient*Mixin</code>；装 RI 时禁用</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>JEI：配方转移 / 侧栏避让</td>
+            <td>✅ BI 注册</td>
+            <td>✅</td>
+            <td>➖ 交回 BD 0.8.3 自带</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>EMI 快捷</td>
+            <td>✅ <code>client/EmiBdShortcuts</code></td>
+            <td>?</td>
+            <td>➖ 只有 <code>EmiBdCompat</code> 冲突守卫</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>rs_integration：自动进食按钮接管 / 让路</td>
+            <td>✅ <code>RsIntegration*Mixin</code> + <code>Compat</code></td>
+            <td>✅（4 类）</td>
+            <td>🟡 仅 <code>RsIntegrationCompat.isLoaded</code> + 入库上报 FTB 桥；RI 相关 Mixin 已删</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>Jade Provider</td>
+            <td>✅ <code>jade/</code> 6 类</td>
+            <td>✅ 1 类</td>
+            <td>✅ 6 类</td>
+            <td>➖</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>经验棒（BD XP 棒扩展）</h2>
+    <table>
+        <tr>
+            <th>功能项</th>
+            <th>0.7.30 · 1.20.1</th>
+            <th>0.7.30 · 1.21.1</th>
+            <th>0.8.x · 1.20.1</th>
+            <th>0.8.x · 1.21.1</th>
+        </tr>
+        <tr>
+            <td>自动修复（开关 / 档位 / 五范围）</td>
+            <td>✅ GUI 按钮 + <code>XpRepair*Button</code></td>
+            <td>?</td>
+            <td>✅ <code>XpRepairPage</code>（BdPage）</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>目标等级上限（<code>max_target_level</code>）</td>
+            <td>✅ <code>XpExchangeSettingsMixin</code> + 菜单/GUI 放宽</td>
+            <td>✅ <code>XpExchangeSettingsMixin</code></td>
+            <td>✅ 统一 <code>XpTargetLevels</code> + 3 个 Mixin</td>
+            <td>➖</td>
+        </tr>
+        <tr>
+            <td>给予方式（BATCH / DIRECT）</td>
+            <td>✅ <code>XpDirectGranter</code></td>
+            <td>✅ <code>XpDirectGranter</code>/<code>XpGrantHelper</code></td>
+            <td>✅ 同（页面显示当前方式）</td>
+            <td>➖</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>怎么读这张表</h2>
+    <ul>
+        <li><b>0.7.30 线</b>是两个<b>正式</b>分支：功能最全，差别主要在加载器（Forge / Neo）与 BD API 形态；1.21.1 多一个 Apoth 附魔台、少一个网络药水护符。</li>
+        <li><b>0.8.x 线</b>是围绕 BD 新界面体系的重做：<code>NEW_FORGE_1.20.1</code> 已把大部分逻辑迁完并用 <code>BdPage</code> 补齐喂食器 / 经验棒 / 通道界面；
+            <code>NEW_NEOFORGE_1.21.1</code> 目前只有工作台与存储页的 GUI 骨架，功能逐项待移植。</li>
+        <li>需要跨线搬运时注意：0.7.30 → 0.8.x 的<b>界面/菜单代码不能平移</b>（BD 0.8 换 CompixelUI，扩展点改为 <code>BdPage</code>、菜单改 <code>SyncedMenu</code>/<code>BDMenuResources</code>）；
+            插入规则从 <code>BeforeInsertHandler</code> 改为 <code>InsertPlan</code>；SW 弹药从虚拟计数改为散装物品。</li>
+    </ul>
+    <div class="warn">
+        <b>待补/待确认</b>
+        ① <code>1.21.1_NEOFORGE</code>（0.7.30 线）的经验棒修复、EMI 快捷等标 <b>?</b> 的项需核对源码；
+        ② <code>NEW_NEOFORGE_1.21.1</code> 绝大多数功能仍 <b>➖</b>，需按 0.8.x-1.20.1 的清单逐项移植；
+        ③ 0.8.x-1.20.1 的缺口见上一节说明（工作台、磁铁/漏斗页、终端、EMI、附魔书上限）；<br>能量充能 / 药水护符入口已由「网络设置」页补齐。
+    </div>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 35 · Beyond Integration v0.7.3
+</footer>
+
+</div>
+</body>
+</html>

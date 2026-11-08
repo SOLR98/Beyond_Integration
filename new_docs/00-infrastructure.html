@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00 · 基础设施解析 — Beyond Integration new_docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>00 · 基础设施解析</h1>
+    <div class="sub">
+        <code>new_docs</code> 按「基础设施 → 联动模组 → 功能实现」的顺序重写归纳；
+        本页是第一层，四工程（2 条 BD 主线 × 2 个 MC 版本）逐项对照，结论均以源码为准
+    </div>
+</header>
+
+<div class="card">
+    <h2>工程总表</h2>
+    <table>
+        <tr>
+            <th>主线</th><th>工程</th><th>MC / loader</th><th>JDK</th><th>BD 来源</th>
+            <th>界面依赖</th><th>代码量（Java / Kotlin）</th><th>Mixin（mixins / client）</th>
+        </tr>
+        <tr>
+            <td rowspan="2"><b>BD 0.7.30</b></td>
+            <td><code>1.20.1-FORGE</code></td>
+            <td>1.20.1 / Forge 47.4.0</td>
+            <td>17</td>
+            <td><code>maven.modrinth:6zGxpbt7:XXnCAMBQ</code>（0.7.30）</td>
+            <td>BD 0.7 GUI + BI 自绘</td>
+            <td>411 / 0</td>
+            <td>56 / 32 = 88</td>
+        </tr>
+        <tr>
+            <td><code>1.21.1_NEOFORGE</code></td>
+            <td>1.21.1 / NeoForge 21.1.238</td>
+            <td>21</td>
+            <td><code>curse.maven:beyond-dimensions-1222890:8812500</code></td>
+            <td>BD 0.7 GUI + BI 自绘</td>
+            <td>366 / 0</td>
+            <td>60 / 17 = 77</td>
+        </tr>
+        <tr>
+            <td rowspan="2"><b>BD 0.8.x</b></td>
+            <td><code>NEW_FORGE_1.20.1</code></td>
+            <td>1.20.1 / Forge 47.4.0</td>
+            <td>17</td>
+            <td><code>NEW_BD/BeyondDimensions-1.20.1-ui-port</code>（0.8.3，本地构建）</td>
+            <td>CompixelUI 0.1.16（<code>curse.maven:compixel:9330608</code>）+
+                Kotlin 2.4.10 / Compose 插件</td>
+            <td>343 / 4</td>
+            <td>51 / 18 = 69</td>
+        </tr>
+        <tr>
+            <td><code>NEW_NEOFORGE_1.21.1</code></td>
+            <td>1.21.1 / NeoForge 21.1.238</td>
+            <td>21</td>
+            <td><code>NEW_BD/BeyondDimensions-1.21.1</code>（0.8.9，本地构建）</td>
+            <td>CompixelUI 0.1.18 + Kotlin 2.4.10 / Compose 插件</td>
+            <td>365 / 10</td>
+            <td>54 / 18 = 72</td>
+        </tr>
+    </table>
+    <div class="note">
+        <b>命名约定与事实</b>
+        BD 0.8.x 的工程都带 <code>NEW_</code> 前缀；0.8.x 两条线的 BD 都用<b>本地源码构建</b>（Forge 走
+        <code>buildLocalBD</code> + <code>flatDir</code>/<code>fg.deobf</code>，Neo 走 <code>new_BD</code> 目录），
+        0.7.30 两条线用发布版坐标。
+    </div>
+</div>
+
+<div class="card">
+    <h2>1. 包与分层</h2>
+    <table>
+        <tr><th>工程</th><th>根包</th><th>分层</th><th>特点</th></tr>
+        <tr>
+            <td><code>1.20.1-FORGE</code></td>
+            <td><code>com.solr98.beyondintegration</code></td>
+            <td><code>api / client / command / common / compat / core / feature / handler / init / integration / jade / jei / maid / mixin / network / util</code></td>
+            <td>按功能分包 <code>feature.*</code>；<code>client/gui</code> + <code>client/widget</code> 自绘界面</td>
+        </tr>
+        <tr>
+            <td><code>1.21.1_NEOFORGE</code></td>
+            <td><code>com.solr98.beyondintegration</code></td>
+            <td>同上（<code>feature 57 / handler 41 / mixin 80 / network 42</code>）</td>
+            <td>同名镜像实现；工作台菜单改放 <code>init/Dimensions*Menu</code></td>
+        </tr>
+        <tr>
+            <td><code>NEW_FORGE_1.20.1</code></td>
+            <td><code>com.solr98.beyondintegration</code></td>
+            <td>同上 + <code>src/main/kotlin/…/client/page</code>（BdPage 页）</td>
+            <td>Kotlin 仅用于界面页（<code>BdPage</code> / 通用文本组件）与网络通路无关</td>
+        </tr>
+        <tr>
+            <td><code>NEW_NEOFORGE_1.21.1</code></td>
+            <td><b><code>com.solr98</code></b>（<code>com.solr98.bi.*</code>）</td>
+            <td><code>bi/api · bi/gui · bi/menu · bi/workbench · bi/network · block</code></td>
+            <td>骨架期新包名，目标为“BD 存储页 + BdPage 工作台”，尚无 <code>feature/handler/mixin</code> 主体</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>2. 入口与生命周期</h2>
+    <table>
+        <tr><th>工程</th><th>入口</th><th>注册时机</th><th>事件模型</th></tr>
+        <tr>
+            <td><code>1.20.1-FORGE</code></td>
+            <td><code>BeyondIntegration.java</code>（<code>@Mod</code>）</td>
+            <td>构造里注册 <code>ModFluids</code> 等 <code>DeferredRegister</code> 到 mod bus</td>
+            <td><code>@Mod.EventBusSubscriber</code> + <code>@SubscribeEvent</code>；<code>MinecraftForge.EVENT_BUS</code></td>
+        </tr>
+        <tr>
+            <td><code>1.21.1_NEOFORGE</code></td>
+            <td><code>BeyondIntegration.java</code></td>
+            <td>同上（Neo <code>DeferredRegister</code>）</td>
+            <td><code>@EventBusSubscriber</code>（Neo）；<code>NeoForge.EVENT_BUS</code></td>
+        </tr>
+        <tr>
+            <td><code>NEW_FORGE_1.20.1</code></td>
+            <td><code>BeyondIntegration.java</code></td>
+            <td>同 0.7.30-1.20.1</td>
+            <td>Forge 总线；客户端另有 <code>ClientSetup</code>（BdPage 注册、HUD、键位）</td>
+        </tr>
+        <tr>
+            <td><code>NEW_NEOFORGE_1.21.1</code></td>
+            <td><code>beyondintegration.kt</code>（Kotlin <code>@Mod object</code>）</td>
+            <td>Kotlin for Forge：<code>ModBlocks.REGISTRY.register(MOD_BUS)</code>、
+                <code>bi.menu.ModMenus.register(MOD_BUS)</code>、<code>BiWorkbenchActions.register()</code></td>
+            <td><code>@EventBusSubscriber</code> + <code>runForDist</code>（客户端/服务端分支）</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>3. 网络层</h2>
+    <table>
+        <tr><th>工程</th><th>协议形态</th><th>注册位置</th><th>备注</th></tr>
+        <tr>
+            <td><code>1.20.1-FORGE</code></td>
+            <td>Forge <code>SimpleChannel</code>（自增 ID + 手写 encode/decode/handle）</td>
+            <td><code>network/PacketHandler.register()</code></td>
+            <td>类名 <code>*Packet</code>；约 45 个</td>
+        </tr>
+        <tr>
+            <td><code>1.21.1_NEOFORGE</code></td>
+            <td>Neo <code>CustomPacketPayload</code> + <code>RegisterPayloadHandlersEvent</code> /
+                <code>PayloadRegistrar</code>（<code>network/payload/*</code>）</td>
+            <td>同名 <code>network/PacketHandler.register(RegisterPayloadHandlersEvent)</code></td>
+            <td>发送走 <code>PacketDistributor</code></td>
+        </tr>
+        <tr>
+            <td><code>NEW_FORGE_1.20.1</code></td>
+            <td>Forge <code>SimpleChannel</code>（同旧线）</td>
+            <td><code>network/PacketHandler</code>；新增 <code>Request/Set/State</code> 三组（喂食器、经验棒）</td>
+            <td>协议版本仍是 <code>"1"</code>，包 ID 自增</td>
+        </tr>
+        <tr>
+            <td><code>NEW_NEOFORGE_1.21.1</code></td>
+            <td>Neo <code>PayloadRegistrar</code>（<code>playToServer</code>）</td>
+            <td><code>bi/network/PacketRegistrar.kt</code>（<code>OpenWorkstationPayload</code>）</td>
+            <td>骨架期只有工作台入口包</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>4. 界面基座</h2>
+    <table>
+        <tr><th>工程</th><th>基座</th><th>扩展方式</th><th>代码证据</th></tr>
+        <tr>
+            <td><code>1.20.1-FORGE</code></td>
+            <td>BD 0.7 <code>DimensionsNetGUI</code> / <code>DimensionsStorageMenu</code> + BI 自绘
+                <code>AbstractContainerScreen</code></td>
+            <td>复制/包装 BD 界面 + 大量 GUI Mixin（<code>DimensionsNetGUIMixin</code>、
+                <code>FeederThirstGUIMixin</code>、<code>XpExchangeRepairGUIMixin</code> …）</td>
+            <td><code>client/gui/**</code>、<code>client/widget/**</code></td>
+        </tr>
+        <tr>
+            <td><code>1.21.1_NEOFORGE</code></td>
+            <td>同上（Neo 移植）</td>
+            <td>同名 Mixin + <code>init/Dimensions*Menu</code></td>
+            <td><code>client/</code> 72 类、<code>init/</code> 13 类</td>
+        </tr>
+        <tr>
+            <td><code>NEW_FORGE_1.20.1</code></td>
+            <td>CompixelUI：<code>BdInventoryScreen</code>（Compose）+ <code>BdPage</code> 页注入</td>
+            <td><code>BdPages.register(id, menuClass, page, placement)</code>；自定义界面直接继承
+                <code>BdInventoryScreen</code>（网络通道过滤页）</td>
+            <td><code>client/page/{FeederThirstPage,XpRepairPage,BdWrappedText}.kt</code>、
+                <code>client/gui/NetPathwayFilterScreen.kt</code>、<code>ClientSetup.registerBdPages()</code></td>
+        </tr>
+        <tr>
+            <td><code>NEW_NEOFORGE_1.21.1</code></td>
+            <td>自建 <code>BiPage</code>/<code>BiPageHost</code>（BdPage 的镜像）+ <code>BiStorageScreen</code></td>
+            <td>Mixin 进 BD 存储菜单（<code>DimensionsNetMenuMixin</code>、<code>BdPageHostMixin</code>）+
+                <code>WorkbenchPage.kt</code> 注入工作台页</td>
+            <td><code>bi/api/*</code>、<code>bi/gui/WorkbenchPage.kt</code></td>
+        </tr>
+    </table>
+    <div class="warn">
+        <b>跨线搬运红线</b>
+        0.7.30 的 GUI/菜单代码<b>不能</b>平移到 0.8.x：BD 0.8 的界面整体换成 Compixel（Kotlin/Compose），
+        菜单改 <code>SyncedMenu</code> + <code>BDMenuResources</code>（有序槽同步）/<code>BdMenuActions</code>（动作），
+        扩展点只有 <code>BdPage</code>。
+    </div>
+</div>
+
+<div class="card">
+    <h2>5. 配置体系</h2>
+    <table>
+        <tr><th>工程</th><th>服务端配置</th><th>客户端配置</th><th>说明</th></tr>
+        <tr><td><code>1.20.1-FORGE</code></td><td><code>CommandConfig</code>（<code>SERVER_SPEC</code>，155 字段）</td><td><code>ClientConfig</code>（CLIENT）</td><td><code>ConfigCommentLang</code> 提供中英注释键</td></tr>
+        <tr><td><code>1.21.1_NEOFORGE</code></td><td>同（Neo <code>ModConfigSpec</code>）</td><td><code>ClientConfig</code></td><td>同名结构</td></tr>
+        <tr><td><code>NEW_FORGE_1.20.1</code></td><td><code>CommandConfig</code>（157 字段 = 155 + 结构补块 2 项）</td><td><code>ClientConfig</code></td><td>新增 <code>goety_ritual.network_structure</code>、<code>structure_soul_cost</code></td></tr>
+        <tr><td><code>NEW_NEOFORGE_1.21.1</code></td><td>尚未建立（骨架期）</td><td>无</td><td>README/交接文档记录待补</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>6. Mixin 体系</h2>
+    <ul>
+        <li>四工程都用 <code>beyond_integration.mixins.json</code>：<code>required=false</code>、
+            <code>refmap</code>（0.7.30 与 0.8.x-1.20.1）、<code>plugin</code> 指向各自的 <code>MixinPlugin</code>（骨架工程除外）。</li>
+        <li><code>MixinPlugin.shouldApplyMixin</code> 决定是否应用：
+            按目标模组是否加载（TACZ / SW / Goety / 铁魔法 / 小女仆 / JEI / RI / JEMI…）、
+            按版本探测（TACZ 1.1.4 vs 1.1.5+、taczaddon ≥1.1.8.1、JEI 15.56 布局）、
+            按类存在性（<code>NetFeederMenu$1</code>、<code>NativeItemAtlas$Pages</code>、<code>XpExchangeScreenKt</code>）。</li>
+        <li>0.7.30-1.20.1 的 88 个 Mixin 里约 1/3 是 GUI/工作台注入；这批在 0.8.x 全部失效并删除
+            （0.8.x-1.20.1 只剩 69 个，且新增了 BdPage/图标兜底。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>7. 存储 / 同步基座</h2>
+    <table>
+        <tr><th>能力</th><th>0.7.30 两线</th><th>0.8.x-1.20.1</th><th>0.8.x-1.21.1</th></tr>
+        <tr>
+            <td>插入规则</td>
+            <td><code>UnifiedStorageBeforeInsertHandler.BeforeInsertHandler</code>（拦截后自行写）</td>
+            <td><code>UnifiedStorageRules.insertMatching</code> + <code>InsertRule.plan</code>（只出计划，
+                由事务 <code>onCommit</code> 提交）</td>
+            <td>未实现</td>
+        </tr>
+        <tr>
+            <td>主网络同步</td>
+            <td><code>PrimaryNetSyncManager</code> + <code>core/sync/{NetDataType,NetFlag}</code> +
+                客户端 <code>PrimaryNetClientStorage</code></td>
+            <td>同名 <code>PrimaryNetSyncManager</code> + <code>PrimaryNetClientStorage</code>（无 <code>core/sync</code> 的 Forge 特定同步元数据）</td>
+            <td>未实现</td>
+        </tr>
+        <tr>
+            <td>存储变更订阅</td>
+            <td><code>core/BdSubscriptionHub</code>（三线都有；按网络订阅 delta）</td>
+            <td><code>core/BdSubscriptionHub</code>（同名，药水护符/箭矢等复用）</td>
+            <td>未实现</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>8. 旧 docs 与代码的差异（本轮核对结论）</h2>
+    <table>
+        <tr><th>旧文档</th><th>旧描述</th><th>代码事实</th><th>结论</th></tr>
+        <tr>
+            <td><code>31-primary-net-sync</code></td>
+            <td>“仅 1.20.1-FORGE”</td>
+            <td><code>NEW_FORGE_1.20.1</code> 也有 <code>PrimaryNetSyncManager</code> 与
+                <code>client/PrimaryNetClientStorage</code>；JEI 角标的数据源就是它</td>
+            <td>⚠ 文档过时：0.8.x-1.20.1 已具备</td>
+        </tr>
+        <tr>
+            <td><code>20-ftb-integration</code></td>
+            <td>FTB Quests 集成</td>
+            <td><code>NEW_FORGE_1.20.1</code> 中 FTB 相关类为 <b>0</b> 个；旧两线各 1 个文件</td>
+            <td>⚠ 0.8.x-1.20.1 未移植 FTB</td>
+        </tr>
+        <tr>
+            <td><code>01-network-workstations</code> / <code>10-workstation-activation</code></td>
+            <td>七合一自绘工作台 + 献祭激活</td>
+            <td><code>NEW_FORGE_1.20.1</code> 无 <code>feature/crafting</code>、<code>feature/workstation</code>、
+                <code>NetworkActivationCommand</code></td>
+            <td>⚠ 仅 0.7.30；0.8.x 待按 <code>StorageWorkbenchTypes</code> 重做</td>
+        </tr>
+        <tr>
+            <td><code>11-net-pathway-filter</code></td>
+            <td>BD 0.7 GUI（<code>NetPathwayFilterGUI</code>）</td>
+            <td>0.8.x-1.20.1 改为 <code>BdInventoryScreen</code> Compose 页（<code>NetPathwayFilterScreen.kt</code>），
+                菜单同步链必须是 <code>commands().inventory(BDMenuResources.bind(...))</code></td>
+            <td>✅ 新线实现已更新，细节见 <code>计划项目</code> 记录</td>
+        </tr>
+        <tr>
+            <td><code>13-sw-virtual-ammo</code></td>
+            <td>SW 虚拟弹药计数</td>
+            <td>0.8.x 改为散装弹药物品（<code>SwAmmoStorage</code> + <code>SwAmmoMigration</code>）</td>
+            <td>⚠ 仅对 0.7.30 成立</td>
+        </tr>
+        <tr>
+            <td><code>12-xp-rod</code></td>
+            <td>等级上限 / 分批 / 直设</td>
+            <td>0.8.x 增加 <code>XpRepairPage</code> BdPage、<code>XpTargetLevels</code> 统一上限、
+                <code>XpExchangeTargetLimitMixin</code> + <code>XpExchangeScreenRangeMixin</code></td>
+            <td>⚠ 需补 0.8.x 的实现描述</td>
+        </tr>
+        <tr>
+            <td><code>27-terminal-enhancements</code> / <code>28-bd-modifications</code></td>
+            <td>左侧栏接管、RI 按钮、JEI 避让</td>
+            <td>0.8.x 没有 BD 0.7 侧栏可接管；JEI 改为公开 API + 遇 RI 整体禁用；
+                BD 修改项清单重写（<code>NetFeederMenuStorageMixin</code>、<code>CompixelIconGuardMixin</code> …）</td>
+            <td>⚠ 仅 0.7.30</td>
+        </tr>
+        <tr>
+            <td><code>36-network-potion-charm</code>（本轮新增）</td>
+            <td>—</td>
+            <td>0.7.30-1.20.1 有 <code>PotionCharmToggleBtn</code>；0.8.x-1.20.1 逻辑在但<b>无 UI 入口</b>；
+                0.7.30-1.21.1 <b>无</b> charm 类</td>
+            <td>✅ 已按代码写入文档</td>
+        </tr>
+        <tr>
+            <td>摘要类描述</td>
+            <td>“HUD 布局 / 存储订阅是新线统一的基础设施”</td>
+            <td>两者在 <b>0.7.30 两线</b> 就已有（<code>client/HudLayout</code>、<code>core/BdSubscriptionHub</code>），
+                并非 0.8.x 独有</td>
+            <td>⚠ 表述已更正</td>
+        </tr>
+    </table>
+    <div class="note">
+        <b>核对方法</b>
+        以上结论来自：目录/文件计数、<code>mixins.json</code> 解析、入口/注册类检索、
+        <code>javap</code> 对目标类签名核对、以及关键类的源码阅读（<code>NetworkPotionCharmHandler</code>、
+        <code>XpRepairSettings</code>、<code>NativeIconAnimation</code>、<code>SyncAction</code> 等）。
+        后续每篇功能文档都将附“代码核对”小节，标注 ✅/⚠/?。
+    </div>
+</div>
+
+<footer>
+    <a href="index.html">← 返回 new_docs 索引</a> · 00 · 基础设施
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>32 · Goety 联动（网络灵魂源）— Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>32 · Goety 联动（网络灵魂源）</h1>
+    <div class="sub">把维度网络作为与「灵魂方舟 / 图腾」并列的<b>第三种独立灵魂源</b> · 激活仪式 · 牢笼魂源（终端 / 连接宝石 / 通道替代）· 击杀沉淀 / 手动转化 · 网络复活 · HUD 第三条 · 原版仪式环境绕过 · <b>1.20.1-FORGE / 1.21.1-NEOFORGE</b></div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>把 Beyond Dimensions 的<b>维度网络</b>接成 Goety 的独立灵魂源，与「Arca（灵魂方舟，能力态）」「图腾（物品）」并列。网络魂是<b>第三个独立容器</b>：读取叠加、判够取“合计”<b>原版优先</b>（原版够则不碰网络，不足时先扣光原版、余量由网络补；吸收则先填满原版、溢出才入网）；不改变 Goety 的 <code>SEActive</code>/Arca 权威与复活语义。</p>
+    <ul>
+        <li><b>网络魂键</b>：<code>beyond_integration:stack_type/soul_energy</code>（<code>LongStackKey</code>），与机器 FE 分离。</li>
+        <li><b>激活门槛</b>：网络需先经<b>灵魂源仪式</b>激活才能作为魂源（<code>require_activation</code>，默认开）。</li>
+        <li><b>牢笼魂源</b>：牢笼内放「便携网络终端」用其绑定网络，或放「连接宝石」用绑定玩家的主网络；也可用「维度网络通道」<b>替代牢笼</b>。</li>
+        <li><b>来源</b>：击杀沉淀（事件）与手动转化（命令）。</li>
+        <li><b>复活</b>：原版（Arca/图腾）无法复活时，可由网络魂兜底（可选复活落点为方舟）。</li>
+        <li><b>HUD</b>：在原版灵魂条上方追加<b>第三条网络灵魂条</b>（条头为维度网络发生器贴图）。</li>
+        <li><b>仪式环境绕过</b>：祭坛附近满足 BD 触发方块时，原版仪式跳过环境检测。</li>
+    </ul>
+    <div class="warn"><b>1.20.1-FORGE / 1.21.1-NEOFORGE</b>：1.21.1 已适配 Goety 3.2.0（NeoForge 事件/payload）；信标光柱与 OP 激活命令暂未移植。</div>
+    <div class="note"><b>总开关</b> <code>goety_soul.enabled</code>（默认开）。关闭时不注册任何网络取魂/沉淀逻辑，行为与未安装本模组一致。</div>
+</div>
+
+<div class="card">
+    <h2>网络魂键与访问层</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>数值类型</td><td><code>feature/soul/SoulEnergyType</code></td><td><code>LongType</code>，网络内独立灵魂能量账户</td></tr>
+        <tr><td>存储键</td><td><code>feature/soul/SoulEnergyStackKey</code></td><td>唯一实例 <code>INSTANCE</code>，ID <code>beyond_integration:stack_type/soul_energy</code></td></tr>
+        <tr><td>注册</td><td><code>feature/soul/SoulKeyRegistration</code></td><td>主类 <code>FMLCommonSetupEvent</code> 注册（<b>必须先于任何网络反序列化</b>）</td></tr>
+        <tr><td>访问工具</td><td><code>feature/soul/SoulEnergyAccess</code></td><td>读 / 扣 / 充 / 上限；<code>long→int</code> 用 <code>MAX_SAFE_INT</code> 截断；扣魂以 <code>extract</code> 返回量为准</td></tr>
+        <tr><td>客户端渲染</td><td><code>client/render/SoulEnergyStackKeyRender</code></td><td>终端内该键的图标（水贴图 + 青色 tint）</td></tr>
+    </table>
+    <div class="note"><b>数值转换</b>：网络魂为 <code>long</code>，Goety 侧为 <code>int</code>；从网络读值一律经 <code>safeLongToInt</code>（<code>Integer.MAX_VALUE-1</code>）。扣魂按 <code>extract</code> 实际返回反推，不依赖预读。</div>
+</div>
+
+<div class="card">
+    <h2>激活门槛：灵魂源仪式</h2>
+    <p>本模组专属仪式类型 <code>beyond_integration:soul_source</code>，成功执行时用<b>祭坛上的便携网络终端</b>所绑定的网络激活其灵魂源（网络级、一次性、随存档持久化，复用 <code>NetworkAmmoData</code>）。</p>
+    <table>
+        <tr><th>检测项</th><th>条件</th></tr>
+        <tr><td>配方</td><td><code>type: goety:ritual</code>、<code>ritual_type: beyond_integration:soul_source</code>；<code>conditions: forge:mod_loaded goety</code></td></tr>
+        <tr><td>激活物</td><td><code>beyonddimensions:net_terminal_item</code>（便携网络终端）</td></tr>
+        <tr><td>基座材料</td><td>8× <code>space_time_stable_frame</code>、4× <code>echo_shard</code>、2× <code>cursed_cage</code>、1× <code>totem_of_souls</code>、1× <code>arca</code></td></tr>
+        <tr><td>BI 追加前置</td><td>激活物是终端且<b>已绑定网络</b>；网络存在；执行者为该网络 owner/manager/member</td></tr>
+        <tr><td>祭坛运行</td><td>牢笼有魂、<code>isValid</code>、结构（necroturgy：夜晚 + 幽匿/台阶/花盆）、魂耗、XP</td></tr>
+    </table>
+    <p>完成时 <code>SoulArkActivation.activateByRitual</code> 激活该网络，并消耗激活物（终端）。是否强制激活由 <code>goety_soul.require_activation</code> 控制（关闭则所有网络默认已激活）。</p>
+</div>
+
+<div class="card">
+    <h2>牢笼魂源与优先级</h2>
+    <p>对「诅咒牢笼（Cursed Cage）」，网络魂的取用来源（二选一）：</p>
+    <table>
+        <tr><th>来源</th><th>触发</th><th>目标网络</th></tr>
+        <tr><td>便携网络终端</td><td>牢笼内放入绑定 <code>NetId</code> 的终端</td><td>该终端绑定的网络（无需 <code>direct_main_net</code>）</td></tr>
+        <tr><td>连接宝石（<code>goety:soul_transfer</code>）</td><td>牢笼内放绑定某玩家的连接宝石 / 祭坛注入的施法者</td><td>该玩家的<b>主网络</b>（需 <code>direct_main_net</code>）</td></tr>
+        <tr><td>维度网络通道替代牢笼</td><td>祭坛<b>正下方</b>为 <code>net_pathway</code></td><td>通道<b>自身绑定</b>的网络（需 <code>pathway_cage</code>）</td></tr>
+    </table>
+    <p>牢笼 <code>getSouls</code> = 原生魂 + 网络魂；<code>decreaseSouls</code> <b>原版优先</b>：原生魂够则不碰网络，不足时先扣光原生、余量由网络补。</p>
+    <div class="note"><b>原版优先</b>：全局消耗（施法/物品/仆从/巫妖治疗等）经 <code>SEHelper</code> 并入网络魂；判够与扣取口径一致（可用量 = 原版可用 + 网络魂），实际扣取按 <b>Arca/图腾 → 网络</b> 顺序。</div>
+</div>
+
+<div class="card">
+    <h2>来源：击杀沉淀 / 手动转化</h2>
+    <table>
+        <tr><th>来源</th><th>触发</th><th>开关</th></tr>
+        <tr><td>击杀沉淀</td><td>玩家通过 Goety 获得灵魂能量（<code>ChangeSoulEnergyEvent.Gain</code>）时，<b>先填满原版容器</b>，溢出部分按比例转入网络</td><td><code>source_kill</code> / <code>kill_ratio</code>（1.0）</td></tr>
+        <tr><td>手动转化</td><td><code>/bdtools network soul convert &lt;amount&gt;</code> 把玩家自身 SE 转为网络魂</td><td><code>source_manual</code>（开）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>复活参与与折扣</h2>
+    <ul>
+        <li><b>网络复活</b>（<code>network_revive</code>，默认开）：<b>原版优先</b>——Arca/图腾能复活时不介入；原版无法复活时若原版+网络魂合计 ≥ 原版 <code>MaxSouls</code>，先扣原版、余量由网络补，然后复活。落点由 <code>network_revive_to_arca</code> 控制：有绑定方舟则传送方舟，否则原地。</li>
+        <li><b>网络折扣</b>（<code>network_discount</code>，默认关）：开启后网络补扣的余量也受 <code>soulDiscount</code>（护甲等减免）影响；关闭时网络补扣部分按原价扣。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>HUD：第三条网络灵魂条</h2>
+    <ul>
+        <li>在原版灵魂条<b>上方两行</b>追加一条独立网络魂条（中间一行留给灵魂增减弹字），仅当玩家存在可用网络魂源时显示。</li>
+        <li><b>灵魂增减弹字</b>：网络魂 <code>+N/-N</code> 始终画在网络条上方；<b>原版魂</b>弹字在 Goety ≥ 2.5.59 由其自带 <code>SoulChangePopup</code> 显示，旧版则由 BI 补显示（同位置）。青色、2 秒淡出上浮、同号快速合并；登录/换网/重同步不产生假弹字。</li>
+        <li>轨道/填充复用原版纹理；<b>条头</b>为<b>维度网络发生器</b>图集精灵（<code>beyonddimensions:item/net_creater</code>，动画由图集处理），绘制为 9×9。</li>
+        <li>数值：<b>当前值</b>原样 long；<b>上限值</b>用 <code>NumberFormatUtil.compactLarge(long)</code>（SI 前缀 K/M/G/T/P/E）。整条水平居中，过宽时从条头右缘向右扩展。</li>
+        <li>同步：服务端经 <code>SoulHudSyncHandler</code> 订阅主网络存储增量，仅灵魂变化时增量推送 <code>SoulEnergySyncPacket</code>（amount/cap 均为 long）；客户端缓存 <code>SoulEnergyState</code>。</li>
+    </ul>
+    <div class="note">HUD 上限 = <code>min(config max_souls, 网络槽容量)</code>（不再用接口方块的单键上限）。</div>
+</div>
+
+<div class="card">
+    <h2>原版仪式环境绕过（<code>[goety_ritual]</code>）</h2>
+    <p>当祭坛附近满足触发方块时，<b>跳过原版仪式的环境类检测</b>（夜晚 / 维度 / 群系 / 高度 / 天气），保留结构方块要求。覆盖 Necroturgy / Nether / End / Sky / Geoturgy / Deep / Frost / Overgrown / Storm 等。</p>
+    <table>
+        <tr><th>触发</th><th>要求</th></tr>
+        <tr><td>维度网络通道</td><td>半径内 <code>beyonddimensions:net_pathway</code> ≥ <code>pathway_count</code>（默认 1）</td></tr>
+        <tr><td>维度连接方块</td><td>半径内 <code>beyonddimensions:dimensional_connect_block</code> ≥ <code>connect_count</code>（默认 4）</td></tr>
+        <tr><td>检测半径</td><td><code>radius</code>（默认 8）</td></tr>
+    </table>
+    <p>实现：<code>RitualRequirementsMixin</code> 拦截 <code>RitualRequirements.getProperStructure</code>，<b>仅在原版返回 false</b>（环境未满足）时按触发方块重判，命中则返回 <code>getStructures(...)</code>（只忽略环境、保留结构）。</p>
+    <div class="note"><b>通道替代牢笼</b>：<code>DarkAltarBlockEntityMixin</code> 让祭坛正下方的 <code>net_pathway</code> 以其绑定网络作魂源（<code>pathway_cage</code>，默认开）；<code>tick</code> 里的取/扣魂调用被重定向，牢笼为 null 时安全走网络。</div>
+</div>
+
+<div class="card">
+    <h2>配置（COMMON）</h2>
+    <table>
+        <tr><th>分区 · 键</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>goety_soul.enabled</code></td><td>true</td><td>总开关</td></tr>
+        <tr><td><code>goety_soul.require_activation</code></td><td>false</td><td>网络需先经灵魂源仪式激活（关闭则默认已激活）</td></tr>
+        <tr><td><code>goety_soul.source_kill</code> / <code>kill_ratio</code></td><td>true / 1.0</td><td>击杀溢出沉淀及比例（原版满后才入网）</td></tr>
+        <tr><td><code>goety_soul.source_manual</code></td><td>false</td><td>允许命令手动转化</td></tr>
+        <tr><td><code>goety_soul.direct_main_net</code></td><td>true</td><td>牢笼/祭坛无符时用施法者主网络</td></tr>
+        <tr><td><code>goety_soul.max_souls</code></td><td>9223372036854775707</td><td>网络魂上限（0=不限）</td></tr>
+        <tr><td><code>goety_soul.network_discount</code></td><td>false</td><td>网络补扣部分是否参与 <code>soulDiscount</code></td></tr>
+        <tr><td><code>goety_soul.network_revive</code> / <code>network_revive_to_arca</code></td><td>true / true</td><td>网络复活及落点</td></tr>
+        <tr><td><code>goety_soul.debug</code></td><td>false</td><td>调试日志（<code>[BI-Soul]</code>）</td></tr>
+        <tr><td><code>goety_ritual.env_bypass</code></td><td>true</td><td>仪式环境绕过总开关</td></tr>
+        <tr><td><code>goety_ritual.env_bypass_soul_cost</code></td><td>100</td><td>环境绕过生效时按次额外消耗的魂量（魂不足则阻止绕过；0=关闭）</td></tr>
+        <tr><td><code>goety_ritual.pathway_count</code></td><td>5</td><td>所需网络通道数量</td></tr>
+        <tr><td><code>goety_ritual.connect_count</code></td><td>16</td><td>所需维度连接方块数量</td></tr>
+        <tr><td><code>goety_ritual.radius</code></td><td>8</td><td>触发检测半径</td></tr>
+        <tr><td><code>goety_ritual.pathway_cage</code></td><td>true</td><td>允许网络通道替代牢笼</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>命令（<code>/bdtools network soul ...</code>，OP）</h2>
+    <table>
+        <tr><th>命令</th><th>说明</th></tr>
+        <tr><td><code>get [netId]</code></td><td>查询魂量与激活状态</td></tr>
+        <tr><td><code>set &lt;amount&gt; [netId]</code> / <code>add &lt;amount&gt; [netId]</code></td><td>设置 / 增加网络魂</td></tr>
+        <tr><td><code>convert &lt;amount&gt; [netId]</code></td><td>把玩家自身 SE 转为网络魂</td></tr>
+        <tr><td><code>ark activate [netId]</code> / <code>ark reset [netId]</code></td><td>直接激活 / 重置灵魂源（不消耗物品）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>组件构成（Mixin 与类）</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>牢笼入符</td><td><code>mixin/CursedCageBlockMixin</code></td><td>把携带 NetId 的终端放入牢笼作魂符</td></tr>
+        <tr><td>牢笼取/扣魂</td><td><code>mixin/CursedCageBlockEntityMixin</code></td><td><code>getSouls</code> 加网络魂、<code>decreaseSouls</code> 原版优先（不足补网络）</td></tr>
+        <tr><td>祭坛</td><td><code>mixin/DarkAltarBlockEntityMixin</code></td><td>捕获施法者；通道替代牢笼；主网络回退</td></tr>
+        <tr><td>玩家可用魂</td><td><code>mixin/SEHelperMixin</code></td><td>读取叠加、判够取合计、扣取原版优先（含 Goety ≥ 2.5.59 新增 <code>decreaseSoulsNoDiscount</code> 入口的兼容注入）</td></tr>
+        <tr><td>网络复活</td><td><code>mixin/SoulReviveMixin</code></td><td>原版无法复活时由网络兜底</td></tr>
+        <tr><td>仪式环境绕过</td><td><code>mixin/RitualRequirementsMixin</code></td><td>触发器命中时跳过环境检测</td></tr>
+        <tr><td>HUD</td><td><code>mixin/SoulEnergyGuiMixin</code> · <code>handler/SoulHudSyncHandler</code> · <code>network/SoulEnergySyncPacket</code> · <code>client/SoulEnergyState</code> · <code>client/hud/SoulChangePopups</code></td><td>第三条网络灵魂条、同步与网络魂增减弹字</td></tr>
+        <tr><td>激活</td><td><code>feature/soul/SoulArkActivation</code> · <code>ModRitualFactories</code> · <code>SoulSourceRitual</code></td><td>仪式工厂与网络级激活</td></tr>
+        <tr><td>来源</td><td><code>feature/soul/SoulGainHandler</code> · <code>SoulManualConvert</code> · <code>NetworkSoulSource</code></td><td>击杀沉淀 / 手动转化 / 网络解析</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/feature/soul/SoulEnergyAccess.java<span class="fdesc">网络魂读/扣/充工具</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/soul/SoulEnergyStackKey.java<span class="fdesc">网络灵魂能量键</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/soul/SoulKeyRegistration.java<span class="fdesc">键注册（先于反序列化）</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/soul/SoulSourceRitual.java<span class="fdesc">灵魂源激活仪式</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/soul/SoulArkActivation.java<span class="fdesc">网络级激活/重置</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/soul/NetworkSoulSource.java<span class="fdesc">主网络解析</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/DarkAltarBlockEntityMixin.java<span class="fdesc">祭坛通道替代牢笼 / 主网络回退</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/RitualRequirementsMixin.java<span class="fdesc">仪式环境绕过</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/SoulEnergyGuiMixin.java<span class="fdesc">第三条网络灵魂条</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/hud/SoulChangePopups.java<span class="fdesc">网络/原版魂 +/- 弹字</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/handler/SoulHudSyncHandler.java<span class="fdesc">HUD 增量同步</span></li>
+        <li>src/main/resources/data/beyond_integration/recipes/soul_source_ritual.json<span class="fdesc">激活仪式配方</span></li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 联动篇 · 1.20.1-FORGE / 1.21.1-NEOFORGE · Beyond Integration v0.7.3
+</footer>
+
+</div>
+</body>
+</html>

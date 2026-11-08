@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>31 · 主网络同步统一机制 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>31 · 主网络同步统一机制</h1>
+    <div class="sub">配置驱动选择性推送 · 客户端全量镜像接口 · 条件式取数 · 异常重同步 · 仅 1.20.1-FORGE</div>
+</header>
+
+<div class="card">
+    <h2>一、目标</h2>
+    <p>把「主网络库存 / 状态」的同步从 <b>JEI 专属</b>升级为<b>通用同步设施</b>：</p>
+    <ul>
+        <li>服务端按配置 <code>scope</code> <b>选择性推送</b>主网络数据；</li>
+        <li>客户端维护一份<b>镜像</b>（接口化，可供任意功能读取）；</li>
+        <li>各业务<b>条件式取数</b>：范围覆盖则读镜像，否则回退各自独立通道；</li>
+        <li>异常时客户端<b>请求重新同步</b>，自动恢复一致。</li>
+    </ul>
+    <div class="note"><b>一句话</b>配置在服务端决定“推什么”，包内 <code>typeMask</code> 声明“推了什么”，业务据此条件取数；默认关闭时零成本、行为不变。</div>
+</div>
+
+<div class="card">
+    <h2>二、设计原则与边界</h2>
+    <h3>原则</h3>
+    <ul>
+        <li>配置为权威来源在服务端；客户端以「实际收到的类型位」为准，不重复读本地配置做可用性判断，避免同步竞态。</li>
+        <li>默认 <code>primary_net_sync=false</code> + <code>scope=ITEMS</code> ⇒ <b>零成本、行为不变</b>。</li>
+        <li>服务端业务<b>永不依赖</b>客户端镜像（S2C 单向）。</li>
+        <li>客户端各业务缓存<b>仍独立</b>；镜像只作共享的<b>只读派生源</b>。</li>
+        <li>客户端镜像 <code>extends AbstractUnorderedStackHandler</code> ⇒ 天然是 BD <code>IStackHandler</code>，复用全部现有只读扫描逻辑。</li>
+        <li>所有发送/刷新延迟到 tick 合并；回调（BD delta）只置脏，不发包、不扫全表。</li>
+    </ul>
+    <h3>边界</h3>
+    <ul>
+        <li>Goety SE <b>永不共享</b>（不在网络）。</li>
+        <li>服务端扣弹 / 取魂等判定继续直读 <code>UnifiedStorage</code>，不做条件式。</li>
+        <li>玩家背包库存客户端本地即有，<b>不参与同步</b>。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>三、类型与配置</h2>
+    <h3>同步范围 <code>PrimaryNetSyncScope</code></h3>
+    <table>
+        <tr><th>取值</th><th>含义</th><th>覆盖 <code>NetDataType</code></th></tr>
+        <tr><td><code>ITEMS</code></td><td>仅物品键（= 现状，默认）</td><td>ITEM</td></tr>
+        <tr><td><code>STORAGE</code></td><td>所有 <code>IStackKey</code>（含能量 / 灵魂）</td><td>ITEM, ENERGY, SOUL</td></tr>
+        <tr><td><code>STORAGE_EXT</code></td><td>storage 全键 + <code>NetworkAmmoData</code> 扩展</td><td>全部</td></tr>
+    </table>
+    <h3>数据类型 <code>NetDataType</code> / 标记 <code>NetFlag</code></h3>
+    <table>
+        <tr><th>NetDataType</th><th>数据</th><th>载体</th></tr>
+        <tr><td><code>ITEM</code></td><td>物品计数</td><td><code>ItemStackKey</code>（storage）</td></tr>
+        <tr><td><code>ENERGY</code></td><td>网络 FE</td><td><code>EnergyStackKey</code>（storage）</td></tr>
+        <tr><td><code>SOUL</code></td><td>灵魂量</td><td><code>SoulEnergyStackKey</code>（storage）</td></tr>
+        <tr><td><code>EXT_AMMO</code></td><td>虚拟弹药 / 创造弹药</td><td><code>NetworkAmmoData</code></td></tr>
+        <tr><td><code>EXT_FLAGS</code></td><td>网络名 / 开关 / 激活集</td><td><code>NetworkAmmoData</code></td></tr>
+    </table>
+    <h3>配置项</h3>
+    <table>
+        <tr><th>键</th><th>类型</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>primary_net_sync</code></td><td>bool</td><td><code>false</code></td><td>主网络同步总开关（已由 <code>primary_net_jei_sync</code> 改名）</td></tr>
+        <tr><td><code>primary_net_sync_scope</code></td><td>enum</td><td><code>ITEMS</code></td><td>同步范围</td></tr>
+    </table>
+    <div class="warn"><b>不保留旧配置</b>配置键改名后，旧 <code>primary_net_jei_sync</code> 的已填值不再读取（回退默认 false）；<b>不做迁移</b>。</div>
+</div>
+
+<div class="card">
+    <h2>四、端到端数据流</h2>
+<pre><code>配置(enabled + scope) ──推送──▶ SyncConfigClient(客户端运行时配置)
+                                      │
+服务端 PrimaryNetSyncManager ──按 scope 过滤──▶ PrimaryNetSyncPacket(typeMask)
+                                      │
+客户端 PrimaryNetClientStorage.apply(...) ──▶ 镜像(availableTypes = typeMask)
+                                      │
+业务 ── SharedNetData.available(type) ? 读镜像 : 回退独立通道
+                                      ▲
+                        异常 ──▶ SyncResyncRequestPacket(C2S) ──▶ 服务端重建基线全量重推</code></pre>
+</div>
+
+<div class="card">
+    <h2>阶段 0 · 配置模型</h2>
+    <h3>内容</h3>
+    <ul>
+        <li>新增枚举 <code>PrimaryNetSyncScope { ITEMS, STORAGE, STORAGE_EXT }</code>，含 <code>covers(NetDataType)</code>。</li>
+        <li>新增配置 <code>primary_net_sync_scope</code>（默认 <code>ITEMS</code>）与 accessor <code>primaryNetSyncScope()</code>。</li>
+    </ul>
+    <h3>实现方法（<code>CommandConfig.java</code>）</h3>
+<pre><code>public enum PrimaryNetSyncScope {
+    ITEMS, STORAGE, STORAGE_EXT;
+    public boolean covers(NetDataType t) { /* ITEMS→ITEM；STORAGE→+ENERGY/SOUL；EXT→全部 */ }
+}
+
+// ServerConfig
+public final ForgeConfigSpec.EnumValue&lt;PrimaryNetSyncScope&gt; primaryNetSyncScope;
+primaryNetSyncScope = builder
+    .comment(ConfigCommentLang.comment("bd_tweaks.primary_net_sync_scope"))
+    .defineEnum("primary_net_sync_scope", PrimaryNetSyncScope.ITEMS);
+public static PrimaryNetSyncScope primaryNetSyncScope() { return SERVER.primaryNetSyncScope.get(); }</code></pre>
+    <h3>要求</h3>
+    <ul>
+        <li>不做旧键迁移；语言键（en/zh）同步补 <code>bd_tweaks.primary_net_sync_scope</code>。</li>
+        <li>默认值不得改变现有行为。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>阶段 1 · 配置推送链路</h2>
+    <h3>内容</h3>
+    <p>服务端把运行时配置显式推给客户端，作为后续类型位 / 条件取数的权威依据。</p>
+    <h3>实现方法</h3>
+    <ul class="files">
+        <li>network/SyncConfigSyncPacket.java <span class="fdesc">S2C：boolean enabled + int scopeOrdinal</span></li>
+        <li>client/SyncConfigClient.java <span class="fdesc">客户端运行时配置缓存：isActive() / scope() / reset()</span></li>
+        <li>handler/NetworkSyncConfigPusher.java <span class="fdesc">登录 / 配置重载时推送（@Mod.EventBusSubscriber FORGE）</span></li>
+    </ul>
+<pre><code>public final class SyncConfigClient {
+    private static volatile boolean enabled = false;
+    private static volatile PrimaryNetSyncScope scope = PrimaryNetSyncScope.ITEMS;
+    public static void set(boolean e, PrimaryNetSyncScope s) { enabled = e; scope = s; }
+    public static boolean isActive() { return enabled; }
+    public static PrimaryNetSyncScope scope() { return scope; }
+    public static void reset() { enabled = false; scope = PrimaryNetSyncScope.ITEMS; }
+}</code></pre>
+    <h3>要求</h3>
+    <ul>
+        <li>与是否安装 JEI <b>无关</b>（无条件注册 / 推送）。</li>
+        <li>配置包须早于首个 <code>PrimaryNetSyncPacket</code> 发出（登录同 tick 先发配置）。</li>
+        <li>断线时 <code>SyncConfigClient.reset()</code>；<code>PacketHandler.register()</code> 注册该包。</li>
+        <li>包极小（2 字段），无性能负担。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>阶段 2 · 服务端按 scope 选择性推送</h2>
+    <h3>内容</h3>
+    <p><code>PrimaryNetSyncManager</code> 按 <code>scope</code> 过滤；包携带 <code>typeMask</code>；配置变更重建基线重推。</p>
+    <h3>实现方法</h3>
+    <ul>
+        <li><code>PrimaryNetSyncPacket</code> 增加 <code>int typeMask</code>（<code>1 &lt;&lt; NetDataType.ordinal()</code>），<code>clear</code> 包携带 <code>typeMask=0</code>。</li>
+        <li><code>flush</code> 过滤：</li>
+    </ul>
+<pre><code>for (KeyAmount ka : storage.getStorage()) {
+    if (ka.isEmpty() || !scope.covers(NetDataType.of(ka.key()))) continue;
+    now.merge(ka.key(), ka.amount(), Long::sum);
+}</code></pre>
+    <ul>
+        <li>配置变更：配置重载回调中对 <code>SESSIONS</code> 全部 <code>dirtyFull=true</code>、<code>lastSent.clear()</code>，按新 scope 全量重推，并推送新配置包。</li>
+    </ul>
+    <h3>要求</h3>
+    <ul>
+        <li><code>flush</code> 仍遵循“仅脏 / 有 pending 才发”。</li>
+        <li><code>typeMask</code> 必须与实际打包内容一致（否则客户端落库错位）。</li>
+        <li>空闲仍零发包，不因 scope 改变新增每 tick 开销。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>阶段 3 · 客户端镜像接口与实现</h2>
+    <h3>3a 接口与枚举</h3>
+<pre><code>public interface ClientNetworkMirror {          // 只读：业务消费端
+    boolean hasNetwork();
+    int netId();
+    boolean supports(NetDataType type);         // = typeMask 含该类型
+    int version();
+    long getCount(IStackKey&lt;?&gt; key);
+    java.util.OptionalLong getAmount(NetDataType numericType);  // ENERGY / SOUL
+    Map&lt;String, Long&gt; getExtAmmo();             // EXT_AMMO
+    String getNetworkName();
+    boolean getFlag(NetFlag flag);
+    void clear();
+}
+
+public interface ClientMirrorSink {             // 写入：网络包 handler
+    void apply(boolean clear, boolean hasNetwork, int netId, int typeMask,
+               Map&lt;IStackKey&lt;?&gt;, Long&gt; counts,
+               Map&lt;String, Long&gt; extAmmo, String name, long flagsBits);
+    void clearAll();
+}</code></pre>
+    <h3>3b 实现（兼容现有静态调用）</h3>
+<pre><code>public final class PrimaryNetClientStorage
+        extends AbstractUnorderedStackHandler          // = IStackHandler
+        implements ClientNetworkMirror, ClientMirrorSink {
+    public static final PrimaryNetClientStorage INSTANCE = new PrimaryNetClientStorage();
+    private int availableTypes = 0;   // typeMask
+    private int netId = -1; private boolean hasNetwork = false; private int version = 0;
+
+    private PrimaryNetClientStorage() {
+        super(ZeroPolicy.REMOVE_ON_ZERO, UiTimestampPolicy.NONE);
+    }
+    @Override public void onChange() { /* no-op：镜像不触发 BD 事件回环 */ }
+
+    // 旧静态方法委托 INSTANCE（JEI 助手零改动）
+    public static long getCount(IStackKey&lt;?&gt; k) { return INSTANCE.getCount(k); }
+    public static boolean hasNetwork() { return INSTANCE.hasNetwork(); }
+}</code></pre>
+    <h3>3c apply 语义</h3>
+    <ul>
+        <li>落库范围内类型；<b>清除</b> <code>availableTypes</code> 中被移除的类型数据（scope 降级）；<code>version++</code>。</li>
+    </ul>
+    <h3>要求</h3>
+    <ul>
+        <li>继承 <code>AbstractUnorderedStackHandler</code> ⇒ 具备 <code>getStackByKey / getBucket / getStorage</code>，直接兼容 <code>scanNetworkItems</code>、<code>countSubstitutable(IStackHandler, …)</code>。</li>
+        <li><code>onChange()</code> 必须 no-op（避免镜像内部写触发事件 / 脏标记）。</li>
+        <li>旧静态 API 签名与行为保持不变；仅主线程访问。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>阶段 4 · 条件式取数 API</h2>
+    <h3>实现方法</h3>
+<pre><code>public final class SharedNetData {
+    private static ClientNetworkMirror mirror() { return PrimaryNetClientStorage.INSTANCE; }
+    public static boolean available(NetDataType t) {
+        return mirror().hasNetwork() &amp;&amp; mirror().supports(t);
+    }
+    public static OptionalLong soul(int netId)   { return available(SOUL)   ? mirror().getAmount(SOUL)   : OptionalLong.empty(); }
+    public static OptionalLong energy(int netId) { return available(ENERGY) ? mirror().getAmount(ENERGY) : OptionalLong.empty(); }
+    public static Optional&lt;Map&lt;String,Long&gt;&gt; extAmmo() { return available(EXT_AMMO) ? Optional.of(mirror().getExtAmmo()) : Optional.empty(); }
+    public static long itemCount(IStackKey&lt;?&gt; key) { return mirror().getCount(key); }
+}</code></pre>
+    <h3>要求</h3>
+    <ul>
+        <li><code>available</code> 以服务端实际推送的类型位为准（不重新读本地配置）。</li>
+        <li>只读、无副作用。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>阶段 5 · 业务接入</h2>
+    <p>统一模式：<code>available(type) ? 读镜像 : 原通道</code>。</p>
+    <table>
+        <tr><th>业务</th><th>类型</th><th>实现方法</th></tr>
+        <tr><td>Soul HUD</td><td>SOUL</td><td>命中读镜像；否则 <code>SoulEnergyState</code></td></tr>
+        <tr><td>SW HUD</td><td>ENERGY + EXT_AMMO</td><td>命中读镜像；否则 <code>SuperbAmmoCache</code></td></tr>
+        <tr><td>TACZ HUD</td><td>ITEM + EXT_AMMO</td><td>物理弹药读 <code>mirror.getCount(ItemStackKey)</code>；创造箱走 EXT_AMMO，否则 <code>TaczAmmoCache</code></td></tr>
+        <tr><td>PotionCharm / 开关</td><td>EXT_FLAGS</td><td><code>mirror.getFlag(...)</code>；否则原 Sync 通道</td></tr>
+        <tr><td><b>TACZ 合成库存</b></td><td>ITEM（+流体）</td><td>方案 A，见下</td></tr>
+    </table>
+
+    <h3>阶段 5b · TACZ 合成库存（方案 A）</h3>
+    <ul>
+        <li>重构 <code>RequestNetworkItemsPacket.scanNetworkItems(DimensionsNet)</code> →
+            <code>scanNetworkItems(IStackHandler storage, Map&lt;String,List&lt;TaczIngredient&gt;&gt; index)</code>。
+            服务端传 <code>net.getUnifiedStorage()</code>，客户端传 <code>PrimaryNetClientStorage.INSTANCE</code>。</li>
+        <li><code>buildIndex</code> 改为接受 <code>RecipeManager</code>（客户端本地配方，已同步）。</li>
+        <li>桶装折算直接用现成 <code>BucketFluidHelper.countSubstitutable(IStackHandler, …)</code>。</li>
+        <li>背包材料仍取本地 <code>player.getInventory()</code>（<b>不参与同步</b>）。</li>
+        <li>条件：<code>available(ITEM)</code> 时客户端重算；否则回退现有 <code>RequestNetworkItemsPacket</code> 请求通道。</li>
+    </ul>
+    <div class="note"><b>关键</b><code>scanNetworkItems</code> 逻辑<b>单份</b>，两端同一份；NBT partial / 桶装折算语义与服务端一致。TACZ 配方由 datapack 同步，客户端 <code>RecipeManager</code> 已含 <code>GunSmithTableRecipe</code>。</div>
+
+    <h4>配方索引：预构建缓存（参考 JEI <code>RecipeMap</code>）</h4>
+    <p>JEI 的做法：<code>RecipeManagerInternal</code> 构造 <code>RecipeMap</code>，在配方加载后遍历配方，对每个原料取 <code>getUniqueId(ingredient, UidContext.Recipe)</code>，建立「<b>原料 uid → 配方类型</b>」反向索引并常驻内存，配方重载时重建，查询 O(1)。</p>
+    <p>BI 当前 <code>TACZ_INDEX</code> 为「请求时惰性构建 + 校验重建」，首个请求会承担构建开销。改为<b>预构建缓存</b>：</p>
+    <ul class="files">
+        <li>feature/ammo/tacz/TaczRecipeIndex.java <span class="fdesc">build(RecipeManager) / isReady() / 查询；索引结构参考 RecipeMap</span></li>
+    </ul>
+    <ul>
+        <li><b>客户端</b>：监听 <code>RecipesUpdatedEvent</code>，配方就绪后一次性构建并缓存。</li>
+        <li><b>服务端</b>：监听 <code>OnDatapackSyncEvent</code>（数据包 / 配方同步后）构建并缓存。</li>
+        <li><code>scanNetworkItems</code> / <code>buildIndex</code> 直接读缓存；配方重载时由事件重建；未就绪时回退（惰性构建或返回空）。</li>
+    </ul>
+
+    <h3>要求</h3>
+    <ul>
+        <li>逐业务独立可回滚；未覆盖类型必须走原通道且行为与现状一致。</li>
+        <li>不引入新的每 tick 轮询（沿用事件 / 订阅 + tick 合并）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>阶段 6 · 异常恢复（重新同步）</h2>
+    <h3>异常分类</h3>
+    <table>
+        <tr><th>类别</th><th>判定</th><th>处理</th></tr>
+        <tr><td>A. 协议 / 时序</td><td><code>typeMask</code> 含 <code>SyncConfigClient.scope()</code> 之外的位；未知类型位；解码异常</td><td>resync + 配置重推</td></tr>
+        <tr><td>B. 状态不一致</td><td>总开关开启但镜像长时间 <code>hasNetwork()==false</code>；业务查询发现应有却缺</td><td>resync</td></tr>
+        <tr><td>C. 版本停滞</td><td>镜像 <code>version</code> 长时间不变但预期应有变化</td><td>谨慎（易误判），仅超长阈值触发</td></tr>
+    </table>
+
+    <h3>协议：C2S 请求包</h3>
+<pre><code>public final class SyncResyncRequestPacket {
+    private final int reason;  // 0=unknown,1=config_mismatch,2=state_missing
+    public static void handle(msg, ctx) {
+        ServerPlayer p = ctx.get().getSender();
+        if (p != null) PrimaryNetSyncManager.requestResync(p, msg.reason);
+    }
+}</code></pre>
+
+    <h3>服务端处理（幂等 + 双向限流）</h3>
+<pre><code>private static final Map&lt;UUID, Long&gt; LAST_RESYNC = new HashMap&lt;&gt;();
+private static final long RESYNC_COOLDOWN = 100; // tick
+
+public static void requestResync(ServerPlayer player, int reason) {
+    long now = player.getServer().getTickCount();
+    Long last = LAST_RESYNC.get(player.getUUID());
+    if (last != null &amp;&amp; now - last &lt; RESYNC_COOLDOWN) return;   // 服务端防刷
+    LAST_RESYNC.put(player.getUUID(), now);
+
+    Session s = SESSIONS.get(player.getUUID());
+    if (s != null) {                       // 已绑定：下一 tick 全量重推
+        s.dirtyFull = true; s.pending.clear(); s.lastSent.clear();
+    } else {                               // 未绑定：下 tick 重新 bind
+        PENDING.remove(player.getUUID());
+    }
+    NetworkSyncConfigPusher.push(player);  // 顺带重推配置，保证 scope 一致
+}</code></pre>
+
+    <h3>客户端触发（本地冷却）</h3>
+<pre><code>public final class SyncResyncClient {
+    private static long lastRequestTick = Long.MIN_VALUE;
+    private static final long COOLDOWN = 100; // tick
+    public static void request(int reason) {
+        long now = clientTick();
+        if (now - lastRequestTick &lt; COOLDOWN) return;
+        lastRequestTick = now;
+        PacketHandler.sendToServer(new SyncResyncRequestPacket(reason));
+    }
+}</code></pre>
+    <ul>
+        <li><code>PrimaryNetClientStorage.apply</code>：<code>typeMask</code> 出现超出 <code>SyncConfigClient.scope()</code> 的位 → <code>request(CONFIG_MISMATCH)</code>。</li>
+        <li>镜像消费方：总开关开启且超阈值仍无网络数据 → <code>request(STATE_MISSING)</code>。</li>
+        <li>解码 / 未知类型异常捕获处 → <code>request(UNKNOWN)</code>。</li>
+    </ul>
+
+    <h3>要求</h3>
+    <ol>
+        <li>双向限流（客户端预检 + 服务端防刷），冷却先固定 100t。</li>
+        <li>resync 幂等：仅重置客户端镜像来源的基线，不改服务端权威数据，不新增订阅。</li>
+        <li>触发保守：仅可判定异常；不得因“恰好无变化”触发。</li>
+        <li>resync 响应<b>总是</b>附带重推 <code>SyncConfigSyncPacket</code>。</li>
+        <li>可选：debug 开关下记录 resync 原因用于定位。</li>
+        <li><code>enabled=false</code> 时不发 resync。</li>
+    </ol>
+</div>
+
+<div class="card">
+    <h2>七、接口 / 新增文件清单</h2>
+    <ul class="files">
+        <li>core/sync/NetDataType.java <span class="fdesc">ITEM / ENERGY / SOUL / EXT_AMMO / EXT_FLAGS</span></li>
+        <li>core/sync/NetFlag.java <span class="fdesc">ENCHANT_SEPARATION / ENERGY_CHARGE / POTION_CHARM_MODE …</span></li>
+        <li>client/mirror/ClientNetworkMirror.java <span class="fdesc">只读镜像接口</span></li>
+        <li>client/mirror/ClientMirrorSink.java <span class="fdesc">镜像写入接口</span></li>
+        <li>client/mirror/SharedNetData.java <span class="fdesc">条件式取数入口</span></li>
+        <li>client/SyncConfigClient.java <span class="fdesc">客户端运行时配置缓存</span></li>
+        <li>client/SyncResyncClient.java <span class="fdesc">异常重同步请求（限流）</span></li>
+        <li>network/SyncConfigSyncPacket.java <span class="fdesc">S2C 配置推送</span></li>
+        <li>network/SyncResyncRequestPacket.java <span class="fdesc">C2S 重同步请求</span></li>
+        <li>handler/NetworkSyncConfigPusher.java <span class="fdesc">登录 / 重载推送</span></li>
+        <li>network/PrimaryNetSyncPacket.java <span class="fdesc">修改：新增 typeMask</span></li>
+        <li>network/PrimaryNetSyncManager.java <span class="fdesc">修改：scope 过滤 + requestResync</span></li>
+        <li>client/PrimaryNetClientStorage.java <span class="fdesc">改造：单例 + 实现两接口 + 继承 IStackHandler</span></li>
+        <li>CommandConfig.java <span class="fdesc">新增 scope 枚举 / 配置 / accessor</span></li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>八、横切要求</h2>
+    <h3>性能</h3>
+    <ul>
+        <li>空闲：0 回调、0 发包（仅 <code>dirty</code> 布尔短路）。</li>
+        <li>变化：网络级差分一次 + O(订阅者) 发包；<code>scope=ITEMS</code> 时成本同现状。</li>
+        <li>大 <code>scope</code> 仅在显式启用时产生带宽 / 内存开销。</li>
+    </ul>
+    <h3>兼容</h3>
+    <ul>
+        <li>默认配置下所有现有功能行为不变。</li>
+        <li><code>PrimaryNetClientStorage</code> 旧静态 API 保留。</li>
+        <li>旧配置键不迁移。</li>
+    </ul>
+    <h3>线程</h3>
+    <ul>
+        <li>镜像 / 会话仅主线程访问；BD delta 回调只置 <code>volatile</code> 脏位。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>九、验收清单</h2>
+    <ol>
+        <li><code>compileJava</code> 通过。</li>
+        <li>登录即收配置包；重载配置客户端同步更新。</li>
+        <li>切 <code>scope</code>：服务端推送内容、客户端 <code>supports</code>、业务取数三者一致。</li>
+        <li><code>enabled=false</code> / <code>ITEMS</code>：与当前版本无差异（回归）。</li>
+        <li>TACZ 合成库存：客户端重算结果与服务端请求通道一致（数量、NBT partial、桶装折算）。</li>
+        <li>人为制造 <code>CONFIG_MISMATCH</code> → 客户端自动请求并恢复一致；连续异常被双向限流。</li>
+    </ol>
+</div>
+
+<div class="card">
+    <h2>十、风险与回滚</h2>
+    <ul>
+        <li><b>高风险</b>：阶段 2 / 3（BD Any 语义、清空路径、越界清理）；阶段 5b（聚合逻辑两端一致）。</li>
+        <li><b>策略</b>：每阶段独立提交、独立验证、可单独回滚；阶段 1 / 3a / 3b 为行为不变的纯新增 / 重构，可先行合入。</li>
+        <li><b>最大风险点</b>：JEI 同步依赖 Any 做全量重扫——Hub 扩展 / typeMask 改写若有误，会出现“清空 / 大量删除后客户端不刷新”的静默回归，需重点回归。</li>
+    </ul>
+</div>
+
+<footer>
+    Beyond Integration 文档 · 31 · 主网络同步统一机制 · <a href="index.html">返回索引</a>
+</footer>
+
+</div>
+</body>
+</html>

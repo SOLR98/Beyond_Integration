@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02 · SW 虚拟弹药系统 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>02 · SW 虚拟弹药系统（Superb Warfare）</h1>
+    <div class="sub">弹药入网折算为虚拟计数、射击从网络扣弹、查询缓存 + 差值推送、扣弹即时更新 HUD</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>Superb Warfare（SW）的弹药（散装弹药 / 弹药盒 / 弹药箱）存入网络后<b>不进入物理存储</b>，而是折算为 5 种「虚拟弹药」计数（HandgunAmmo / RifleAmmo / ShotgunAmmo / SniperAmmo / HeavyAmmo）持久化保存。玩家 / 载具 / 女仆射击时优先从<b>已绑定网络</b>扣虚拟弹药。SW 创造弹药箱入网后标记为 <code>__infinite__</code>，该网络弹药视为无限。服务端按轮询周期扫描网络弹药并差分推送给客户端，HUD 显示网络名与「网络弹药量 / ∞」。</p>
+    <div class="good"><b>设计要点</b>服务端为最终权威：所有消耗 / 提取均服务端校验，客户端只做展示缓存，不存在「客户端自报弹药」通道。</div>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>插入拦截</td><td><code>feature/ammo/sw/SuperbAmmoInsertHandler</code>（Forge）<br><code>handler/SuperbAmmoInsertHandler</code>（NeoForge）</td><td>实现 BD 的 BeforeInsertHandler，弹药折算入账后吞掉原插入</td></tr>
+        <tr><td>持久化</td><td><code>feature/ammo/common/NetworkAmmoData</code>（Forge）/ <code>handler/NetworkAmmoData</code>（NeoForge）</td><td>SavedData，按网络 ID 存虚拟弹药 Map（统一经 <code>NetworkDataStore</code> 读写）</td></tr>
+        <tr><td>网络扩展</td><td><code>mixin/DimensionsNetMixin</code></td><td>为 DimensionsNet 实现 SuperbAmmoAccessor + delta 订阅维护 <code>__infinite__</code></td></tr>
+        <tr><td>射击扣弹</td><td><code>mixin/AmmoConsumerMixin</code></td><td>拦截 SW AmmoConsumer.consume：玩家/载具/女仆网络弹药；ENERGY 型先补能；经验弹药从网络 XP 转化</td></tr>
+        <tr><td>弹药判定</td><td><code>mixin/GunDataCountMixin</code>（Forge）/ <code>mixin/GunDataMixin</code>（NeoForge）</td><td>hasBackupAmmo / countBackupAmmo 计入网络弹药（含 ∞、ITEM、经验弹药）</td></tr>
+        <tr><td>载具弹药</td><td><code>mixin/VehicleAmmoMixin</code> / <code>mixin/VehicleNetworkSyncMixin</code></td><td>载具弹药判定与有乘客时网络弹药同步</td></tr>
+        <tr><td>追踪器</td><td><code>feature/ammo/sw/SwAmmoTracker</code> + <code>SwAmmoPollingService</code></td><td>服务端快照缓存 + 轮询差值 S2C 推送；5 分钟闲置回收</td></tr>
+        <tr><td>客户端缓存</td><td><code>client/SuperbAmmoCache</code></td><td>快照缓存（2 分钟 TTL），HUD / GUI 读取</td></tr>
+        <tr><td>数据包</td><td>Request/ResponseSuperbAmmoStatus、SuperbAmmoDeltaS2C、RequestSuperbAmmoExtract、Request/ResponseItemAmmo</td><td>6 个包，条件注册（仅 superbwarfare 加载时，Forge）</td></tr>
+        <tr><td>HUD</td><td><code>mixin/AmmoBarOverlayMixin</code> / <code>GunDataCountMixin</code> / <code>VehicleHudNetworkMixin</code></td><td>弹药条 / 换枪显示网络弹药量</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>弹药入网折算流程</h2>
+    <div class="flow">
+        <div class="step io"><span class="tag">BD 插入链</span><b>物品插入网络</b>UnifiedStorage.insert() → onBeforeInsert</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>SuperbAmmoInsertHandler.beforeInsert()</b>识别物品类型</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>物品分类</b></div>
+    </div>
+    <div class="flow row">
+        <div class="step server"><b>弹药箱</b>读 NBT 内各 serializationName 键 → 全部弹药类型并入账<br><code>merge(ammoKey, count)</code></div>
+        <div class="arrow"><span class="al">accept() 吞掉整组</span></div>
+        <div class="step server"><b>散装弹药/弹药盒</b>按类型 × 数量折算（弹药盒 30/12 倍）<br><code>merge(ammoType, bulletCount)</code></div>
+        <div class="arrow"><span class="al">accept() 吞掉</span></div>
+        <div class="step server"><b>创造弹药箱</b>放行 → 物理入库 → delta 订阅捕获<br><code>__infinite__ 计数 +1</code></div>
+        <div class="arrow"><span class="al">pass() 原样入库</span></div>
+    </div>
+    <div class="flow">
+        <div class="step data"><span class="tag">存档</span><b>NetworkAmmoData</b>按网络 ID 保存虚拟弹药 Map + net.setDirty()</div>
+    </div>
+    <div class="warn"><b>注意</b>弹药箱折算读取的是「1 个箱」的 NBT 内容——SW 弹药箱 <code>stacksTo(1)</code> 不可堆叠，因此单次插入数量恒为 1，无漏算。散装弹药可堆叠，按实际数量折算。</div>
+</div>
+
+<div class="card">
+    <h2>射击扣弹流程</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">SW 逻辑</span><b>开枪</b>GunItem.afterShoot → GunData.consumeBackupAmmo</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">Mixin 拦截</span><b>AmmoConsumer.consume() @Inject HEAD</b>（cancellable）</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>弹药来源判定</b>固定弹药 / ENERGY / 经验弹药 / ITEM</div>
+    </div>
+    <div class="flow row">
+        <div class="step server"><b>玩家路径</b>绑定网络（仅主网络）</div>
+        <div class="arrow"><span class="al">__infinite__>0</span></div>
+        <div class="step decision"><b>网络虚拟弹药够吗？</b></div>
+        <div class="arrow"><span class="al">不够</span></div>
+        <div class="step server"><b>差额</b>补扣玩家个人弹药/背包弹药</div>
+        <div class="arrow"><span class="al">够/无限</span></div>
+        <div class="step end"><b>扣弹完成</b>map 扣减 + net.setDirty() + 即时推送快照</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><b>载具路径</b>VehicleEntity 绑定网络（VehicleNetCache）→ 同一扣弹逻辑</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>女仆路径</b>女仆饰品槽/女仆饰物终端（MaidNetworkCache，5 秒缓存）→ 同一扣弹逻辑</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>ENERGY 型</b>开火前先从网络为装备位即时补能（见文档 07）</div>
+    </div>
+    <div class="good"><b>0.6.x 行为</b>① 网络弹药寻找范围限制为<b>仅玩家主网络</b>（不再遍历其他网络兜底）；② 扣弹成功后立即推送弹药快照（利用 extract 返回值），HUD 不等 10 tick 轮询即可更新。</div>
+    <div class="warn"><b>已知边界</b>① 部分弹药类型存在整除截断：网络剩余不足一发所需时仍会扣减但记 0 发（弹药损耗，量小）；② 差值推送以扣弹玩家为主，同网络其他玩家的 HUD 快照可能停留在旧值直到触发全量刷新。</div>
+</div>
+
+<div class="card">
+    <h2>服务端轮询 → 客户端展示流程</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">每 N tick</span><b>SwAmmoPollingService</b>ServerTickEvent 轮询：收集在用网络</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>SwAmmoTracker.refresh()</b>读取虚拟弹药 + FE 能量 + 网络名（缓存命中 O(1)）</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>与上次快照 diff</b></div>
+        <div class="arrow"><span class="al">有变化</span></div>
+        <div class="step io"><span class="tag">S2C</span><b>SuperbAmmoDeltaS2CPacket</b>差值增量推送相关玩家</div>
+        <div class="arrow"><span class="al">无变化</span></div>
+        <div class="step end"><b>跳过</b>（不再推送）</div>
+    </div>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>SuperbAmmoCache.applyDelta()</b>synchronized(LOCK) 合并快照（2 分钟 TTL）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>HUD / GUI 读取</b>AmmoBarOverlay / GunDataCount / VehicleHud / AmmoPanel</div>
+        <div class="arrow"><span class="al">显示「网络弹药量 / ∞」</span></div>
+        <div class="step client"><b>换枪时现查</b>RequestItemAmmoPacket → ItemAmmoResponse（ITEM 型弹药，TTL 5 秒）</div>
+    </div>
+    <div class="note"><b>清理挂点</b>进服/登出时清空 <code>SuperbAmmoCache</code>（快照表）与 <code>NetworkItemCache</code>，防止旧网络快照残留（netId 复用显示旧数据、内存增长）。</div>
+</div>
+
+<div class="card">
+    <h2>弹药提取流程（从网络取真实弹药）</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>请求提取</b>RequestSuperbAmmoExtractPacket(ammoType, count)</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>取玩家主网络</b>DimensionsNet.getPrimaryNetFromPlayer</div>
+        <div class="arrow"><span class="al">ammoType == "__infinite__" → 直接拒绝</span></div>
+        <div class="step decision"><b>虚拟弹药检查</b>先按 serializationName 找 Ammo 定义（找不到直接返回）</div>
+    </div>
+    <div class="flow row">
+        <div class="step server"><b>普通弹药</b>min(current, count) 扣减 → 生成对应弹药物品给玩家</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>网络标记 ∞</b>count 直接作为提取量（不扣虚拟计数）</div>
+    </div>
+    <div class="warn"><b>安全边界（仍待修复）</b>无限弹药时 count 仍来自客户端 long 且无上限——恶意客户端可发送超大值造成服务端卡死/实体洪水。已在 0.6.x 禁止直接提取 <code>__infinite__</code> 键，但未对具体弹药类型的无限场景封顶。</div>
+</div>
+
+<div class="card">
+    <h2>配置项</h2>
+    <table>
+        <tr><th>配置</th><th>默认</th><th>说明</th></tr>
+        <tr><td colspan="3"><b>sw_ammo 分区</b></td></tr>
+        <tr><td><code>ammo_poll_enabled</code></td><td>true</td><td>轮询推送总开关</td></tr>
+        <tr><td><code>ammo_poll_interval_ticks</code></td><td>10</td><td>轮询间隔（tick，默认 10 = 每 0.5 秒）</td></tr>
+        <tr><td colspan="3"><b>ammo_extract 分区</b></td></tr>
+        <tr><td><code>mappings</code></td><td>9 条 superbwarfare 弹药映射</td><td>网络接口/提取用的弹药物品 → 弹药类型映射</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>相关源文件（Forge 分支）</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/feature/ammo/sw/SuperbAmmoInsertHandler.java<span class="fdesc">插入折算</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/ammo/sw/SwAmmoPollingService.java / SwAmmoTracker.java<span class="fdesc">轮询与追踪</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/ammo/sw/EnergyAmmoChargeHandler.java<span class="fdesc">装备位能量充能（见文档 07）</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/ammo/common/NetworkAmmoData.java<span class="fdesc">SavedData 持久化</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/handler/NetworkDataStore.java<span class="fdesc">统一读写入口</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/AmmoConsumerMixin.java<span class="fdesc">射击扣弹（玩家/载具/女仆/ENERGY/经验弹药）</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/GunDataCountMixin.java / VehicleAmmoMixin.java / VehicleNetworkSyncMixin.java / DimensionsNetMixin.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/client/SuperbAmmoCache.java<span class="fdesc">客户端缓存</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/network/（SW 系 6 包）</li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 02/21 · Beyond Integration v0.6.5
+</footer>
+
+</div>
+</body>
+</html>

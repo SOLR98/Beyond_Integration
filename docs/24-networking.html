@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>12 · 网络数据包架构 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>12 · 网络数据包架构</h1>
+    <div class="sub">Forge：SimpleChannel 单通道 40 包条件注册 · NeoForge：CustomPacketPayload 41 包 · 主线程化处理</div>
+</header>
+
+<div class="card">
+    <h2>架构总览</h2>
+    <ul>
+        <li><b>Forge 通道</b>：<code>beyond_integration:main</code>，<code>SimpleChannel</code>，协议版本 <code>"1"</code>（不匹配拒绝连接），<code>registerMessage</code> 按注册顺序分配 ID</li>
+        <li><b>NeoForge 通道</b>：<code>RegisterPayloadHandlersEvent</code> + <code>registrar("1")</code>，全部 <code>CustomPacketPayload</code>（record + StreamCodec），41 个 payload 全部无条件注册</li>
+        <li><b>编码</b>：Forge 为 record + 静态 encode/decode/handle 三件套（<code>FriendlyByteBuf</code>）</li>
+        <li><b>线程安全</b>：所有 handle 统一 <code>enqueueWork(...)</code> 切到主线程再操作游戏对象</li>
+        <li><b>条件注册（Forge）</b>：SW/TACZ 相关包仅在对应模组加载时注册，保证双侧包 ID 一致；NeoForge 改为全部注册、运行时判定依赖</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>Forge 数据包清单（40 个）</h2>
+    <div class="note">下列为早期核心包（基础 / SW / TACZ）。FTB Quests、附魔合并、主网络 JEI 同步、HUD 提示、工作台献祭激活等后续新增包未逐一展开，<b>完整清单以 <code>network/PacketHandler</code> 与《功能与实现总览》为准</b>。</div>
+    <h3>基础包（14，无条件）</h3>
+    <table>
+        <tr><th>包</th><th>方向</th><th>用途</th></tr>
+        <tr><td><code>RecipeFillPacket</code></td><td>C2S</td><td>JEI 点击配方一键填充到工作站</td></tr>
+        <tr><td><code>ProtectItemPacket</code></td><td>C2S</td><td>设置物品保护标记（protect_sep）</td></tr>
+        <tr><td><code>NetworkItemCountsPacket</code></td><td>S2C</td><td>网络材料计数表（枪械台显示/合成结果）</td></tr>
+        <tr><td><code>SetAnvilNamePacket</code></td><td>C2S</td><td>铁砧改名（服务端校验 containerId）</td></tr>
+        <tr><td><code>OpenStorageMenuPacket</code></td><td>C2S</td><td>打开 7 种工作站菜单（Type 枚举，服务端校验 workstations.enabled）</td></tr>
+        <tr><td><code>CleanWorkstationPacket</code></td><td>C2S</td><td>清理工作站物品（归还背包/网络）</td></tr>
+        <tr><td><code>ToggleEnchantSeparationPacket</code></td><td>C2S</td><td>切换附魔分离开关（权限校验）</td></tr>
+        <tr><td><code>EnchantSeparationSyncPacket</code></td><td>S2C</td><td>广播附魔开关状态</td></tr>
+        <tr><td><code>RequestEnchantSeparationPacket</code></td><td>C2S</td><td>请求附魔开关状态</td></tr>
+        <tr><td><code>ToggleEnergyChargePacket</code></td><td>C2S</td><td>切换网络自动充电开关（权限校验）</td></tr>
+        <tr><td><code>EnergyChargeSyncPacket</code></td><td>S2C</td><td>广播自动充电开关状态</td></tr>
+        <tr><td><code>RequestEnergyChargePacket</code></td><td>C2S</td><td>请求自动充电开关状态</td></tr>
+        <tr><td><code>RefreshEnchantPacket</code></td><td>C2S</td><td>附魔台刷新三槽（扣燃料）</td></tr>
+        <tr><td><code>EnchantCluesPacket</code></td><td>S2C</td><td>附魔台单槽候选列表（悬停预览）</td></tr>
+    </table>
+    <h3>SW 包（6，superbwarfare 加载时注册）</h3>
+    <table>
+        <tr><th>包</th><th>方向</th><th>用途</th></tr>
+        <tr><td><code>RequestSuperbAmmoStatusPacket</code></td><td>C2S</td><td>请求网络弹药/能量状态</td></tr>
+        <tr><td><code>SuperbAmmoStatusResponsePacket</code></td><td>S2C</td><td>全量状态响应</td></tr>
+        <tr><td><code>SuperbAmmoDeltaS2CPacket</code></td><td>S2C</td><td>弹药/能量差值增量推送</td></tr>
+        <tr><td><code>RequestSuperbAmmoExtractPacket</code></td><td>C2S</td><td>从网络提取真实弹药</td></tr>
+        <tr><td><code>RequestItemAmmoPacket</code></td><td>C2S</td><td>ITEM 型弹药换枪现查</td></tr>
+        <tr><td><code>ItemAmmoResponsePacket</code></td><td>S2C</td><td>现查响应</td></tr>
+    </table>
+    <h3>TACZ 包（5，tacz 加载时注册）</h3>
+    <table>
+        <tr><th>包</th><th>方向</th><th>用途</th></tr>
+        <tr><td><code>RequestNetworkItemsPacket</code></td><td>C2S</td><td>请求枪械台网络材料计数（TACZ_INDEX）</td></tr>
+        <tr><td><code>TaczCraftPacket</code></td><td>C2S</td><td>网络合成请求（配方 + 数量 ≤64 + 方向）</td></tr>
+        <tr><td><code>RequestAmmoCountPacket</code></td><td>C2S</td><td>请求网络弹药量</td></tr>
+        <tr><td><code>AmmoCountResponsePacket</code></td><td>S2C</td><td>弹药量响应</td></tr>
+        <tr><td><code>TaczAmmoPushS2CPacket</code></td><td>S2C</td><td>轮询快照推送（TaczAmmoCache）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>NeoForge 数据包清单（41 个）</h2>
+    <p>NeoForge 侧全部实现 <code>CustomPacketPayload</code>，其中 <code>network/payload/</code> 子包 13 个使用新风格 <code>Type</code> + <code>StreamCodec.composite/unit/of</code> 写法，其余沿用简写风格。</p>
+    <table>
+        <tr><th>分类</th><th>包</th><th>说明</th></tr>
+        <tr><td>工作站（7）</td><td><code>payload/OpenStorageMenuPayload</code>（含 apoth 标志）、<code>payload/SetAnvilNamePayload</code>、<code>payload/RecipeFillPayload</code>、<code>payload/ProtectItemPayload</code>、<code>payload/CleanWorkstationPayload</code>、<code>payload/RefreshEnchantPayload</code>、<code>payload/EnchantCluesPayload</code></td><td>对应 Forge 的基础包（新风格）</td></tr>
+        <tr><td>开关（6）</td><td><code>ToggleEnchantSeparationPacket</code> / <code>EnchantSeparationSyncPacket</code> / <code>RequestEnchantSeparationPacket</code>、<code>ToggleEnergyChargePacket</code> / <code>EnergyChargeSyncPacket</code> / <code>RequestEnergyChargePacket</code></td><td>附魔分离 + 自动充电</td></tr>
+        <tr><td>SW（6）</td><td><code>SuperbAmmoStatusResponsePacket</code>（双向）、<code>RequestSuperbAmmoStatusPacket</code>、<code>RequestSuperbAmmoExtractPacket</code>、<code>SuperbAmmoDeltaS2CPacket</code>、<code>RequestItemAmmoPacket</code>、<code>ItemAmmoResponsePacket</code></td><td>状态全量/增量、提取、ITEM 现查</td></tr>
+        <tr><td>TACZ（6）</td><td><code>RequestAmmoCountPacket</code>、<code>AmmoCountResponsePacket</code>、<code>TaczAmmoPushPayload</code>、<code>RequestNetworkItemsPacket</code>、<code>NetworkItemCountsPacket</code>、<code>TaczCraftPacket</code></td><td>弹药计数/推送、枪械台材料与合成</td></tr>
+        <tr><td>ywzj（1）</td><td><code>YwzjVehicleDataResponsePacket</code></td><td>载具网络数据推送（见文档 19）</td></tr>
+    </table>
+    <div class="note">上表仅列早期核心分类；共 41 个 payload 全部无条件注册，完整清单见 <code>network/PacketHandler</code> 与《功能与实现总览》。</div>
+</div>
+
+<div class="card">
+    <h2>注册流程</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">加载期 Forge</span><b>PacketHandler.register()</b>NetworkRegistry.newSimpleChannel(版本 "1")</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>模组加载检查</b></div>
+    </div>
+    <div class="flow row">
+        <div class="step"><b>基础 14 包</b>无条件注册</div>
+        <div class="arrow"></div>
+        <div class="step"><b>SW 6 包</b>ModList.isLoaded("superbwarfare")</div>
+        <div class="arrow"></div>
+        <div class="step"><b>TACZ 5 包</b>ModList.isLoaded("tacz")</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><span class="tag">加载期 NeoForge</span><b>RegisterPayloadHandlersEvent</b>registrar("1") 注册全部 41 个 payload</div>
+        <div class="arrow"><span class="al">依赖模组仅在 handle 内运行时判定</span></div>
+        <div class="step end"><b>playToServer / playToClient / playBidirectional</b></div>
+    </div>
+    <div class="warn"><b>已知风险（待修复）</b>① 解码侧多处 <code>readVarInt()</code>/<code>readUtf()</code> 尺寸无上限——恶意客户端可发超大值触发 OOM/负数组；② Forge 协议版本是常量 "1"，不反映实际注册集合——服务端有 superbwarfare 而客户端没有时握手照过，随后包 ID 错位解码异常（NeoForge 全部注册已规避该问题）。</div>
+</div>
+
+<div class="card">
+    <h2>通信模式</h2>
+    <table>
+        <tr><th>模式</th><th>示例</th><th>说明</th></tr>
+        <tr><td>C2S 请求</td><td>OpenStorageMenuPacket / TaczCraftPacket</td><td>客户端发起 → 服务端校验后执行</td></tr>
+        <tr><td>S2C 推送</td><td>TaczAmmoPushS2C / SuperbAmmoDeltaS2C</td><td>服务端轮询/事件驱动广播</td></tr>
+        <tr><td>请求-响应</td><td>Request/Response 对</td><td>现查现答（弹药、状态、开关）</td></tr>
+    </table>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span>发送请求（tick 内 / 界面操作 / 渲染节流）</div>
+        <div class="arrow"><span class="al">Netty 线程</span></div>
+        <div class="step server"><span class="tag">服务端</span>handle → enqueueWork 切主线程 → 校验 → 执行 → 回包</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/network/PacketHandler.java<span class="fdesc">通道注册中心</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/network/*.java<span class="fdesc">Forge 40 个数据包</span></li>
+        <li>（NeoForge）src/main/java/com/solr98/beyondintegration/network/payload/*.java<span class="fdesc">新风格 payload 13 个</span></li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 12/28 · Beyond Integration v0.7.3
+</footer>
+
+</div>
+</body>
+</html>

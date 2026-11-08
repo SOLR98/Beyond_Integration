@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>26 · 附魔链路总览（分离 / 同类合并升级 / 批量合并）— Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>26 · 附魔链路总览（分离 / 同类合并升级 / 批量合并）</h1>
+    <div class="sub">从多附魔书拆分、单附魔书同级自动升级，到工作站批量合并到装备的完整流程与计费对照</div>
+</header>
+
+<div class="card">
+    <h2>三条链路总览</h2>
+    <div class="flow row">
+        <div class="step io"><span class="tag">入网拦截链</span><b>附魔分离</b>多附魔书 → N 本单附魔书（扣 XP + 空白书）</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">入网拦截链</span><b>同类同级自动合并</b>单附魔书 + 网络同级书 → L+1（铁砧费用，默认关）</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">工作站</span><b>批量附魔合并</b>单附魔书 → 装备（精确等级 / 高等级拆分）</div>
+    </div>
+    <table>
+        <tr><th>机制</th><th>触发</th><th>输入</th><th>输出</th><th>默认状态</th></tr>
+        <tr><td>附魔分离</td><td>物品入网（自动）/ 命令手动</td><td>多附魔书</td><td>每附魔一本单附魔书</td><td>全局与网络开关均需开启</td></tr>
+        <tr><td>同类同级自动合并</td><td>单附魔书入网</td><td>输入书 + 网络内同附魔同等级书</td><td>一本 L+1 级书</td><td>默认关闭（<code>merge_same_level</code>）</td></tr>
+        <tr><td>批量附魔合并</td><td>工作站界面提交</td><td>装备 + 网络中单附魔书</td><td>附魔后的装备（留槽）</td><td>工作站启用即可用</td></tr>
+    </table>
+    <div class="note"><b>书形态流转</b>多附魔书 <code>--分离--&gt;</code> 单附魔书（多种等级）<code>--同级合并--&gt;</code> 更高等级单附魔书 <code>--批量合并--&gt;</code> 装备附魔。</div>
+</div>
+
+<div class="card">
+    <h2>一、附魔分离（入网拦截）</h2>
+    <div class="flow">
+        <div class="step io"><span class="tag">BD 插入链</span><b>物品入网</b>UnifiedStorageBeforeInsertHandler</div>
+        <div class="arrow"><span class="al">网络开关 + 全局 enable + 多附魔书 + 非保护标记</span></div>
+        <div class="step decision"><b>判定</b>StoredEnchantments &gt; 1？</div>
+        <div class="arrow"><span class="al">否 → 单附魔书走「同类合并」或放行</span></div>
+        <div class="step server"><b>费用与资源</b>calcCost(逐附魔) + 空白书 (N-1)×count</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>容量预检</b>canStore / canOutput 全部通过才执行</div>
+    </div>
+    <div class="flow row">
+        <div class="step server"><b>扣费</b>网络 XP 流体 + 空白书</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>扣原书</b>extract 不足则回滚跳过</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>产出</b>每附魔一本单附魔书 ×count</div>
+    </div>
+    <div class="warn"><b>费用公式</b><code>(base_cost + (level-1) × level_multiplier) × 附魔倍率 × 20 mB</code>；<code>use_formula</code> 开启时用 <code>cost_formula</code>（变量 base/level/multiplier/books）。</div>
+</div>
+
+<div class="card">
+    <h2>二、同类同级自动合并（单附魔书升级，默认关闭）</h2>
+    <div class="flow">
+        <div class="step io"><span class="tag">插入链</span><b>单附魔书入网</b>数量 1、等级 L、开关 <code>merge_same_level</code> 开</div>
+        <div class="arrow"><span class="al">L ≥ 附魔上限（含 Apotheosis）→ 放行</span></div>
+        <div class="step decision"><b>网络存在同附魔同等级书？</b></div>
+        <div class="arrow"><span class="al">否 → 原书正常入库</span></div>
+        <div class="step server"><b>费用</b>铁砧合并费用等级 → 0→费用等级总经验点 × 20 mB</div>
+        <div class="arrow"><span class="al">经验不足 → 放行原书</span></div>
+    </div>
+    <div class="flow">
+        <div class="step server"><b>执行</b>扣网络经验 + 扣网络那本同级书</div>
+        <div class="arrow"></div>
+        <div class="step io"><b>产出 L+1 插回网络</b>再次进入拦截链</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>自然级联</b>直到无同级同类书 / 达上限 / 经验不足</div>
+    </div>
+    <div class="good"><b>铁砧费用等级</b>Forge：稀有度系数（COMMON 1 / UNCOMMON 2 / RARE 4 / VERY_RARE 8）÷2（书）；Neo：<code>getAnvilCost()</code> ÷2；再乘结果等级（L+1），至少 1。</div>
+</div>
+
+<div class="card">
+    <h2>三、批量附魔合并（工作站）</h2>
+    <h3>候选构建（客户端）</h3>
+    <div class="flow">
+        <div class="step client"><b>装备入槽</b>非附魔书且可附魔（已附魔允许升级）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>客户端网络视图</b><code>menu.clientNetStorage</code> → 单附魔书最高等级 / 库存 / levelMask</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>遍历可附魔列表</b>仅列适用附魔；无书 / 与“生效集合（已有 + 已选）”冲突 / 无可提升 → 禁用贴图且不可点（<b>已有附魔永不因冲突禁用</b>）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>客户端渲染</b>点击条目/复选框选中 + 滚轮/滑条调级（滑条等级记忆，取消勾选不改动）；面板内滚轮翻页；服务端只接受提交的合并操作</div>
+    </div>
+    <h3>提交与执行（服务端）</h3>
+    <div class="flow">
+        <div class="step io"><span class="tag">C2S</span><b>SubmitEnchantMergePacket</b>附魔 + 所选等级 S</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>逐项判定</b>S 级书存在？</div>
+    </div>
+    <div class="flow row">
+        <div class="step server"><b>精确等级</b>消耗 1 本 S 级书；计费 calcCost(S)</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>拆分</b>取最近高等级 L，steps=L−S；消耗 1 本 L 级书，回存 (L−1)…S 各一本；<br>计费 calcCost(S) + steps × split_xp_cost；普通书 steps ×（默认 1 / 开启原载体消耗 2）</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><b>预检</b>经验流体 + 每本书 + 拆分普通书；任一不足整体中止</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>执行</b>扣 XP / 普通书 → 扣书 → 拆分产出 → 按所选等级<b>降序</b>写入装备（0 清除 / 低于已有降级 / 高于已有升级）</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>装备留槽</b>返回背包 / 网络按归还方向</div>
+    </div>
+    <div class="note"><b>拆分优先顺序</b>精确等级 &gt; 比 S 高且最接近的等级；拆分为折半递归的等价结果（回存 (L−1)…S 各一本 + S 级用于附魔）。</div>
+</div>
+
+<div class="card">
+    <h2>计费对照</h2>
+    <table>
+        <tr><th>机制</th><th>经验消耗</th><th>材料消耗</th><th>备注</th></tr>
+        <tr>
+            <td>附魔分离</td>
+            <td>逐附魔 <code>(base+(L−1)×mult)×倍率×20 mB</code></td>
+            <td>空白书 (N−1)×count</td>
+            <td>全局 + 网络开关双重控制</td>
+        </tr>
+        <tr>
+            <td>同类同级自动合并</td>
+            <td>铁砧合并费用等级 → 总经验点（20 mB/点）</td>
+            <td>网络内同附魔同等级书 1 本</td>
+            <td>产出入网自动级联</td>
+        </tr>
+        <tr>
+            <td>批量合并（精确等级）</td>
+            <td><code>calcCost(S)</code>（附魔分离公式）</td>
+            <td>S 级单附魔书 1 本</td>
+            <td>按等级降序写入装备（取高；0 = 清除、低于已有 = 降级）</td>
+        </tr>
+        <tr>
+            <td>批量合并（拆分）</td>
+            <td><code>calcCost(S)</code> + 步数 × <code>split_xp_cost</code>（默认 0）</td>
+            <td>L 级书 1 本；普通书 步数 ×（1/2）</td>
+            <td>拆出 (L−1)…S 各一本回存；<b>拆分步骤本身默认免费，但合并到装备仍计费</b></td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>配置项对照</h2>
+    <table>
+        <tr><th>分区</th><th>项</th><th>默认</th><th>说明</th></tr>
+        <tr><td>enchantment_separation</td><td><code>enable</code></td><td>false</td><td>附魔分离总开关（另有网络级开关）</td></tr>
+        <tr><td>enchantment_separation</td><td><code>base_cost</code> / <code>level_multiplier</code> / <code>default_multiplier</code> / <code>high_cost_list</code></td><td>10 / 5 / 1.0 / 见配置</td><td>分离与批量合并共用的费用公式参数</td></tr>
+        <tr><td>enchantment_separation</td><td><code>use_formula</code> / <code>cost_formula</code></td><td>false / 见配置</td><td>自定义费用公式（Forge）</td></tr>
+        <tr><td>enchantment_separation</td><td><code>merge_same_level</code></td><td>false</td><td>单附魔书同类同级自动合并（本页第二节）</td></tr>
+        <tr><td>enchant_merge</td><td><code>enable</code></td><td>true</td><td>批量附魔合并工作站总开关</td></tr>
+        <tr><td>enchant_merge</td><td><code>consume_original_book</code></td><td>false</td><td>拆分时消耗原附魔书载体：false = 每步 1 本普通书；true = 每步 2 本</td></tr>
+        <tr><td>enchant_merge</td><td><code>split_xp_cost</code></td><td>0</td><td>每步拆分消耗经验点（拆分免费；合并到装备仍按公式计费）</td></tr>
+        <tr><td>enchant_table</td><td><code>ignoreConflict</code></td><td>false</td><td>批量合并的冲突附魔放行（关闭时依“选择列表”禁用冲突新附魔）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul class="files">
+        <li>feature/enchant/EnchantmentBookSeparatorHandler.java（Forge） / handler/EnchantmentBookSeparatorHandler.java（Neo）<span class="fdesc">分离 + 同类同级自动合并</span></li>
+        <li>feature/crafting/DimensionsEnchantMergeMenu.java / init/DimensionsEnchantMergeMenu.java<span class="fdesc">批量附魔合并（候选/精确等级/拆分/计费）</span></li>
+        <li>client/gui/DimensionsEnchantMergeGUI.java<span class="fdesc">条目点击/档位滑条/费用悬浮框</span></li>
+        <li>network/SubmitEnchantMergePacket.java（NeoForge：network/payload/SubmitEnchantMergePayload.java）<span class="fdesc">C2S 合并操作</span></li>
+        <li>CommandConfig.java<span class="fdesc">enchantment_separation / enchant_merge 分区</span></li>
+    </ul>
+    <div class="note"><b>相关文档</b>05（附魔分离器）、03（批量附魔工作站）、02（网络附魔台）、25（配置系统）。</div>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 26/26 · Beyond Integration v0.7.3
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "mod_data_type": "tacz_unidict_gun_data",
+  "gunId": "tacz:rand_gun_5a7ce2",
+  "availableAmmo": [
+    {
+      "ammoId": "tacz:rand_ammo_7f3a91"
+    },
+    {
+      "ammoId": "tacz:rand_ammo_2c8e04",
+      "ammoAmount": 24,
+      "roundsPerMinute": 480,
+      "extendedMagAmmoAmount": [
+        36,
+        48
+      ]
+    },
+    {
+      "ammoId": "tacz:rand_ammo_d91c37"
+    }
+  ]
+}

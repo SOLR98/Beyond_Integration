@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>16 · 网络能量充能 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>16 · 网络能量充能（装备位 / 载具 / 女仆）</h1>
+    <div class="sub">从网络 FE 库存为盔甲、手持工具/武器、Curios 饰品、女仆饰物与载具自动补能</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>把维度网络的能量库存（<code>EnergyStackKey.INSTANCE</code>）作为“无线充电宝”，按配置周期为下列目标补充 FE：</p>
+    <ul>
+        <li><b>玩家盔甲槽</b>（头盔/胸甲/护腿/靴子）</li>
+        <li><b>主手/副手</b>——工具与武器（平台工具标签、剑/挖掘工具/三叉戟/弹射武器、SW 枪械、带主手攻击伤害属性的物品、配置白名单）</li>
+        <li><b>Curios 饰品栏</b>（<code>charge_curios</code>，需 Curios）</li>
+        <li><b>女仆专用饰物栏</b>（<code>charge_maid_baubles</code>，需 Touhou Little Maid）</li>
+        <li><b>SW / ywzj 载具</b>（独立周期充电，见文档 16 / 19）</li>
+    </ul>
+    <p>每个网络有独立的<b>自动充电开关</b>（默认开），可在网络 GUI 左侧按钮切换，状态随存档持久化；客户端按 netId 缓存开关用于按钮渲染。白名单支持物品 ID 与 <code>#标签</code>（默认含 AE2/AE2WTLib/RS/WCWT 无线终端）。</p>
+    <div class="good"><b>防丢失设计</b>物品未接收的电量（<code>receive</code> 返回值差额）会回插网络，不会凭空消失；载具充电同样按接收量提取（0.6.x 修复）。</div>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>充电主体</td><td><code>feature/ammo/sw/EnergyAmmoChargeHandler</code>（Forge）<br><code>handler/EnergyAmmoChargeHandler</code>（NeoForge）</td><td>玩家/女仆周期充电与模式计算</td></tr>
+        <tr><td>平台抽象</td><td><code>core/energy/ChargePlatform</code> + <code>ForgeChargePlatform</code> / <code>NeoChargePlatform</code></td><td>跨加载器读取物品 FE 能力</td></tr>
+        <tr><td>网络开关访问</td><td><code>handler/EnergyChargeAccessor</code>（实现于 <code>DimensionsNetMixin</code>）</td><td>每网络自动充电开关</td></tr>
+        <tr><td>开关数据包</td><td><code>ToggleEnergyChargePacket</code> / <code>EnergyChargeSyncPacket</code> / <code>RequestEnergyChargePacket</code></td><td>切换 / 同步 / 请求开关状态</td></tr>
+        <tr><td>客户端状态</td><td><code>client/EnergyChargeState</code></td><td>按 netId 的开关缓存（默认 true）</td></tr>
+        <tr><td>GUI 按钮</td><td><code>client/widget/EnergyChargeToggleBtn</code></td><td>网络界面左侧 16×16 按钮（红石图标）</td></tr>
+        <tr><td>女仆分支</td><td><code>maid/MaidEnergyChargeHandler</code></td><td>女仆饰物栏充电（主类在 TLM 加载时注册）</td></tr>
+        <tr><td>载具分支</td><td><code>mixin/VehicleEnergyChargeMixin</code>（SW）、<code>mixin/ywzj_vehicle/VehicleEnergyChargeMixin</code></td><td>载具 baseTick/tick 充电</td></tr>
+        <tr><td>开火补能</td><td><code>mixin/AmmoConsumerMixin</code> ENERGY 分支</td><td>SW 能量武器开火前即时补能</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>周期充电流程</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">每 tick</span><b>ServerTickEvent.Phase.END</b>EnergyAmmoChargeHandler.tick(server)</div>
+        <div class="arrow"><span class="al">player.tickCount % charge_interval == 0</span></div>
+        <div class="step server"><b>取主网络</b>DimensionsNet.getPrimaryNetFromPlayer</div>
+        <div class="arrow"><span class="al">网络开关关闭 → 跳过</span></div>
+        <div class="step server"><b>逐个目标槽位充电</b>charge(stack, net)</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><b>计算缺口</b>needed = max - stored</div>
+        <div class="arrow"><span class="al">want = min(needed, 模式计算值)</span></div>
+        <div class="step server"><b>从网络提取</b>extract(EnergyStackKey.INSTANCE, want)</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>充入物品</b>energy.receive(offered)</div>
+        <div class="arrow"><span class="al">未接收余量回插网络</span></div>
+        <div class="step data"><b>net.setDirty()</b>Curios/女仆饰物用 setStackInSlot 触发同步</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>充电模式（energy_ammo.charge_mode）</h2>
+    <table>
+        <tr><th>模式</th><th>计算</th><th>说明</th></tr>
+        <tr><td><code>RATE</code></td><td>want = charge_rate</td><td>每次固定提取（默认 10000 FE）</td></tr>
+        <tr><td><code>PERCENTAGE</code></td><td>want = ceil(needed × charge_percentage%)</td><td>按缺失量百分比</td></tr>
+        <tr><td><code>PERCENTAGE_PLUS_RATE</code></td><td>want = 百分比 + 固定值</td><td>混合模式</td></tr>
+    </table>
+    <div class="note"><b>功率来源</b>所有模式都先与物品缺口 <code>needed</code> 取 min，不会过充。</div>
+</div>
+
+<div class="card">
+    <h2>网络开关流程</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>点击 EnergyChargeToggleBtn</b></div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">C2S</span><b>ToggleEnergyChargePacket</b>（空载荷，按当前菜单网络）</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>权限校验</b>manager / owner</div>
+        <div class="arrow"></div>
+        <div class="step data"><b>NetworkAmmoData</b>NBT 键 <code>energyCharge</code>（默认 true）持久化</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">S2C</span><b>EnergyChargeSyncPacket</b>广播给网络内玩家</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>EnergyChargeState</b>更新开关缓存并刷新按钮</div>
+    </div>
+    <div class="warn"><b>已知边界</b>载具充电（SW/ywzj）不检查该网络级开关，仅玩家与女仆路径生效。</div>
+</div>
+
+<div class="card">
+    <h2>配置项（energy_ammo 分区）</h2>
+    <table>
+        <tr><th>配置</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>charge_enabled</code></td><td>true</td><td>装备位网络自动充电总开关</td></tr>
+        <tr><td><code>charge_interval</code></td><td>20</td><td>充电间隔（tick，1–1200）</td></tr>
+        <tr><td><code>charge_rate</code></td><td>10000</td><td>每次提取 FE（RATE / 混合模式的固定部分）</td></tr>
+        <tr><td><code>charge_mode</code></td><td>RATE</td><td>RATE / PERCENTAGE / PERCENTAGE_PLUS_RATE</td></tr>
+        <tr><td><code>charge_percentage</code></td><td>10.0</td><td>百分比模式的容量上限百分比（0–100）</td></tr>
+        <tr><td><code>charge_whitelist</code></td><td>AE2/AE2WTLib/RS/WCWT 无线终端共 10 项</td><td>额外充电物品列表，支持 <code>#标签</code></td></tr>
+        <tr><td><code>charge_curios</code></td><td>true</td><td>Curios 饰品栏充电</td></tr>
+        <tr><td><code>charge_maid_baubles</code></td><td>true</td><td>女仆专用饰物栏充电</td></tr>
+    </table>
+    <div class="note"><b>白名单之外</b>带主手攻击伤害属性的任意物品、平台工具/武器标签、SW 枪械与配置白名单物品也会被充电——如需严格限制请自行调整白名单并评估模组物品属性。</div>
+</div>
+
+<div class="card">
+    <h2>相关源文件（Forge 分支）</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/feature/ammo/sw/EnergyAmmoChargeHandler.java<span class="fdesc">充电主体</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/core/energy/ChargePlatform.java / ForgeChargePlatform.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/handler/EnergyChargeAccessor.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/network/ToggleEnergyChargePacket.java / EnergyChargeSyncPacket.java / RequestEnergyChargePacket.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/client/EnergyChargeState.java / client/widget/EnergyChargeToggleBtn.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/maid/MaidEnergyChargeHandler.java<span class="fdesc">女仆饰物充电</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/VehicleEnergyChargeMixin.java<span class="fdesc">SW 载具充电</span></li>
+    </ul>
+    <div class="note"><b>NeoForge 对应</b><code>core/energy/NeoChargePlatform</code>、<code>handler/EnergyAmmoChargeHandler</code>、<code>mixin/ywzj_vehicle/VehicleEnergyChargeMixin</code>（支持 FE 与流体燃料，见文档 19）。</div>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 16/21 · Beyond Integration v0.6.5
+</footer>
+
+</div>
+</body>
+</html>

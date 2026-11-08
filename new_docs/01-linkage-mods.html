@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01 · 联动模组清单 — Beyond Integration new_docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>01 · 联动了哪些模组</h1>
+    <div class="sub">
+        按「功能联动」与「仅运行依赖」两类列出，附代码级证据（目录 / 类 / Mixin 目标）与四工程状态；
+        后续功能篇按这里的模组顺序展开
+    </div>
+</header>
+
+<div class="card">
+    <h2>图例</h2>
+    <ul>
+        <li><b>✅</b> 有功能联动　<b>🟡</b> 有但实现不同　<b>➖</b> 无　<b>?</b> 待核对　
+            <b>环境</b> = 只进依赖/运行环境，没有 BI 代码注入。</li>
+        <li>四列顺序固定：<code>0.7.30·1.20.1</code> → <code>0.7.30·1.21.1</code> →
+            <code>0.8.x·1.20.1</code> → <code>0.8.x·1.21.1</code>。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>A. 功能联动（有 BI 代码 / Mixin 目标）</h2>
+    <table>
+        <tr>
+            <th>模组</th><th>依赖示例</th><th>代码级证据</th>
+            <th>0.7.30·1.20.1</th><th>0.7.30·1.21.1</th><th>0.8.x·1.20.1</th><th>0.8.x·1.21.1</th>
+        </tr>
+        <tr>
+            <td><b>Beyond Dimensions</b></td>
+            <td>0.7.30：<code>maven.modrinth:6zGxpbt7</code>；1.21.1：<code>curse…:8812500</code>；
+                0.8.x：本地源码</td>
+            <td>全部 <code>feature/**</code>、<code>handler/**</code>、<code>mixin/**</code>、<code>network/**</code></td>
+            <td>✅</td><td>✅</td><td>✅</td><td>🟡 骨架（工作台/存储页）</td>
+        </tr>
+        <tr>
+            <td><b>Apotheosis</b>（+ apothic-attributes / placebo）</td>
+            <td><code>curse.maven:apotheosis-313970</code></td>
+            <td><code>feature/charm/**</code>（药水护符）、<code>client/widget/PotionCharmToggleBtn</code>（旧线）；
+                <code>init/DimensionsApothEnchantMenu</code>（1.21.1 附魔台）</td>
+            <td>✅ 药水护符</td><td>🟡 仅 Apoth 附魔台，无药水护符</td>
+            <td>🟡 药水护符逻辑在、无 UI 入口</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>TACZ</b>（+ taczaddon；1.20.1 另有 tacz-unidict）</td>
+            <td><code>curse.maven:timeless-and-classics-zero</code> / <code>tacz-1-21-1-1353462</code></td>
+            <td><code>feature/ammo/tacz/**</code>、<code>AmmoConsumerMixin</code>/<code>GunDataCountMixin</code>、
+                <code>GunSmithTableScreenMixin</code>（旧线）</td>
+            <td>✅</td><td>✅</td><td>🟡（拆箱改规则；枪械台已删）</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>Superb Warfare</b></td>
+            <td><code>curse.maven:superb-warfare-1218165</code></td>
+            <td><code>feature/ammo/sw/**</code>、<code>SuperbAmmoCache</code>、<code>Vehicle*Mixin</code></td>
+            <td>✅ 虚拟弹药</td><td>✅ 虚拟弹药</td><td>🟡 散装弹药物品</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>Iron's Spells 'n Spellbooks</b>（+ irons-lib / winefox's）</td>
+            <td><code>curse.maven:irons-spells-n-spellbooks-855414</code></td>
+            <td><code>feature/mana/**</code>（3 个 Mixin + <code>ManaSyncPacket</code>）</td>
+            <td>✅</td><td>✅</td><td>✅</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>Goety</b>（+ goety-revelation / revelationfix）</td>
+            <td><code>curse.maven:goety-586095</code></td>
+            <td><code>feature/soul/**</code>、<code>SoulEnergyGuiMixin</code>、<code>Ritual*Mixin</code>、
+                <code>handler/RitualNetworkStructure</code>（0.8.x-1.20.1）</td>
+            <td>✅（环境绕过）</td><td>✅（同类）</td><td>✅ + 结构补块</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>Thirst was Reclaimed / Legendary Survival Overhaul</b></td>
+            <td><code>curse.maven:thirst-was-reclaimed-884742</code> / <code>legendary-survival-overhaul-840254</code></td>
+            <td><code>feature/feeder/**</code>、<code>feature/thirst</code>（净水/桶分离/熔炉提纯）、
+                <code>FeederThirstPage</code>（0.8.x-1.20.1）</td>
+            <td>✅</td><td>✅</td><td>🟡 BdPage 阈值版</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>Touhou Little Maid</b></td>
+            <td><code>curse.maven:touhou-little-maid-355044</code></td>
+            <td><code>maid/**</code>：终端饰品、网络弹药、能量充能、药水护符、经验棒饰品</td>
+            <td>✅</td><td>✅</td><td>✅</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>Create</b>（+ Create Sentry Mechanical Arm）</td>
+            <td><code>curse.maven:create-328085</code>、<code>create-sentry-mechanical-arm-1411575</code>（1.20.1）</td>
+            <td><code>SentryArm*Mixin</code>、<code>SentryFakePlayerSyncMixin</code>、
+                Thirst 的 Create 灌装数据包配方</td>
+            <td>✅</td><td>✅</td><td>✅</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>Limitless Vehicle</b>（ywzj_vehicle）</td>
+            <td><code>curse.maven:limitless-vehicle-1446269</code></td>
+            <td><code>feature/vehicle/**</code>、<code>VehicleNet/Ammo/EnergyCharge/HudNetwork*Mixin</code></td>
+            <td>✅</td><td>✅</td><td>✅</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>JEI</b></td>
+            <td><code>curse.maven:jei-238222</code>（0.8.x-1.20.1 另有本地 15.56 jar 用于双布局编译）</td>
+            <td><code>jei/**</code>、<code>JeiIngredient*Mixin</code>、<code>client/JeiExtractInputHandler</code>（新线）</td>
+            <td>✅</td><td>✅</td><td>✅（遇 RI 整体禁用）</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>EMI</b>（+ EmiLink 冲突检测）</td>
+            <td>本地 <code>libs/emi-1.1.24+1.21.1+neoforge.jar</code>（1.21.1 两线）</td>
+            <td><code>client/EmiBdShortcuts</code>（旧线）、<code>compat/EmiBdCompat</code>（0.8.x-1.20.1 仅守卫）</td>
+            <td>✅</td><td>?</td><td>➖ 未做</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>rs_integration（RI）</b></td>
+            <td>0.7.30：<code>curse.maven:rs-integration-1630184</code>；0.8.x-1.20.1：本地 <code>libs/rs_integration-1.5.2.2.jar</code>（flatDir + <code>fg.deobf</code>）</td>
+            <td><code>compat/RsIntegrationCompat</code>（0.7.30 按钮接管反射助手；0.8.x 只用 <code>isLoaded</code>，RI Mixin 已删）</td>
+            <td>✅</td><td>🟡 无依赖，仅兼容代码</td><td>✅（+ JEI 遇 RI 禁用）</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>Jade</b></td>
+            <td><code>curse.maven:jade-324717</code></td>
+            <td><code>jade/**</code>（方块/容器/流体 Provider）</td>
+            <td>✅ 6 类</td><td>✅ 1 类</td><td>✅ 6 类</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>Curios</b></td>
+            <td><code>curse.maven:curios-309927</code></td>
+            <td>经验棒修复范围「饰品」、药水护符遍历、能量充能</td>
+            <td>✅</td><td>✅</td><td>✅</td><td>➖</td>
+        </tr>
+        <tr>
+            <td><b>FTB Quests</b></td>
+            <td>—（旧线实现里以反射/软依赖方式接入）</td>
+            <td>FTB 相关类：旧两线各 1 个；0.8.x-1.20.1 为 <b>0</b></td>
+            <td>✅</td><td>✅</td><td>➖ 未移植</td><td>➖</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>B. 仅运行依赖 / 兼容环境（无 BI 功能注入）</h2>
+    <table>
+        <tr><th>模组</th><th>出现于</th><th>用途</th></tr>
+        <tr><td>Mekanism（tools / generators）</td><td>0.7.30·1.20.1、0.8.x·1.20.1</td><td>测试环境的能量/气体存储；BI 未注入其类（待确认）</td></tr>
+        <tr><td>Refined Storage / AE2 / AE2 Lightning Tech / Thunderbolt</td><td>0.7.30·1.20.1、0.8.x 两线</td><td>存储类型与终端环境；BI 的 <code>network/menu</code> 可解析其菜单（<code>BDMenuNetAccessor</code>）</td></tr>
+        <tr><td>Sophisticated Core / Storage</td><td>两条 1.21.1 线</td><td>1.21.1 存储环境</td></tr>
+        <tr><td>Quark / Zeta / Placebo / Apothic Attributes</td><td>0.7.30·1.20.1 等</td><td>Apotheosis 依赖链与通用环境</td></tr>
+        <tr><td>Embeddium / Sodium</td><td>各线</td><td>渲染环境（与 <code>CompixelIconGuardMixin</code> 无关，但影响 UI 帧预算）</td></tr>
+        <tr><td>Cloth Config</td><td>各线</td><td>BI 配置界面（<code>ModConfigScreen</code>）依赖</td></tr>
+        <tr><td>Kotlin for Forge</td><td>两条 0.8.x 线</td><td>Kotlin/Compose 运行时（与 CompixelUI 的 Kotlin 栈对齐）</td></tr>
+        <tr><td>Packet Fixer / Spark / Inventory HUD+ / IPN / Mouse Tweaks / GuideME</td><td>1.20.1 各线</td><td>调试与运行环境</td></tr>
+    </table>
+    <div class="note">
+        <b>核对口径</b>
+        “功能联动”= 仓库中存在引用该模组类型的 BI 类，或 <code>mixins.json</code> / <code>MixinPlugin</code>
+        中有该模组的目标类；其余仅作为开发运行环境的依赖，不计入功能篇。
+    </div>
+</div>
+
+<div class="card">
+    <h2>C. 功能实现篇（已按此顺序写完）</h2>
+    <ol>
+        <li><b><a href="02-bd-core.html">02 · BD 核心</a></b>：插入规则 / 主网同步 / 订阅中心 / 通道过滤 / 终端绑定 / HUD / 命令 / 配置。</li>
+        <li><b><a href="03-enchant-workbench.html">03 · 附魔与工作台</a></b>：附魔分离、附魔台、批量合并、七合一工作台与激活体系。</li>
+        <li><b><a href="04-network-ammo.html">04 · 网络弹药</a></b>：TACZ / SW / 能量充能 / 载具 / 哨戒 / 女仆接口。</li>
+        <li><b><a href="05-linkage-features.html">05 · 联动模组功能</a></b>：铁魔法、Goety、Thirst/LSO、RI、Jade、FTB（代码中不存在）。</li>
+        <li><b><a href="06-xp-rod.html">06 · 经验棒</a></b>：修复页、等级上限、给予方式、女仆饰品。</li>
+        <li><b><a href="07-potion-charm.html">07 · 网络药水护符</a></b>：机制与四工程入口差异。</li>
+        <li><b><a href="08-jei-emi.html">08 · JEI / EMI</a></b>：双实现路线、双布局、遇 RI 禁用、EMI 现状。</li>
+        <li><b><a href="09-system-reference.html">09 · 系统与参考</a></b>：协议、配置、API、Mixin 清单、贴图、0.8.x 待补清单。</li>
+    </ol>
+</div>
+
+<footer>
+    <a href="index.html">← 返回 new_docs 索引</a> · 01 · 联动模组
+</footer>
+
+</div>
+</body>
+</html>

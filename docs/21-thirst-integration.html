@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>27 · 口渴（Thirst）集成 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>27 · 口渴（Thirst）集成</h1>
+    <div class="sub">Thirst（was Taken / was Reclaimed）联动 · 网络喂食器补水档位 · 纯净水系列流体（仅网络注册）· 网络熔炉按标记执行 Thirst 熔炼提纯（可配熔炼速度）· 机械动力（Create）灌装配方 + 沙滤提纯 · 双分支同步</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>为 Beyond Dimensions 的<b>网络喂食器</b>（<code>beyonddimensions:net_feeder_item</code>）增加口渴补水能力，并注册一组可在网络中存储的纯净水系列流体，配合网络熔炉把水逐步"烧"成更高纯度。</p>
+    <ul>
+        <li><b>补水档位</b>：与 BD 喂食档位同款语义（作用于口渴/水饱和），在喂食器界面新增一个右侧按钮。</li>
+        <li><b>只使用标记槽内容</b>：喂食/补水都只消耗喂食器 36 个标记槽中标记过的物品/流体。</li>
+        <li><b>饥饿与口渴相互独立</b>：到饥饿档按原逻辑喂食物；到口渴档从标记槽补水；满足其一即触发。</li>
+        <li><b>纯净水系列流体</b>：4 档纯度，<b>仅注册流体本体</b>（无方块、无桶），世界中不可放置，只作为网络存储/显示条目。</li>
+        <li><b>网络熔炉提纯</b>：按标记槽自动组装水瓶/水桶并执行 Thirst 熔炼配方提纯，产物按收纳回网络（可配熔炼速度）。</li>
+        <li><b>JEI</b>：提纯经 JEI 原版熔炼分类展示（原自研流体熔炼分类已移除）。</li>
+    </ul>
+    <div class="warn"><b>可选依赖</b>：本集成仅在存在口渴模组时启用；未安装时喂食器完全维持 BD 原逻辑，且不显示补水按钮。</div>
+    <div class="note"><b>口渴后端兼容</b>（运行时按加载选择，经 <code>ThirstBridge</code> 统一）：优先 <b>Thirst was Reclaimed</b>（<code>thirst</code>，主值 thirst / 副值 quenched / 0–3 纯度 + 水纯度效果）；否则用 <b>Legendary Survival Overhaul</b>（<code>legendarysurvivaloverhaul</code>，主值 hydration / 副值 saturation，纯度映射为 <code>HydrationEnum</code>：纯净→PURIFIED、其余→NORMAL，补水直接操作其 capability/attachment 以绕过"满水不加"；1.20.1 Capability、1.21.1 Attachment）。</div>
+    <div class="note"><b>双版本 Thirst（仅 1.20.1-FORGE）</b>：同时兼容新版「Thirst was Reclaimed」(<code>cn.mlus.thirst</code>) 与旧版「Thirst was Taken」(<code>dev.ghen.thirst</code>)。两版 modId 均为 <code>thirst</code>、类名/方法签名一致仅根包不同，故 <code>ThirstBridge.get()</code> 按“类是否存在”选择后端；旧版已作为依赖导入，<code>ThirstCompatLegacy</code> 直接调用其 API。</div>
+</div>
+
+<div class="card">
+    <h2>补水档位（与喂食档位同款语义）</h2>
+    <table>
+        <tr><th>档位</th><th>触发条件（Thirst）</th><th>对应喂食档位</th></tr>
+        <tr><td><code>SATURATION_KEEP</code></td><td>水饱和 <code>quenched ≤ 0</code></td><td>始终保持饱和度</td></tr>
+        <tr><td><code>CRAZY</code></td><td>口渴 <code>thirst &lt; 20</code></td><td>饱食度一降就喂</td></tr>
+        <tr><td><code>NORMAL</code>（默认）</td><td>口渴 <code>thirst ≤ 10</code></td><td>饱食度低于一半</td></tr>
+        <tr><td><code>HUNGER_TO_EAT</code></td><td>口渴 <code>thirst ≤ 2</code></td><td>饱食度低于 10%</td></tr>
+    </table>
+    <p>档位随 BD 的 <code>QuickDataTag</code> 双向同步并存于喂食器物件的设置中（键 <code>bi_thirst_mode</code>）。</p>
+</div>
+
+<div class="card">
+    <h2>界面按钮与角标</h2>
+    <ul>
+        <li>在 BD 原有两个右侧按钮（喂食档位 / 红石控制）下方新增一个<b>补水档位</b>按钮，复用 BD 的 <code>feeder_mode_*</code> 贴图（同款语义）。</li>
+        <li>两个档位按钮右下角分别叠加<b>原版角标</b>：喂食档位=原版饥饿图标，补水档位=原版水瓶（药水瓶物品）。角标在 <code>renderLabels</code> 阶段（widget 之后）绘制，确保覆盖在按钮之上。</li>
+        <li>不再提供独立的"忽略饥饿"开关：饥饿与口渴为两个独立条件，满足其一即触发。</li>
+        <li><b>回血模式</b>按钮（原版心形图标）：开启后持续把<b>饥饿饱和度</b>与<b>水饱和</b>都补到 5 以上（并保持饱食度=20、口渴=20），以加速自然回血。</li>
+    </ul>
+    <div class="note">BD 若更换 UI 框架，本按钮布点/角标坐标需随 <code>client/gui/**</code> 一并校对。</div>
+</div>
+
+<div class="card">
+    <h2>补水逻辑</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">服务端</span><b>FeederThirstItemMixin @Overwrite workContent</b>（仅 thirst 加载）</div>
+        <div class="arrow"><span class="al">FeederThirstHandler.handle</span></div>
+        <div class="step decision"><b>口渴到档？</b>mode.matches(thirst, quenched)</div>
+        <div class="arrow"><span class="al">是</span></div>
+        <div class="step server"><b>取标记槽补水物品</b>findCandidate（只匹配标记槽）</div>
+        <div class="arrow"><span class="al">无物品</span></div>
+        <div class="step server"><b>取标记的流体</b>tryDrinkFluid（只喝被标记的流体）</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>饥饿到档？</b>feederModeMatch</div>
+        <div class="arrow"><span class="al">是</span></div>
+        <div class="step server"><b>feedOriginal</b>复刻 BD 原喂食逻辑（标记槽食物）</div>
+    </div>
+    <table>
+        <tr><th>来源</th><th>规则</th></tr>
+        <tr><td>补水物品</td><td>按 Thirst 物品补水值（<code>ThirstHelper</code>）；纯饮料走 <code>finishUsingItem</code>，必要时补调 <code>PlayerThirst.drink</code>（避免与 <code>DrinkableItem</code> 重复）</td></tr>
+        <tr><td>流体水</td><td>每 <code>mb_per_use</code> mB 补一次；按纯度档分别增加口渴值/水饱和（见配置）；并施加 Thirst 水纯度效果（中毒/反胃），补水照常</td></tr>
+        <tr><td>原版水</td><td>按配置 <code>feeder_thirst_vanilla_water_purity</code> 视为指定纯度（默认 1 = 微脏）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>纯净水系列流体（仅网络注册）</h2>
+    <table>
+        <tr><th>流体 ID</th><th>纯度</th><th>说明</th></tr>
+        <tr><td><code>beyond_integration:dirty_water</code></td><td>0</td><td>脏水</td></tr>
+        <tr><td><code>beyond_integration:slightly_dirty_water</code></td><td>1</td><td>微脏水</td></tr>
+        <tr><td><code>beyond_integration:acceptable_water</code></td><td>2</td><td>可接受的水</td></tr>
+        <tr><td><code>beyond_integration:purified_water</code></td><td>3</td><td>纯净水</td></tr>
+    </table>
+    <ul>
+        <li>仅注册 <code>FluidType</code> + <code>Fluid</code>（源/流动），贴图复用原版水纹理 + tint；<b>不注册专属方块/桶</b>，而是把桶映射为原版水桶、方块映射为原版水方块。</li>
+        <li>4 档水（含流动态）加入 <code>#minecraft:water</code> 流体标签，可被其它系统视为"水"。</li>
+        <li>因此这些流体本身没有世界来源，需经网络熔炉等方式进入网络。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>终端取水与纯度往返</h2>
+    <p>在 BD 终端界面上，对水类流体键槽位操作：</p>
+    <ul>
+        <li><b>正向（取出）</b>：左键点击水类流体（本模组 4 档水 / 原版水）→ 用网络中的空桶 + 流体组合成<b>水桶</b>；手持单个玻璃瓶时改为产出<b>水瓶</b>（水药水瓶）。产出物会打上对应纯度的 Thirst 水纯度标签（未装 Thirst 时跳过）。</li>
+        <li><b>反向（入网）</b>：带纯度标签的水桶入网时，由 <code>BucketSeparatorHandler</code> 拆为<b>对应纯度的水流体</b> + 空容器（水桶→空桶）。</li>
+        <li>反向拆解受配置 <code>bucket_separator_enabled</code> 限制：关闭时不拆解，容器原样入网。</li>
+        <li><b>仅限桶物品</b>：<code>bucket_separator_bucket_only</code>（默认开）下只拆 <code>BucketItem</code> 子类，<b>水瓶不再自动拆分</b>（水瓶→水 + 玻璃瓶需将其关闭）；排除项 <code>bucket_separator_excluded_items</code> 中的容器（默认含森罗酒馆果汁桶）一律不拆。</li>
+        <li>纯度读取 / 打标经 <code>PurityTagger</code>（反射调用 Thirst 的 <code>WaterPurity</code>），未安装 Thirst 时不加载。</li>
+    </ul>
+    <div class="note">纯水瓶 250 mB/瓶、水桶 1000 mB/桶；带纯度标签的水瓶在反向时按 250 mB 拆回对应水流体。</div>
+</div>
+
+<div class="card">
+    <h2>网络熔炉提纯（执行 Thirst 配方）</h2>
+    <p>自 0.7.0-dev 起<b>移除原自研「净化模式 + 流体熔炼」方案</b>，网络熔炉改为直接执行 <b>Thirst 的水瓶/水桶 NBT 熔炼配方</b>：</p>
+    <ul>
+        <li>在<b>标记槽放入“待提纯的满容器”</b>（带 Thirst 纯度标签的水瓶/水桶）。</li>
+        <li>由 <code>NetFurnaceWaterPurifyMixin</code> 在 <code>workStart</code> 末尾按标记从网络取「对应纯度的水流体 + 空容器」组装成该容器，送入输入槽。</li>
+        <li>随后由 BD 原生熔炼执行 Thirst 的 <code>minecraft:smelting</code> 配方（脏→可接受→纯净），产物按「收纳」设置回网络。</li>
+        <li>因 BD 输入槽原仅接受可熔炼物品，新增放行水容器的输入校验（<code>NetFurnaceInputFilterWaterMixin</code> / <code>NetFurnaceInputStorageWaterMixin</code>）。</li>
+        <li><b>熔炼速度</b>：<code>bd_tweaks.net_furnace_smelt_speed</code>（默认 1.0；配方耗时 = 原耗时 / 倍率）由 <code>NetFurnaceSmeltSpeedMixin</code> 缩放。</li>
+    </ul>
+    <div class="note">仅普通网络熔炉（SMELTING）；无纯度标签且无对应配方的水会被跳过，不会堵塞输入槽。</div>
+</div>
+
+<div class="card">
+    <h2>机械动力（Create）口渴兼容</h2>
+    <p>Create 只把原版 <code>minecraft:water</code> 当"水"（<code>FluidHelper.isWater</code>），而 Thirst 自带的 Create 兼容也不识别 BI 的 4 档自定义水。BI 用两种方式衔接（<b>不做"从容器倒出为 BI 流体"</b>）：</p>
+    <ul>
+        <li><b>灌装（<code>create:filling</code> 配方）</b>：BI 档流体 + 空瓶 / 空桶 → 对应纯度的水容器（结果带 Thirst 纯度标签）。4 档 × {水瓶 250mB / 水桶 1000mB}，位于 <code>data/beyond_integration/recipes|recipe/create/</code>，条件 <code>mod_loaded create</code>。1.20.1 结果用 <code>nbt</code>，1.21.1 用组件。</li>
+        <li><b>沙滤（Sand Filter）</b>：Thirst 的沙滤只对"原版水 + Thirst 纯度"生效，BI 的独立档位水会被原样透传；<code>SandFilterWaterCompatMixin</code> 在沙滤 <code>tick</code> 中把抽出的 BI 档水替换为<b>高一档</b>的 BI 水（到顶保持纯净），实现过滤提纯。</li>
+        <li>带纯度标签的水容器入网时由 <code>BucketSeparatorHandler</code> 拆回对应 BI 档流体（并修复 1.21.1 版纯度映射因用错对象而失效的问题）。</li>
+    </ul>
+    <div class="note">不做 emptying（倒出）配方：从容器倒出的水仍为原版水。需同时安装 Create 与口渴模组。</div>
+</div>
+
+<div class="card">
+    <h2>JEI 显示</h2>
+    <ul>
+        <li>移除原「网络熔炉流体熔炼」分类（<code>FluidSmeltCategory</code>）；提纯改由 Thirst 的熔炼配方经 <b>JEI 原版熔炼分类</b>展示。</li>
+        <li>本模组其余 JEI 集成（BD 终端数量角标 / Shift 取物 / 配方转移）见文档 25、27。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>配置（COMMON · <code>bd_tweaks</code> 段）</h2>
+    <table>
+        <tr><th>键</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>mb_per_use</code></td><td>50</td><td>每多少 mB 水补充一次（全局）</td></tr>
+        <tr><td><code>dirty_thirst</code> / <code>dirty_quenched</code></td><td>1 / 0</td><td>脏水每次补充口渴值 / 水饱和</td></tr>
+        <tr><td><code>slightly_dirty_thirst</code> / <code>slightly_dirty_quenched</code></td><td>1 / 1</td><td>微脏水每次补充口渴值 / 水饱和</td></tr>
+        <tr><td><code>acceptable_thirst</code> / <code>acceptable_quenched</code></td><td>2 / 2</td><td>可接受水每次补充口渴值 / 水饱和</td></tr>
+        <tr><td><code>purified_thirst</code> / <code>purified_quenched</code></td><td>3 / 3</td><td>纯净水每次补充口渴值 / 水饱和</td></tr>
+        <tr><td><code>vanilla_water_purity</code></td><td>1</td><td>原版水视为的纯度：0脏/1微脏/2可接受/3纯净</td></tr>
+        <tr><td>—</td><td>—</td><td>网络熔炉提纯已改为执行 Thirst 配方；熔炼速度见 <code>bd_tweaks.net_furnace_smelt_speed</code></td></tr>
+    </table>
+    <div class="note">上述键位于独立配置区 <code>[feeder_thirst]</code>（已从 <code>[bd_tweaks]</code> 拆出）。</div>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>喂食器逻辑接管</td><td><code>mixin/FeederThirstItemMixin</code></td><td><code>@Overwrite</code> 替换 <code>NetFeederItem.workContent</code></td></tr>
+        <tr><td>业务处理</td><td><code>feature/feeder/FeederThirstHandler</code></td><td>口渴补水 / 原喂食逻辑（feedOriginal）/ 流体补水</td></tr>
+        <tr><td>档位与设置</td><td><code>feature/feeder/FeederThirstMode</code> · <code>FeederThirstSettings</code></td><td>档位枚举与 NBT/组件读写</td></tr>
+        <tr><td>Thirst API 隔离</td><td><code>feature/feeder/ThirstCompat</code></td><td>Capability/Attachment、补水、纯度效果</td></tr>
+        <tr><td>标记槽放宽</td><td><code>mixin/FeederThirstMenuSlotMixin</code></td><td>允许流体键通过 <code>isStackValid</code>（持久化流体标记）</td></tr>
+        <tr><td>档位同步</td><td><code>mixin/FeederThirstMenuMixin</code></td><td>随 QuickData 双向同步</td></tr>
+        <tr><td>界面</td><td><code>mixin/FeederThirstGUIMixin</code> · <code>client/widget/FeederThirstModeButton</code></td><td>补水档位按钮 + 原版角标</td></tr>
+        <tr><td>流体注册</td><td><code>init/ModFluids</code></td><td>4 档水流体（仅流体本体）</td></tr>
+        <tr><td>网络熔炉提纯</td><td><code>feature/feeder/NetFurnaceWaterPurify</code> · <code>mixin/NetFurnaceWaterPurifyMixin</code> · <code>NetFurnaceInput*WaterMixin</code> · <code>mixin/NetFurnaceSmeltSpeedMixin</code></td><td>按标记组装水容器并执行 Thirst 熔炼配方；熔炼速度缩放</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>双分支差异</h2>
+    <table>
+        <tr><th>项</th><th>Forge 1.20.1</th><th>NeoForge 1.21.1</th></tr>
+        <tr><td>玩家口渴数据</td><td>Capability <code>ModCapabilities.PLAYER_THIRST</code></td><td>DataAttachment <code>ModAttachment.PLAYER_THIRST</code></td></tr>
+        <tr><td>喂食器设置存储</td><td>物品 NBT tag</td><td><code>CUSTOM_DATA</code> 数据组件</td></tr>
+        <tr><td>消耗事件</td><td><code>ForgeEventFactory.onItemUseFinish</code></td><td><code>EventHooks.onItemUseFinish</code></td></tr>
+        <tr><td>食物属性</td><td><code>getNutrition()/getSaturationModifier()</code></td><td><code>nutrition()/saturation()</code></td></tr>
+        <tr><td>流体贴图引用</td><td>完整纹理路径</td><td>GUI sprite 路径</td></tr>
+        <tr><td>JEI 流体类型</td><td><code>ForgeTypes.FLUID_STACK</code></td><td><code>NeoForgeTypes.FLUID_STACK</code></td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/feature/feeder/FeederThirstHandler.java<span class="fdesc">补水/喂食核心逻辑</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/feeder/FeederThirstMode.java<span class="fdesc">补水档位枚举</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/feeder/FeederThirstSettings.java<span class="fdesc">档位读写</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/feeder/ThirstCompat.java<span class="fdesc">Thirst API 隔离</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/feeder/NetFurnaceWaterPurify.java<span class="fdesc">按标记组装水容器（Thirst 提纯）</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/init/ModFluids.java<span class="fdesc">4 档水流体注册（仅流体）</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/widget/FeederThirstModeButton.java<span class="fdesc">补水档位按钮</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/FeederThirstItemMixin.java<span class="fdesc">@Overwrite workContent</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/FeederThirstMenuSlotMixin.java<span class="fdesc">标记槽允许流体</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/FeederThirstMenuMixin.java<span class="fdesc">档位同步</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/FeederThirstGUIMixin.java<span class="fdesc">按钮与角标</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/NetFurnaceWaterPurifyMixin.java<span class="fdesc">网络熔炉按标记组装执行</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/NetFurnaceSmeltSpeedMixin.java<span class="fdesc">熔炼速度缩放</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/mixin/SandFilterWaterCompatMixin.java<span class="fdesc">沙滤对 BI 纯度水的提纯（Create 兼容）</span></li>
+        <li>src/main/resources/data/beyond_integration/recipes|recipe/create/*.json<span class="fdesc">Create 灌装配方（4 档 × 水瓶/水桶）</span></li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 27/27 · Beyond Integration v0.7.3
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10 · 物品黑名单与插入拦截链 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>10 · 物品黑名单与插入拦截链</h1>
+    <div class="sub">BD 网络插入前置拦截体系：黑名单 / 附魔分离 / 弹药折算 四处理器链</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>Beyond Dimensions 的 <code>UnifiedStorage.insert()</code> 在真正写入前会走一条<b>前置拦截链</b>（<code>UnifiedStorageBeforeInsertHandler</code>）。本模组在 commonSetup 按模组加载情况注册 4 个处理器：</p>
+    <table>
+        <tr><th>处理器</th><th>加载条件</th><th>行为</th></tr>
+        <tr><td><code>ItemBlacklistHandler</code></td><td>始终</td><td>黑名单物品拒绝入网</td></tr>
+        <tr><td><code>EnchantmentBookSeparatorHandler</code></td><td>始终</td><td>附魔书分离（见文档 05）</td></tr>
+        <tr><td><code>AmmoBoxExtractHandler</code></td><td>tacz 已加载</td><td>TACZ 弹药盒拆箱（见文档 14）</td></tr>
+        <tr><td><code>SuperbAmmoInsertHandler</code></td><td>superbwarfare 已加载</td><td>SW 弹药折算（见文档 13）</td></tr>
+    </table>
+    <div class="note"><b>设计要点</b>拦截链是 BD 官方扩展点（不是 Mixin），天然解耦；每个处理器返回 <code>BeforeInsertHandlerReturnInfo(KeyAmount beforeInsert, boolean cancel)</code>，cancel=true 时吞掉本次插入（或替换为折算后的内容）。</div>
+</div>
+
+<div class="card">
+    <h2>拦截链执行流程</h2>
+    <div class="flow">
+        <div class="step io"><span class="tag">BD 内部</span><b>UnifiedStorage.insert(key, amount)</b></div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>onBeforeInsert()</b>按注册顺序遍历处理器链</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>① 黑名单</b>item id 匹配配置列表？</div>
+        <div class="arrow"><span class="al">命中 → cancel=true</span></div>
+        <div class="step end"><b>拒绝入网</b>（物品被吞）</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><b>② 附魔分离</b>开启且物品是多附魔书？</div>
+        <div class="arrow"><span class="al">是 → 拆书 + 扣费（或保护标记跳过）</span></div>
+        <div class="step server"><b>③ TACZ 弹药盒</b>（tacz）→ 折算 + 空盒放行</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>④ SW 弹药</b>（superbwarfare）→ 折算 + 吞掉</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>放行 / 替换后入库</b>（或无处理器命中 → 原样入库）</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>黑名单功能细节</h2>
+    <div class="flow">
+        <div class="step server"><b>匹配逻辑</b>按物品注册 ID（namespace:path）比对配置列表</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>命中？</b></div>
+    </div>
+    <div class="flow row">
+        <div class="step server"><b>命中</b>返回 cancel → 物品不入网络</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>未命中</b>放行（含 null key / 空栈 / 功能未启用等全部防御分支）</div>
+    </div>
+    <div class="warn"><b>已知边界</b>配置条目只在判空时 trim，未 trim 的比较可能导致尾空格/大小写不匹配的条目失效（建议配置时确保无空格）。</div>
+</div>
+
+<div class="card">
+    <h2>注册方式（主类 commonSetup）</h2>
+    <pre><code>UnifiedStorageBeforeInsertHandler.addHandler(blacklistHandler);   // 始终
+UnifiedStorageBeforeInsertHandler.addHandler(enchantSeparator);   // 始终
+if (ModList.get().isLoaded("tacz"))           addHandler(ammoBoxExtract);
+if (ModList.get().isLoaded("superbwarfare"))  addHandler(superbAmmoInsert);</code></pre>
+    <div class="note"><b>NeoForge 差异</b>处理器分别位于 <code>handler/ItemBlacklistHandler</code>、<code>handler/EnchantmentBookSeparatorHandler</code>、<code>handler/AmmoBoxExtractHandler</code>、<code>handler/SuperbAmmoInsertHandler</code>，主类注册逻辑一致。</div>
+</div>
+
+<div class="card">
+    <h2>配置项（blacklist 分区）</h2>
+    <table>
+        <tr><th>配置</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>enable</code></td><td>false</td><td>黑名单功能开关</td></tr>
+        <tr><td><code>items</code></td><td>["minecraft:barrier","minecraft:command_block"]</td><td>禁止入网的物品 ID 列表</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>物品保护标记（相关机制）</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>GUI 内 Ctrl+右键物品槽位</b>ItemProtectExtension</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">C2S</span><b>ProtectItemPacket</b>（NeoForge: ProtectItemPayload）</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>写入 NBT 标记</b><code>beyond_integration:protect_sep</code></div>
+        <div class="arrow"></div>
+        <div class="step end"><b>附魔分离跳过该物品</b>（tooltip 显示 protected 绿字）</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>相关源文件（Forge 分支）</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/feature/blacklist/ItemBlacklistHandler.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/enchant/EnchantmentBookSeparatorHandler.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/ammo/tacz/AmmoBoxExtractHandler.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/ammo/sw/SuperbAmmoInsertHandler.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/BeyondIntegration.java<span class="fdesc">commonSetup 条件注册</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/api/IBeforeInsertExtension.java<span class="fdesc">扩展接口</span></li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 10/21 · Beyond Integration v0.6.5
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04 · 网络弹药 / 载具 / 哨戒 / 女仆（四工程对照）— Beyond Integration new_docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>04 · 网络弹药 · 载具 · 哨戒 · 女仆弹药</h1>
+    <div class="sub">
+        TACZ 供弹、SW 弹药（虚拟计数 vs 散装物品）、能量充能、载具绑定、哨戒机械臂、女仆接口 ——
+        四工程逐项对照，并列出 0.8.x 丢失的“开关入口”
+    </div>
+</header>
+
+<div class="card">
+    <h2>四工程状态总表</h2>
+    <table>
+        <tr>
+            <th>能力</th>
+            <th>0.7.30 · 1.20.1</th>
+            <th>0.7.30 · 1.21.1</th>
+            <th>0.8.x · 1.20.1</th>
+            <th>0.8.x · 1.21.1</th>
+        </tr>
+        <tr><td>TACZ 网络供弹（射击/换弹扣网络弹药）</td><td>✅ <code>feature/ammo/tacz/**</code></td><td>✅ <code>handler/Tacz*</code> + <code>AmmoConsumerMixin</code></td><td>✅ 同名落点</td><td>➖</td></tr>
+        <tr><td>TACZ 弹药箱 / 弹药库拆箱</td><td>✅ <code>AmmoBoxExtractHandler</code> / <code>AmmoStorageExtractHandler</code></td><td>✅ <code>handler/AmmoBoxExtractHandler</code></td><td>🟡 改为 <code>InsertPlan.convert()</code> 规则</td><td>➖</td></tr>
+        <tr><td>SW 弹药口径</td><td>✅ 虚拟计数 <code>NetworkAmmoData.networkAmmo</code></td><td>✅ 虚拟计数（<code>SuperbAmmoAccessor</code>）</td><td>🟡 散装弹药物品 <code>SwAmmoStorage</code> + <code>SwAmmoMigration</code></td><td>➖</td></tr>
+        <tr><td>能量充能（盔甲/手持/Curios/女仆）</td><td>✅ <code>feature/ammo/sw/EnergyAmmoChargeHandler</code> + 按钮 <code>EnergyChargeToggleBtn</code></td><td>✅ <code>handler/EnergyAmmoChargeHandler</code> + 按钮</td><td>🟡 逻辑在，<b>按钮已删、无入口</b></td><td>➖</td></tr>
+        <tr><td>载具绑定 / 网络弹药 / 充能 / HUD</td><td>✅ SW 载具：<code>VehicleNetCache</code> + <code>Vehicle*Mixin</code></td><td>✅ ywzj 载具：<code>handler/VehicleNetStorage</code> + <code>mixin/ywzj_vehicle/*</code></td><td>✅ 同 0.7.30-1.20.1（SW 载具）</td><td>➖</td></tr>
+        <tr><td>哨戒机械臂（Create Sentry）</td><td>✅ <code>SentryArm*Mixin</code> + <code>SentryFakePlayerSyncMixin</code></td><td>✅ 同名（多 <code>SentryAeronauticsFixMixin</code>）</td><td>✅ 同名</td><td>➖</td></tr>
+        <tr><td>女仆弹药 / 能量 / 终端接口</td><td>✅ <code>maid/**</code> + <code>api/INetworkAmmoProvider</code></td><td>✅</td><td>✅</td><td>➖</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>1. TACZ 网络供弹</h2>
+    <ul>
+        <li><b>取弹</b>：<code>TaczAmmoExtractor</code> 从网络按弹药键提取；`AmmoConsumerMixin`（玩家/女仆/载具）在消耗点时接管。
+            0.7.30-1.21.1 另有 <code>TaczCreativeAccessor</code>/<code>TaczEventHandler</code>（创造模式与事件桥）。</li>
+        <li><b>计数与推送</b>：<code>TaczAmmoTracker</code> + <code>TaczAmmoPollingService</code>（轮询网络差分，
+            只在变化时推 <code>TaczAmmoPushS2CPacket</code>）；客户端 <code>TaczAmmoCache</code>/<code>TaczAmmoMirror</code> 缓存。</li>
+        <li><b>弹药箱/弹药库</b>：<code>AmmoBoxExtractHandler</code>（盒装 → 子弹 + 空盒）、
+            <code>AmmoStorageExtractHandler</code>（弹药库方块 → 各条目弹药 + 空方块）。
+            0.8.x-1.20.1 都改写为 <code>InsertPlan.convert(1).add(…)</code>。</li>
+        <li><b>配方索引</b>：<code>TaczRecipeIndex</code> + Client/Server Events（枪械台网络合成用）；
+            0.8.x-1.20.1 保留索引类但<b>工作台已删</b>（无消费方，见 03 篇）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>2. SW 弹药（两条口径不能混用）</h2>
+    <table>
+        <tr><th>工程</th><th>存储口径</th><th>关键类</th><th>迁移</th></tr>
+        <tr>
+            <td><code>0.7.30·1.20.1</code></td>
+            <td>虚拟计数：<code>NetworkAmmoData.networkAmmo</code> = <code>Map&lt;弹药类型, 发数&gt;</code></td>
+            <td><code>SuperbAmmoInsertHandler</code>（盒装折算）、<code>SwAmmoTracker</code>、<code>SwAmmoPollingService</code></td>
+            <td>—</td>
+        </tr>
+        <tr>
+            <td><code>0.7.30·1.21.1</code></td>
+            <td>虚拟计数（同上）</td>
+            <td><code>handler/SuperbAmmoInsertHandler</code>、<code>SuperbAmmoAccessor</code>、<code>SwAmmoPollingService</code></td>
+            <td>—</td>
+        </tr>
+        <tr>
+            <td><code>0.8.x·1.20.1</code></td>
+            <td>散装弹药物品（<code>superbwarfare:*_ammo</code>，1 个 = 1 发）</td>
+            <td><code>SwAmmoStorage</code>（物品键口径的 count/consume/hasInfinite/snapshot）、
+                <code>SuperbAmmoInsertHandler</code>（盒装 → 散装转化规则）</td>
+            <td><code>SwAmmoMigration</code>：<code>ServerStartedEvent</code> 时按旧
+                <code>NetworkAmmoData</code> 逐网络迁移；<code>__infinite__</code> → 创造弹药箱物品</td>
+        </tr>
+    </table>
+    <div class="warn">
+        <b>协议兼容</b>
+        0.8.x 的 HUD / 载具报文仍按“弹药类型 → 发数”输出（<code>snapshot</code> 由物品键折算），
+        所以下游协议不变；但存档层面虚拟计数已不存在，跨分支回退需要 <code>SwAmmoMigration</code> 的反向迁移（未实现）。
+    </div>
+</div>
+
+<div class="card">
+    <h2>3. 能量充能（含 0.8.x 的入口缺口）</h2>
+    <ul>
+        <li><b>逻辑</b>：<code>EnergyAmmoChargeHandler</code>（0.7.30-1.20.1 在 <code>feature/ammo/sw</code>，
+            1.21.1 在 <code>handler</code>）按网络 FE 给盔甲 / 手持 / Curios / 女仆饰物 充电。</li>
+        <li><b>网络级开关</b>：<code>EnchantSeparationState</code> 的同类——<code>client/EnergyChargeState</code>
+            + 三包 <code>Toggle/Request/Sync EnergyChargePacket</code> + <code>handler/EnergyChargeAccessor</code>。</li>
+        <li><b>入口</b>：0.7.30 两线是 BD 网络界面按钮 <code>client/widget/EnergyChargeToggleBtn</code>（由 GUI Mixin 挂上）。</li>
+        <li><b>0.8.x-1.20.1</b>：<code>client/widget/EnergyChargeToggleBtn</code> <b>不存在</b>，
+            <code>ToggleEnergyChargePacket</code> 仅出现在注册表里（<code>PacketHandler</code> 与自身定义），
+            也<b>没有对应命令</b>。<b>现已补齐</b>：新增的「网络设置」页（按<b>当前打开的存储界面所连网络</b>读写，<code>DimensionsNetMenu.networkId()</code> + 服务端 <code>NetMenuResolver</code>）
+            （<code>client/page/NetSettingsPage.kt</code>，注入 BD <code>NetControlMenu</code>）提供该开关的图形入口。</li>
+        <li><b>附魔分离</b>属于同类开关，原本保留命令入口 <code>/bdtools enchant separate</code>，现在也在「网络设置」页里。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>4. 载具 / 5. 哨戒 / 6. 女仆</h2>
+    <table>
+        <tr><th>模块</th><th>0.7.30 · 1.20.1 / 0.8.x · 1.20.1</th><th>0.7.30 · 1.21.1</th></tr>
+        <tr>
+            <td>载具（SW 载具）</td>
+            <td><code>feature/vehicle/VehicleNetCache</code> + <code>api/IVehicleEnergySystem</code> +
+                <code>Vehicle{Net,Ammo,EnergyCharge,HudNetwork,NetworkSync}Mixin</code>、
+                <code>handler/INetCachedVehicle</code>、Jade 两个 Provider</td>
+            <td>—（1.21.1 用 ywzj 载具）</td>
+        </tr>
+        <tr>
+            <td>载具（ywzj）</td>
+            <td>—</td>
+            <td><code>handler/{VehicleNetCache,VehicleNetStorage,YwzjVehicleSyncHandler,VehicleInteractHandler}</code> +
+                <code>client/YwzjVehicleCache</code> + <code>mixin/ywzj_vehicle/*</code> +
+                <code>YwzjVehicleDataResponsePacket</code>、Jade Provider</td>
+        </tr>
+        <tr>
+            <td>哨戒机械臂</td>
+            <td colspan="2">三线同名：<code>SentryArmBlockMixin</code>/<code>SentryArmNetMixin</code>/
+                <code>SentryArmReloadMixin</code>/<code>SentryFakePlayerSyncMixin</code>；
+                1.21.1 额外 <code>SentryAeronauticsFixMixin</code>；假玩家网络标记 <code>SentryFakePlayerNetMarker</code>（0.7.30-1.20.1 与 0.8.x-1.20.1）</td>
+        </tr>
+        <tr>
+            <td>女仆</td>
+            <td colspan="2">三线同名：<code>maid/{MaidEnergyChargeHandler,MaidNetworkHelper,MaidPotionCharmHandler,MaidCacheCleanup…}</code>；
+                弹药接口 <code>api/INetworkAmmoProvider</code>；终端绑定 <code>feature/terminal/MaidBindTarget</code>?（见 05 篇）</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>7. 代码核对</h2>
+    <table>
+        <tr><th>结论</th><th>旧说法</th><th>代码事实</th></tr>
+        <tr>
+            <td>⚠ 缺口</td>
+            <td>docs/07「网络能量充能」描述界面开关</td>
+            <td>0.8.x-1.20.1 删除了 <code>EnergyChargeToggleBtn</code>；<code>ToggleEnergyChargePacket</code>
+                无发送方、无命令 → 只能用默认配置，无法在游戏内切换</td>
+        </tr>
+        <tr>
+            <td>⚠ 落点</td>
+            <td>docs/13-14 写弹药在 <code>feature/ammo</code></td>
+            <td>0.7.30-1.21.1 没有 <code>feature/ammo</code>，弹药类平铺在 <code>handler/</code>
+                （<code>AmmoBoxExtractHandler</code>、<code>NetworkAmmoData</code>、<code>SuperbAmmoAccessor</code>、<code>Tacz*</code>）</td>
+        </tr>
+        <tr>
+            <td>✅ 确认</td>
+            <td>docs/13「SW 虚拟弹药」</td>
+            <td>0.8.x-1.20.1 已改散装物品；虚拟计数只存在于 0.7.30 两线</td>
+        </tr>
+        <tr>
+            <td>✅ 确认</td>
+            <td>docs/19「ywzj 载具仅 NeoForge」</td>
+            <td><code>mixin/ywzj_vehicle/*</code> 与 <code>VehicleNetStorage</code> 只在 <code>1.21.1_NEOFORGE</code></td>
+        </tr>
+        <tr>
+            <td>?</td>
+            <td>SW 载具与 ywzj 载具是否共存</td>
+            <td>1.20.1 依赖里有 <code>limitless-vehicle</code>（ywzj）但代码仍是 SW 载具实现；
+                <code>mixin/ywzj_vehicle</code> 类只在 1.21.1，1.20.1 是否也支持 ywzj 待确认</td>
+        </tr>
+        <tr>
+            <td>?</td>
+            <td>磁铁 / 漏斗档位设置入口</td>
+            <td>档位分别存物品 NBT（<code>bi_magnet_tier_*</code>）与方块实体 NBT（<code>bi_hopper_tier_*</code>）；
+                0.8.x-1.20.1 的 <code>MagnetMenu</code>/GUI Mixin 已删，目前<b>没有设置入口</b>（恒为默认档位）</td>
+        </tr>
+    </table>
+</div>
+
+<footer>
+    <a href="index.html">← 返回 new_docs 索引</a> · 04 · 网络弹药 · 上一篇
+    <a href="03-enchant-workbench.html">03 附魔与工作台</a> · 下一篇 <a href="05-linkage-features.html">05 联动模组功能</a>
+</footer>
+
+</div>
+</body>
+</html>

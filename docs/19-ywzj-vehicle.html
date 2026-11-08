@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>21 · ywzj 载具支持 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>21 · ywzj 载具支持（NeoForge）</h1>
+    <div class="sub">仅 1.21.1-NeoForge 分支：载具绑定网络、能量充电（FE/流体）、弹药补给、最大合成补料与 HUD</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>为 ywzj 载具（<code>org.ywzj.vehicle</code>）提供维度网络接入：</p>
+    <ul>
+        <li><b>绑定</b>——手持带网络 ID 的 BD 终端右键载具，网络 ID 写入载具 NBT（<code>bce_net_id</code>）</li>
+        <li><b>能量充电</b>——按配置从网络抽取能量（FE）或流体燃料为载具充电，支持固定速率 / 百分比模式</li>
+        <li><b>弹药补给</b>——载具武器装填时从网络提取配方所需的弹药物品</li>
+        <li><b>最大合成补料</b>——载具“一键最大合成”材料不足时从网络提取并放入背包</li>
+        <li><b>HUD</b>——驾驶时在左下角（聊天栏图层下方）显示网络名称/ID、能量与当前武器弹药</li>
+    </ul>
+    <div class="warn"><b>分支说明</b>ywzj 载具支持仅存在于 1.21.1-NeoForge 分支。1.20.1-Forge 分支未实现（该模组用户较少、更新不频繁），两分支除 ywzj 外的功能保持同步。</div>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>绑定持久化</td><td><code>mixin/ywzj_vehicle/VehicleNetMixin</code></td><td>注入 <code>AbstractVehicle.interact</code> / read/write NBT（<code>bce_net_id</code>）</td></tr>
+        <tr><td>绑定存储</td><td><code>handler/VehicleNetStorage</code></td><td>UUID → netId 静态映射（bind/unbind/getBoundNetId/getNetworkForVehicle）</td></tr>
+        <tr><td>能量充电</td><td><code>mixin/ywzj_vehicle/VehicleEnergyChargeMixin</code></td><td><code>AbstractVehicle.tick</code> HEAD 周期充电</td></tr>
+        <tr><td>弹药补给</td><td><code>mixin/ywzj_vehicle/AmmoReloadMixin</code></td><td>武器 <code>hasStorageAmmo</code> / <code>reload</code> 网络取弹</td></tr>
+        <tr><td>合成补料</td><td><code>mixin/ywzj_vehicle/MachineMaxCraftMixin</code></td><td>最大合成判定不足时从网络补料</td></tr>
+        <tr><td>数据同步</td><td><code>handler/YwzjVehicleSyncHandler</code></td><td>玩家骑行时按 2 秒间隔推送网络数据</td></tr>
+        <tr><td>数据包</td><td><code>network/YwzjVehicleDataResponsePacket</code></td><td>S2C：netId / 能量 / 网络名 / 弹药 Map</td></tr>
+        <tr><td>客户端缓存</td><td><code>client/YwzjVehicleCache</code></td><td>单例缓存（TTL 120 秒）</td></tr>
+        <tr><td>HUD</td><td><code>client/NetworkOverlay</code> + <code>mixin/ywzj_vehicle/OverlayRegistrationMixin</code></td><td>注册到聊天栏图层下方并绘制</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>绑定流程</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>手持 BD 终端右键载具</b>VehicleNetMixin 拦截交互返回 SUCCESS</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>读取终端网络 ID</b>BDDataComponents.NET_ID_DATA</div>
+        <div class="arrow"><span class="al">netId ≥ 0</span></div>
+        <div class="step server"><b>写入绑定</b>VehicleNetStorage.bindVehicle(uuid, netId) + NBT bce_net_id</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>通用兜底</b>VehicleInteractHandler（EntityInteract 事件）处理其他载具并取消原交互</div>
+    </div>
+    <div class="note">网络不存在或未绑定时 <code>VehicleNetStorage.getBoundNetId</code> 返回 -1，充电/同步逻辑直接跳过。</div>
+</div>
+
+<div class="card">
+    <h2>能量充电流程</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">每 tick</span><b>AbstractVehicle.tick</b>（服务端）</div>
+        <div class="arrow"><span class="al">chargeMode=OFF / tickCount % chargeInterval != 0 → 跳过</span></div>
+        <div class="step server"><b>缺口计算</b>space = energyCapacity - getEnergy()</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>燃料来源</b>fuelSource</div>
+    </div>
+    <div class="grid2">
+        <div class="card" style="margin:0;">
+            <h3>FE</h3>
+            <div class="flow" style="align-items:stretch;">
+                <div class="step">feNeeded = space × energyConversion</div>
+                <div class="arrow"></div>
+                <div class="step">RATE：want = min(rate, feNeeded)<br>PERCENTAGE：want = ceil(feNeeded × pct%)</div>
+                <div class="arrow"></div>
+                <div class="step">extract 能量 → addEnergy(实得 / conversion)</div>
+            </div>
+        </div>
+        <div class="card" style="margin:0;">
+            <h3>FLUID</h3>
+            <div class="flow" style="align-items:stretch;">
+                <div class="step">遍历网络流体桶，按燃料白名单匹配（AllConfigs fuelNameWhiteList）</div>
+                <div class="arrow"></div>
+                <div class="step">neededMb = space × 1000</div>
+                <div class="arrow"></div>
+                <div class="step">extract 流体 → addEnergy(实得 / 1000)</div>
+            </div>
+        </div>
+    </div>
+    <div class="note"><b>损耗规避</b>FE 路径对提取量按 <code>energyConversion</code> 向下取整后换算（避免余数损耗）；充电后 <code>net.setDirty()</code>。</div>
+</div>
+
+<div class="card">
+    <h2>弹药补给与合成流程</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">装填</span><b>AbstractVehicleWeapon.reload</b></div>
+        <div class="arrow"><span class="al">needed = maxCapacity - remainAmmo</span></div>
+        <div class="step server"><b>按配方 Ingredient 逐项取弹</b>storage.extract(ItemStackKey, 数量)</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>setRemainAmmo(remain + total)</b>+ net.setDirty()</div>
+    </div>
+    <div class="flow">
+        <div class="step server"><span class="tag">合成</span><b>ClientMachineMaxAction.hasIngredients</b>背包材料不足</div>
+        <div class="arrow"><span class="al">findNetwork：主网络优先，回退菜单网络</span></div>
+        <div class="step server"><b>从网络提取材料</b>player.getInventory().add(...)</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>放行最大合成</b>net.setDirty()</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>HUD 显示</h2>
+    <div class="flow">
+        <div class="step server"><span class="tag">服务端</span><b>PlayerTickEvent.Post / PlayerLoggedIn</b>仅骑行时处理</div>
+        <div class="arrow"><span class="al">每载具最小间隔 2000 ms</span></div>
+        <div class="step server"><b>收集数据</b>网络能量 + 网络名 + EquipmentSlot 弹药 Map</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">S2C</span><b>YwzjVehicleDataResponsePacket</b></div>
+        <div class="arrow"></div>
+        <div class="step client"><b>YwzjVehicleCache.update</b>TTL 120 秒</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>NetworkOverlay 绘制</b>网络名/ID、能量（&gt;0）、当前武器与匹配弹药量</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>配置项（ywzj_vehicle 分区）</h2>
+    <table>
+        <tr><th>配置</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>chargeMode</code></td><td>FLAT_RATE</td><td>OFF / FLAT_RATE / PERCENTAGE</td></tr>
+        <tr><td><code>fuelSource</code></td><td>FE</td><td>FE / FLUID（流体燃料）</td></tr>
+        <tr><td><code>energyChargeRate</code></td><td>500000</td><td>FLAT_RATE 模式每次充能量（FE）</td></tr>
+        <tr><td><code>chargeInterval</code></td><td>20</td><td>充电间隔（tick）</td></tr>
+        <tr><td><code>chargePercentage</code></td><td>5.0</td><td>PERCENTAGE 模式百分比（0.1–100）</td></tr>
+        <tr><td><code>energyConversion</code></td><td>1000</td><td>FE → 载具能量单位的换算除数</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>已知边界</h2>
+    <div class="warn">
+        <b>① 客户端缓存清理</b><code>YwzjVehicleCache.reset()</code> 当前无调用点（无下车清理挂点），过期依赖 2 分钟 TTL。<br>
+        <b>② 绑定权限</b>绑定阶段未校验玩家是否为网络成员（与其他载具绑定逻辑一致）。<br>
+        <b>③ 版本耦合</b>Mixin 与 ywzj 载具内部结构强耦合，ywzj 更新后需回归验证。
+    </div>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/mixin/ywzj_vehicle/VehicleNetMixin.java / VehicleEnergyChargeMixin.java / AmmoReloadMixin.java / MachineMaxCraftMixin.java / OverlayRegistrationMixin.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/handler/YwzjVehicleSyncHandler.java / VehicleNetStorage.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/network/YwzjVehicleDataResponsePacket.java</li>
+        <li>src/main/java/com/solr98/beyondintegration/client/YwzjVehicleCache.java / NetworkOverlay.java</li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 21/21 · Beyond Integration v0.6.5 · 仅 NeoForge 1.21.1
+</footer>
+
+</div>
+</body>
+</html>

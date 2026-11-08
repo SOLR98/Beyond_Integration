@@ -1,0 +1,10 @@
+{
+  "mod_data_type": "tacz_unidict_ammo_data",
+  "ammoId": "tacz:rand_ammo_7f3a91",
+  "isItem": false,
+  "speed": 180.0,
+  "gravity": 0.22,
+  "damage": 7.5,
+  "pierce": 1,
+  "armorIgnore": 0.1
+}

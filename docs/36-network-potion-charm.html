@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>36 · 网络药水护符 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>36 · 网络药水护符（Apotheosis）</h1>
+    <div class="sub">把神化药水护符的效果经维度网络供应给玩家 / 女仆 · 各工程实现与差异（四格矩阵见 <a href="35-version-matrix.html">35</a>）</div>
+</header>
+
+<div class="card">
+    <h2>它做什么</h2>
+    <ul>
+        <li>神化（Apotheosis）的<b>药水护符</b>（<code>PotionCharmItem</code>）原本是放在饰品栏由玩家佩戴生效。
+            BI 让它们躺进<b>维度网络</b>也能生效：网络里所有启用（<code>charm_enabled=true</code>）且有药水效果的护符，
+            按配置间隔把效果施加给「把该网络设为主网络」的在线玩家 / 绑定该网络的女仆。</li>
+        <li>效果按<b>效果类型去重</b>：同一药水效果只取最高等级；同等级优先「无法破坏」（不消耗），其次「自身经验修补」——
+            避免低等级护符重复施加、重复扣经验。</li>
+        <li>门槛：护符必须满足其一 —— <b>无法破坏</b>、<b>自身带经验修补</b>、或该网络已<b>献祭解锁</b>经验修补。
+            无法破坏不消耗；其余每次施加扣网络 XP 流体（默认 1 XP = 20 mB）。</li>
+        <li>与「原版护符」的消耗差异：饰品栏护符每次生效会<b>磨损自身耐久</b>（192 点，普通效果 -1、再生 -2，耗尽销毁）；
+            BI 的泛化版<b>不磨损护符</b>，把代价换成网络 XP（Mending 门槛 + 每次扣费），护符本身永不损坏。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>机制细节</h2>
+    <table>
+        <tr><th>环节</th><th>行为</th><th>落点 / 配置</th></tr>
+        <tr>
+            <td>结算频率</td>
+            <td>每 <code>interval</code> tick 对主网络玩家结算一次（默认 20 tick）；女仆由饰品 tick 驱动</td>
+            <td><code>potion_charm.interval</code>；<code>NetworkPotionCharmHandler.tick</code></td>
+        </tr>
+        <tr>
+            <td>生效目标（网络级）</td>
+            <td><code>PLAYERS</code> → <code>MAIDS</code> → <code>BOTH</code> → <code>OFF</code> 循环；存网络附件（<code>NetworkAmmoData.potionCharmMode</code>）</td>
+            <td><code>feature/charm/PotionCharmMode</code>；<code>handler/PotionCharmAccessor</code> +
+                <code>mixin/DimensionsNetMixin</code></td>
+        </tr>
+        <tr>
+            <td>效果与时长来源</td>
+            <td>神化药水护符的物品 NBT 记录<b>一条药水效果（含持续时间）</b>：<code>PotionUtils.getMobEffects(stack)</code>
+                取自护符编码的药水（或自定义 <code>CustomPotionEffects</code>），<code>PotionCharmItem.getEffect</code>
+                返回带 duration 的 <code>MobEffectInstance</code>。时长就是制作护符那瓶药水的时长（如 3600 tick），
+                是护符本身携带、不是施加时才生成的</td>
+            <td><code>PotionCharmItem.hasEffect/getEffect</code>（apotheosis 源码）；
+                BI 侧读取：<code>ApothCharmSupport.getEffect</code></td>
+        </tr>
+        <tr>
+            <td>刷新时机与施加时长</td>
+            <td>仅当目标身上的该效果剩余 ≤ <code>refresh_lead_ticks</code>（默认 10）才重新给予；
+                施加时长 = <code>ceil(护符记录的 duration / 24) + refresh_lead_ticks</code>，
+                再生效果额外加 <code>50 &gt;&gt; amplifier</code> tick 偏移。<br>
+                原版护符（饰品栏）同样是 <code>ceil(duration / 24) + criticalDuration</code>，
+                但 <code>criticalDuration</code> 是固定规则（<code>EXTENDED_POTIONS</code> 命中 210，否则 5），
+                BI 用可配置的 <code>refresh_lead_ticks</code> 代替</td>
+            <td><code>potion_charm.refresh_lead_ticks</code>；<code>NetworkPotionCharmHandler.applyCharm</code>；
+                对照 <code>PotionCharmItem#inventoryTick</code></td>
+        </tr>
+        <tr>
+            <td>经验消耗</td>
+            <td>无法破坏：免费；Mending（自身或献祭解锁）：每次扣 <code>mending_xp_cost × 20</code> mB 的网络 XP 流体，
+                不足则本次不施加</td>
+            <td><code>potion_charm.mending_xp_cost</code>（默认 1.0 XP → 20 mB）</td>
+        </tr>
+        <tr>
+            <td>献祭解锁</td>
+            <td>消耗网络内一本<b>单条附魔=经验修补</b>的附魔书 → 该网络持久化视为所有护符都有经验修补</td>
+            <td><code>NetworkPotionCharmHandler.sacrificeMending</code>；状态存 <code>NetworkAmmoData</code></td>
+        </tr>
+        <tr>
+            <td>同效果去重的口径</td>
+            <td>同一效果类型只留一件：先比增幅（amplifier），同级再比「无法破坏 &gt; 自身经验修补」；
+                <b>不比较 duration</b> —— 同效果同等级时选中哪一件取决于网络扫描顺序，可能拿到时长较短的那件。
+                若要“取时长最长者”，需在 <code>isBetter</code> 里加 duration 比较</td>
+            <td><code>NetworkPotionCharmHandler.isBetter/potency</code></td>
+        </tr>
+        <tr>
+            <td>性能</td>
+            <td>护符状态按网络缓存（效果/增幅/时长/无法破坏/自身 Mending），并用
+                <code>BdSubscriptionHub</code> 订阅该网络存储 delta：只有护符相关物品增删才标记重扫，按网络去重，同一网络多名玩家只处理一次</td>
+            <td><code>NetworkPotionCharmHandler.NetRecord</code></td>
+        </tr>
+        <tr>
+            <td>网络销毁 / 关服</td>
+            <td>移除缓存与订阅（<code>onNetDestroyed</code> / <code>clearCaches</code>）</td>
+            <td>同上</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>两条线对照（new = NEW_FORGE_1.20.1，旧 = 1.20.1-FORGE）</h2>
+    <table>
+        <tr><th>能力</th><th>旧线</th><th>新线</th><th>状态</th></tr>
+        <tr>
+            <td>后台生效逻辑（扫描 / 去重 / 扣经验 / 施加）</td>
+            <td><code>feature/charm/**</code>（与女仆 <code>MaidPotionCharmHandler</code>）</td>
+            <td>同名，代码基本一致</td>
+            <td>✅</td>
+        </tr>
+        <tr>
+            <td>模式切换（仅玩家 / 仅女仆 / 两者 / 关闭）</td>
+            <td>BD 网络界面按钮 <code>client/widget/PotionCharmToggleBtn</code>，由 <code>DimensionsNetGUIMixin</code> 挂上：
+                左键循环（本地乐观更新 + <code>CyclePotionCharmModePacket</code>），提示文案
+                <code>gui.beyond_integration.potion_charm.mode.*</code></td>
+            <td><b>无入口</b>：按钮随旧 GUI 删除；<code>CyclePotionCharmModePacket</code> 仍注册但没有任何发送方 → 模式恒为默认（仅玩家）</td>
+            <td>🟡 / ⚠</td>
+        </tr>
+        <tr>
+            <td>献祭经验修补书解锁</td>
+            <td>同上按钮的 Shift / 右键 → <code>SacrificeMendingPacket</code></td>
+            <td><b>无入口</b>：<code>SacrificeMendingPacket</code> 注册但无发送方</td>
+            <td>🟡 / ⚠</td>
+        </tr>
+        <tr>
+            <td>同步到客户端（UI 显示当前模式）</td>
+            <td><code>PotionCharmSyncPacket</code> → <code>SuperbAmmoCache</code>/<code>PotionCharmState</code></td>
+            <td>包与缓存都在（<code>SuperbAmmoCache.setPotionCharmState</code>），但当前没有界面读它</td>
+            <td>🟡</td>
+        </tr>
+        <tr>
+            <td>调试：批量造护符</td>
+            <td><code>/bdtools insert potionCharm &lt;potion|all&gt; [count] [plain|mending|unbreakable] [netId]</code></td>
+            <td>同（生成的护符默认 <code>charm_enabled=true</code>）</td>
+            <td>✅</td>
+        </tr>
+    </table>
+    <div class="warn">
+        <b>新线现状</b>
+        生效逻辑完整但目前只能以「仅玩家 + 无经验修补门槛」运行：网络里的护符若不是无法破坏、也不是自身经验修补，
+        就<b>不会生效</b>，而玩家在新线没有办法献祭解锁、也切不到女仆 / 两者 / 关闭。
+        要补齐需要一个 <code>BdPage</code>（挂在 BD 网络控制界面或存储界面）：模式四态 + 献祭按钮 + 解锁状态显示。
+    </div>
+</div>
+
+<div class="card">
+    <h2>相关配置（<code>[potion_charm]</code>）</h2>
+    <table>
+        <tr><th>键</th><th>默认</th><th>说明</th></tr>
+        <tr><td><code>enabled</code></td><td>true</td><td>总开关（关闭时不加载神化相关行为）</td></tr>
+        <tr><td><code>interval</code></td><td>20 tick</td><td>玩家结算间隔（1~1200）</td></tr>
+        <tr><td><code>refresh_lead_ticks</code></td><td>10 tick</td><td>剩余时长低于该值才重新给予效果</td></tr>
+        <tr><td><code>mending_xp_cost</code></td><td>1.0 XP</td><td>每次施加扣的网络经验；×20 得 mB（XP 流体 1 点 = 20 mB）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>关键类</h2>
+    <table>
+        <tr><th>类</th><th>作用</th></tr>
+        <tr><td><code>feature/charm/NetworkPotionCharmHandler</code></td><td>结算入口（<code>tick</code> / <code>applyToEntity</code> / <code>sacrificeMending</code>）、按网络缓存与订阅、施加与扣费</td></tr>
+        <tr><td><code>feature/charm/PotionCharmMode</code></td><td>四态模式（PLAYERS/MAIDS/BOTH/OFF）与循环、lang key</td></tr>
+        <tr><td><code>feature/charm/ApothCharmSupport</code></td><td>隔离 <code>PotionCharmItem</code> 引用（未装神化时不加载）</td></tr>
+        <tr><td><code>handler/PotionCharmAccessor</code> + <code>mixin/DimensionsNetMixin</code></td><td>把模式持久化到网络附件</td></tr>
+        <tr><td><code>maid/MaidPotionCharmHandler</code></td><td>女仆侧：解析绑定网络后调用 <code>applyToEntity</code></td></tr>
+        <tr><td><code>network/{CyclePotionCharmModePacket, SacrificeMendingPacket, PotionCharmSyncPacket, RequestPotionCharmPacket}</code></td><td>模式切换 / 献祭 / 同步 / 请求（新线目前只注册、无发送方）</td></tr>
+        <tr><td><code>client/widget/PotionCharmToggleBtn</code>（仅旧线）</td><td>BD 网络界面上的模式按钮 + 献祭</td></tr>
+        <tr><td><code>command/network/NetworkInsertCommand</code></td><td><code>insert potionCharm</code> 调试命令</td></tr>
+    </table>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 36 · Beyond Integration v0.7.3
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>34 · 双分支差异速查 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>34 · 双分支差异速查</h1>
+    <div class="sub">Forge 1.20.1 与 NeoForge 1.21.1 的功能覆盖与实现差异一览 · 完整对照见项目根目录两份 Markdown</div>
+</header>
+
+<div class="card">
+    <h2>概述</h2>
+    <ul>
+        <li>Beyond Integration 为双分支开发：<code>1.20.1-FORGE</code> 与 <code>1.21.1_NEOFORGE</code>，同一功能常以不同落点/API 实现。</li>
+        <li>本页为<b>速查与摘要</b>；逐功能的完整对照（关键类、机制、数据流）见根目录：
+            <ul>
+                <li><a href="../其他乱七八糟的/分支差异-功能覆盖清单.md">分支差异-功能覆盖清单.md</a>（回答“有没有 / 在哪里”）</li>
+                <li><a href="../其他乱七八糟的/两分支功能实现整理.md">两分支功能实现整理.md</a>（回答“怎么实现的 / 差在哪”）</li>
+            </ul>
+        </li>
+        <li>图例：<b>✅</b> 两边都有　<b>🟡</b> 都有但组织/实现不同　<b>➖</b> 仅 1.20.1-FORGE　<b>➕</b> 仅 1.21.1_NEOFORGE</li>
+        <li><b>同版本（1.20.1）的两条开发线</b>（<code>NEW_FORGE_1.20.1</code> vs <code>1.20.1-FORGE</code>，按联动模组归纳）见
+            <a href="35-version-matrix.html">35 · 版本主线矩阵</a>（BD 0.7.30 / 0.8.x × MC 1.20.1 / 1.21.1）。</li>
+        <li>两份根目录文档由后续 AI <b>自动维护</b>：源码/资源发生改动时须在同一次任务内同步更新。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>总体架构差异</h2>
+    <table>
+        <tr><th>维度</th><th>Forge 1.20.1</th><th>NeoForge 1.21.1</th></tr>
+        <tr><td>功能类落点</td><td>按功能分包 <code>feature.*</code>（ammo / soul / terminal / vehicle…）</td><td>多数平铺于 <code>handler.*</code>，工作站菜单在 <code>init.*</code></td></tr>
+        <tr><td>网络协议</td><td><code>SimpleChannel</code>（自增 ID + <code>DistExecutor</code>），类名 <code>*Packet</code></td><td><code>CustomPacketPayload</code>（record + StreamCodec），<code>network/payload/</code></td></tr>
+        <tr><td>事件/注册</td><td><code>@Mod.EventBusSubscriber(bus=FORGE)</code> + <code>@SubscribeEvent</code></td><td><code>@EventBusSubscriber</code> + <code>NeoForge.EVENT_BUS.addListener</code></td></tr>
+        <tr><td>客户端入口</td><td><code>client/ClientRegistrar</code>（命令式集中注册）</td><td><code>client/ClientEventHandler</code>（事件订阅式）</td></tr>
+        <tr><td>菜单类型</td><td><code>IForgeMenuType</code> + <code>RegistryObject</code></td><td><code>IMenuTypeExtension</code> + <code>Supplier</code></td></tr>
+        <tr><td>能力/能量</td><td><code>ForgeCapabilities.ENERGY</code> / <code>getCapability</code></td><td><code>IEnergyStorage</code> / <code>RegisterCapabilitiesEvent</code></td></tr>
+        <tr><td>NBT / 数据</td><td><code>load/saveAdditional</code> + <code>getOrCreateTag</code> + Capability</td><td><code>loadAdditional(tag, Provider)</code> + <code>DataComponents</code>/<code>BDDataComponents</code> + DataAttachment</td></tr>
+        <tr><td>同步元数据</td><td><code>core/sync/{NetDataType,NetFlag,NetSyncDebug}</code></td><td>无</td></tr>
+        <tr><td>数据包路径</td><td><code>data/.../recipes/</code></td><td><code>data/.../recipe/</code></td></tr>
+        <tr><td>元数据 / Mixin</td><td><code>resources/META-INF/mods.toml</code>（JAVA_17，required=false，有 refmap）</td><td><code>templates/META-INF/neoforge.mods.toml</code>（JAVA_21，required=true，injectors/overwrites）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>功能覆盖速查</h2>
+    <table>
+        <tr><th>功能</th><th>1.20.1 落点</th><th>1.21.1 落点</th><th>状态</th></tr>
+        <tr><td>网络弹药（TACZ/SW/能量）</td><td><code>feature/ammo/**</code></td><td><code>handler/*Ammo*</code>、<code>handler/Tacz*</code></td><td>🟡</td></tr>
+        <tr><td>物品黑名单</td><td><code>feature/blacklist/</code></td><td><code>handler/ItemBlacklistHandler</code></td><td>🟡</td></tr>
+        <tr><td>附魔分离</td><td><code>feature/enchant/</code>（含 <code>FormulaParser</code>）</td><td><code>handler/EnchantmentBookSeparatorHandler</code> + <code>init</code> + <code>client/gui</code></td><td>🟡</td></tr>
+        <tr><td>工作台菜单</td><td><code>feature/crafting/Dimensions*Menu</code></td><td><code>init/Dimensions*Menu</code>（多 Apoth）</td><td>🟡</td></tr>
+        <tr><td>哨戒假玩家</td><td><code>feature/sentry/</code></td><td><code>handler/FakePlayerNetMarker</code> + <code>mixin/FakePlayerMixin</code></td><td>🟡</td></tr>
+        <tr><td>载具缓存</td><td><code>feature/vehicle/</code></td><td><code>handler/Vehicle*</code> + <code>mixin/ywzj_vehicle/**</code></td><td>🟡</td></tr>
+        <tr><td>主网同步</td><td><code>PrimaryNetSyncPacket</code> + <code>core/sync/</code></td><td><code>PrimaryNetSyncPayload</code></td><td>🟡</td></tr>
+        <tr><td>Jade Provider</td><td><code>jade/BD*Provider</code> + 流体</td><td><code>jade/{Block,Container}*Provider</code></td><td>🟡</td></tr>
+        <tr><td>能量平台</td><td><code>core/energy/ForgeChargePlatform</code></td><td><code>core/energy/NeoChargePlatform</code></td><td>🟡</td></tr>
+        <tr><td>网络报文</td><td><code>network/*Packet</code></td><td><code>network/payload/*Payload</code></td><td>🟡</td></tr>
+        <tr><td>灵魂能量（Goety）</td><td><code>feature/soul/**</code> + <code>client/render</code> + <code>network/Soul*</code> + Mixin</td><td><code>feature/soul/**</code> + NeoForge payload/Mixin（无信标光柱）</td><td>🟡</td></tr>
+        <tr><td>网络终端绑定</td><td><code>feature/terminal/**</code> + <code>handler/NetTerminalHelper</code></td><td><code>mixin/NetTerminalItemMixin</code> + <code>handler/VehicleInteractHandler</code></td><td>🟡/➖</td></tr>
+        <tr><td>HUD / 镜像 / 同步调试</td><td><code>client/hud</code>（含 SOUL）、<code>client/mirror</code>、<code>core/sync</code>、<code>SyncConfig*</code></td><td><code>client/hud</code> + <code>HudPositionScreen</code>（NET_SYNC / NET_MANA，RATIO）</td><td>🟡</td></tr>
+        <tr><td>铁魔法网络魔力源</td><td><code>feature/mana/**</code> + 3 Mixin + <code>ManaSyncPacket</code></td><td><code>feature/mana/**</code> + 3 Mixin + NeoForge payload</td><td>🟡</td></tr>
+        <tr><td>TUD 兼容</td><td><code>compat/tud/TudAmmoCompat</code></td><td>无（TUD 模组仅 1.20.1 版）</td><td>➖</td></tr>
+        <tr><td>旧版 Thirst 兼容</td><td><code>feature/feeder/ThirstCompatLegacy</code></td><td>无</td><td>➖</td></tr>
+        <tr><td>RS 集成（rs_integration）</td><td><code>compat/RsIntegrationCompat</code> + <code>mixin/RsIntegration*</code></td><td>无（模组无 1.21.1 版，1.21.1 代码不生效）</td><td>➖</td></tr>
+        <tr><td>Apoth 附魔台</td><td>无</td><td><code>init/DimensionsApothEnchantMenu</code> + <code>client/gui/DimensionsEnchantApothGUI</code></td><td>➕</td></tr>
+        <tr><td>ywzj 载具兼容</td><td>无</td><td><code>mixin/ywzj_vehicle/**</code> + <code>handler/VehicleNetStorage</code> 等</td><td>➕</td></tr>
+        <tr><td>NeoForge payload 网络</td><td>无（Packet 风格）</td><td><code>network/payload/**</code></td><td>➕</td></tr>
+        <tr><td>网络接口弹药提取</td><td>无</td><td><code>mixin/NetInterfaceExtractMixin</code></td><td>➕</td></tr>
+        <tr><td>载具网络 HUD Overlay</td><td>无</td><td><code>client/NetworkOverlay</code> + <code>mixin/ywzj_vehicle/OverlayRegistrationMixin</code></td><td>➕</td></tr>
+        <tr><td>工作站存储视图重同步</td><td><code>network/RequestWorkstationResyncPacket</code></td><td><code>network/payload/RequestWorkstationResyncPayload</code></td><td>✅</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>同名功能 · 不同落点对照</h2>
+    <table>
+        <tr><th>功能</th><th>1.20.1</th><th>1.21.1</th></tr>
+        <tr><td>网络弹药</td><td><code>feature/ammo/**</code></td><td><code>handler/{Tacz,Sw,Superb,Energy}Ammo*</code></td></tr>
+        <tr><td>附魔分离</td><td><code>feature/enchant/</code></td><td><code>handler/EnchantmentBookSeparatorHandler</code></td></tr>
+        <tr><td>工作台菜单</td><td><code>feature/crafting/Dimensions*Menu</code></td><td><code>init/Dimensions*Menu</code></td></tr>
+        <tr><td>载具缓存</td><td><code>feature/vehicle/VehicleNetCache</code></td><td><code>handler/VehicleNetCache</code>（+ <code>VehicleNetStorage</code>）</td></tr>
+        <tr><td>菜单网络解析</td><td><code>mixin/BDMenuNetAccessor</code> + <code>INetMenuAccessor</code></td><td><code>handler/MenuNetIdHelper</code></td></tr>
+        <tr><td>网络数据持久化</td><td><code>feature/ammo/common/NetworkAmmoData</code></td><td><code>handler/NetworkAmmoData</code> + <code>handler/NetworkDataStore</code></td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>资源 / 元数据差异</h2>
+    <table>
+        <tr><th>项</th><th>1.20.1</th><th>1.21.1</th></tr>
+        <tr><td>配方目录</td><td><code>data/beyond_integration/recipes/</code></td><td><code>data/beyond_integration/recipe/</code></td></tr>
+        <tr><td>灵魂仪式配方</td><td>有 <code>soul_source_ritual.json</code></td><td>无</td></tr>
+        <tr><td>贴图布局</td><td><code>textures/gui/feeder/</code></td><td><code>textures/gui/sprites/feeder/</code></td></tr>
+        <tr><td>粒子</td><td>有 <code>particles/</code>、<code>textures/particle/</code></td><td>无（改用 sprites）</td></tr>
+        <tr><td>方块贴图</td><td>无</td><td>有 <code>textures/block/</code></td></tr>
+        <tr><td>元数据</td><td><code>META-INF/mods.toml</code> + <code>accesstransformer.cfg</code></td><td><code>templates/META-INF/neoforge.mods.toml</code></td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>维护说明</h2>
+    <ul>
+        <li>本页为<b>速查摘要</b>，仅覆盖高频差异；完整、逐项的内容以根目录两份 Markdown 为准。</li>
+        <li>后续 AI 在改动两分支源码 / 资源时，应<b>自动同步维护</b>：
+            <a href="../其他乱七八糟的/分支差异-功能覆盖清单.md">分支差异-功能覆盖清单.md</a> 与
+            <a href="../其他乱七八糟的/两分支功能实现整理.md">两分支功能实现整理.md</a>。
+        </li>
+        <li>触发条件：新增/删除功能、功能移动或改名、网络/资源/元数据组织变化、单分支专属、关键类落点或机制变化。</li>
+        <li>移植功能前先查两份文档，确认目标分支是否已有对应实现、落点与命名差异。</li>
+    </ul>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 34 · Beyond Integration v0.7.3
+</footer>
+
+</div>
+</body>
+</html>

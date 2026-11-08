@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10 · 代码差异：0.8.0-beta 构建包 → 当前源码 — Beyond Integration new_docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>10 · 代码差异：0.8.0-beta 构建包 → 当前源码</h1>
+    <div class="sub">
+        对比 <code>beyond_integration-1.20.1-forge-0.8.0-beta.jar</code>（mods.toml <code>version = "0.8.0-beta"</code>，
+        Implementation-Timestamp <code>2026-10-28</code>）与当前 <code>NEW_FORGE_1.20.1</code>（<code>mod_version=0.8.0-beta</code>）、
+        <code>NEW_NEOFORGE_1.21.1</code>（<code>mod_version=0.8.1-beta</code>）源码。
+        按 <code>计划项目/已完成/2026-11-02-NEW_NEOFORGE全量移植NEW_FORGE.md</code>，1.21.1 已移植 1.20.1 的功能，
+        本文的「增/删/改」对两者同时成立，仅 1.21.1 特有的 Mixin 与 API 适配不同。
+    </div>
+</header>
+
+<div class="card">
+    <h2>0. 对比口径</h2>
+    <table>
+        <tr><th>项目</th><th>jar（0.8.0-beta）</th><th>NEW_FORGE_1.20.1</th><th>NEW_NEOFORGE_1.21.1</th></tr>
+        <tr><td>类文件</td><td>424 个 class（351 个顶层类）</td><td>383 Java + 10 Kotlin</td><td>392 Java + 10 Kotlin</td></tr>
+        <tr><td>反编译产物</td><td colspan="3"><code>_decomp_080beta/</code>（vineflower 1.10.1，351 个 .java，临时目录可删）</td></tr>
+        <tr><td>network 包</td><td>37</td><td>49</td><td>48</td></tr>
+        <tr><td>mixin 包</td><td>75</td><td>73</td><td>78</td></tr>
+        <tr><td>command 包</td><td>17</td><td>17</td><td>17</td></tr>
+        <tr><td>非 class 资源</td><td>51 项</td><td>49 项</td><td>同 FORGE 主体</td></tr>
+    </table>
+    <div class="note">
+        <b>结论</b>
+        代码结构从「磁铁 / 漏斗 tier / 工作台献祭激活 + 铁砧配置 + RS 补丁」整体换成「附魔工作台（含神化）/ 网络设置页 / 女仆 P 点 /
+        TACZ 合成与配件 / TUD 弹药映射 / 水纯度规范化」。资源层（<code>data/</code> 与 <code>assets/</code>）除语言文件外<b>字节完全一致</b>，
+        差异全部集中在 Java/Kotlin、配置键、Mixin 注册表和语言键。
+    </div>
+</div>
+
+<div class="card">
+    <h2>1. 包与类增删</h2>
+    <div class="warn">
+        <b>反编译噪声说明</b>
+        Kotlin 类在 jar 里是 class 产物，反编译成 <code>XxxKt.java</code> 或内部类名，与源码 <code>.kt</code> 文件名不同，
+        不能按文件名判定“删除”。下列清单已把 <code>BdWrappedTextKt</code>、<code>FeederThirstState</code>、<code>XpRepairState</code>、
+        <code>NetPathwayFilterAction/State</code> 归为 Kotlin 产物，不计入删除。
+    </div>
+
+    <h3>1.1 新增（jar 无 → 源码有）</h3>
+    <ul class="files">
+        <li>feature/enchant/ : ApothEnchantTableMenu, ApothEnchantTableWidget, ApothShelfScanner, ApothStatData, EnchantItemSeparator, EnchantLapisHelper, EnchantMergeService, EnchantTableMenu, EnchantTableWidget <span class="fdesc">附魔台 / 神化附魔台 / 附魔合并</span></li>
+        <li>client/page/ : EnchantTableWorkbench.kt, ApothEnchantTableWorkbench.kt, EnchantBookIcon.kt, NetSettingsPage.kt, ComponentGalleryPage.kt, LayoutGalleryPage.kt <span class="fdesc">BdPage 界面 + 调试页</span></li>
+        <li>client/ : ApothPreviewState, ApothSacrificePreviewState, EnchantMergeClientState, NetAttachmentCache, NetAttachmentRefreshTicker, ClientMenuNet <span class="fdesc">客户端状态缓存</span></li>
+        <li>client/render/EnchantBookRender.java, client/gui/refit/NetAttachmentSlot.java, client/compat/TudMappingClient.java</li>
+        <li>feature/maidpower/ : MaidPowerAccess, MaidPowerKeyRegistration, MaidPowerStackKey, MaidPowerType, PlayerPowerBridge <span class="fdesc">女仆 P 点</span></li>
+        <li>maid/ : MaidPowerPickupHandler, MaidPowerRefillHandler</li>
+        <li>feature/crafting/ : NetworkCraftingHelper, RecipeMaterialScanner, TaczCraftManager <span class="fdesc">TACZ 枪械台网络合成</span></li>
+        <li>feature/attachment/NetAttachmentService.java <span class="fdesc">枪械配件装卸</span></li>
+        <li>feature/ammo/ : TaczAmmoIndex, sw/EnergyChargeTask <span class="fdesc">弹药索引 / 装备位充电 tick 任务</span></li>
+        <li>feature/charm/PotionCharmTask.java, feature/mana/ManaNetRegenTask.java <span class="fdesc">护符 / 回蓝迁到 BD NetTickTasks</span></li>
+        <li>feature/feeder/WaterPurityMigration.java, handler/WaterFluidNormalizeRule.java <span class="fdesc">水纯度 MIGRATION + 入网规范化</span></li>
+        <li>compat/tud/ : TudMappingProvider, TudMappingSyncPacket <span class="fdesc">TUD 枪→弹药映射下发</span></li>
+        <li>handler/ : NetMenuResolver, NetPathwayCapabilityWrapper <span class="fdesc">网络菜单解析 / 通道过滤能力包装</span></li>
+        <li>core/log/BiLog.java <span class="fdesc">统一日志</span></li>
+        <li>network/ : ApothPreviewPacket, RequestApothPreviewPacket, SacrificePreviewPacket, RequestSacrificePreviewPacket, EnchantMergeStatePacket, RequestEnchantMergePacket, SubmitEnchantMergePacket, NetAttachmentsPacket, RequestNetAttachmentsPacket, NetRefitAttachmentPacket, TaczCraftPacket, TudMappingSyncPacket <span class="fdesc">12 个新包</span></li>
+        <li>mixin/ : AltarPowerConsumeMixin <span class="fdesc">女仆祭坛 P 点</span>；MagicManagerContinuousManaMixin <span class="fdesc">铁魔法持续法术</span>；BdBucketFillPurityMixin <span class="fdesc">水纯度</span>；GunRefitScreenNetAttachMixin, GunSmithTableScreenMixin, TaczaddonCraftBridgeMixin <span class="fdesc">TACZ</span></li>
+    </ul>
+
+    <h3>1.2 删除（jar 有 → 源码无）</h3>
+    <ul class="files">
+        <li>feature/magnet/ : MagnetAbsorbHook, MagnetAbsorbHooks, MagnetHandler, MagnetSettings, MagnetTier, MagnetTiers + mixin/NetMagnetItemMixin <span class="fdesc">网络磁铁整套</span></li>
+        <li>feature/hopper/ : HopperTierAccess, HopperTierLogic + mixin/NetHopperBlockEntityTierMixin <span class="fdesc">漏斗 tier 整套（两分支目录均已空）</span></li>
+        <li>handler/WorkstationActivationAccessor.java <span class="fdesc">工作台献祭激活</span></li>
+        <li>mixin/ : BdBucketFluidSlotMixin <span class="fdesc">被 BdBucketFillPurityMixin 取代</span></li>
+        <li>mixin/ : RsAutoEatButtonGuardMixin, RsIntegrationAutoEatReturnMixin, RsIntegrationContainerTransferFixMixin, RsIntegrationSidePanelFixMixin, RsIntegrationSidePanelModuleFixMixin <span class="fdesc">Refined Storage 补丁全删</span></li>
+    </ul>
+    <div class="warn">
+        <b>残留</b>
+        <code>CommandConfig</code> 仍保留 <code>magnetCustomTiersEnabled</code> / <code>magnetItemRangeTiers</code> / <code>magnetFluidRangeTiers</code>
+        三个字段及其 lang 注释调用，但实现类与 lang 键已不存在（语言文件里已无 <code>config.comment.magnet*</code>），属<b>死配置</b>，
+        待清理或恢复功能时二选一。
+    </div>
+</div>
+
+<div class="card">
+    <h2>2. 同名文件的方法级差异</h2>
+    <p>326 个同名文件中有 98 个方法签名集合不同；剔除反编译产生的伪方法（<code>return/if/for/while/switch/catch/ordinal</code> 等 lambda 与控制流名）后，实质变化如下：</p>
+    <table>
+        <tr><th>文件</th><th>差异</th></tr>
+        <tr><td><code>CommandConfig</code></td><td>见第 5 节配置字段表</td></tr>
+        <tr><td><code>ClientConfig</code></td><td>新增 <code>enchantLevelRoman</code>、<code>jeiIntegration</code>（+ 读写方法）</td></tr>
+        <tr><td><code>command/network/NetworkInsertCommand</code></td><td>新增 TACZ 子命令：<code>executeInsertTaczAmmo*</code>、<code>executeInsertTaczAttachment*</code>、
+            <code>buildTaczAmmoInsertCommand</code>、<code>buildTaczAmmoStack</code> 等 14 个方法（整批插弹药/配件）</td></tr>
+        <tr><td><code>mixin/AbstractGunItemMixin</code></td><td><code>onFindAndExtractInventoryAmmo/4</code> 拆成 <code>onFindAndExtractInventoryAmmoSingle/4</code> + <code>onFindAndExtractInventoryAmmos/4</code></td></tr>
+        <tr><td><code>mixin/GunHudOverlayMixin</code></td><td>渲染重写：jar 的 <code>onRender/6</code>、<code>onHandleCacheCount/5</code>、<code>onHandleInventoryAmmo/3</code> 均不存在</td></tr>
+        <tr><td><code>mixin/NetPathwayBlockEntityFilterMixin</code></td><td>新增 <code>createMenu/3</code>、<code>getDisplayName/0</code>；去掉 <code>clearCapCache</code></td></tr>
+        <tr><td><code>feature/ammo/common/NetworkAmmoData</code></td><td>去掉 <code>getActivatedWorkstations</code>；新增 <code>Attachment</code> 存取与 <code>save</code></td></tr>
+        <tr><td><code>feature/ammo/tacz/TaczAmmoExtractor</code></td><td>新增 <code>countAmmoFromAll/2</code>、<code>countAmmoFromMaid/2</code>、<code>tryConsumeFromAll/3</code>、<code>tryConsumeFromMaid/3</code>（女仆背包计入）</td></tr>
+        <tr><td><code>feature/ammo/tacz/TaczAmmoPollingService</code></td><td><code>pollAndPush/1</code> → <code>pollAndPush/2</code>；新增 <code>mirrorServesClients</code>、<code>onPrimaryNetChanged</code>、<code>onNetworkDestroyed</code>、<code>canReceive</code></td></tr>
+        <tr><td><code>network/PrimaryNetSyncManager</code></td><td>新增 <code>ExtCache</code> 与 <code>detectExtChange/3</code>（外部缓存变更检测）</td></tr>
+        <tr><td><code>maid/XpExchangeBauble</code></td><td><code>collectTargets/2</code> → <code>collectTargets/3</code></td></tr>
+        <tr><td><code>feature/feeder/ThirstBridge</code>（接口）及 <code>ThirstCompat</code>、<code>ThirstCompatLegacy</code>、<code>CompositeThirstBridge</code>、<code>LsoThirstBackend</code></td><td>接口新增 <code>readFluidPurity/1</code>，各实现类同步</td></tr>
+        <tr><td><code>feature/netpathway/NetPathwayFilteredStorage</code></td><td>重构：去掉 <code>KeyAmount/1</code>、<code>TypeBucket/0</code> 内部结构</td></tr>
+        <tr><td><code>compat/RsIntegrationCompat</code></td><td>去掉 <code>takeReturnScreen</code>（自动进食相关方法仍保留）</td></tr>
+        <tr><td><code>feature/enchant/EnchantmentBookSeparatorHandler</code>、<code>command/util/OutputFormatter</code>、<code>feature/furnace/TerminalSmeltRecipe</code>、<code>init/ModFluids</code></td><td>方法集合<b>无实质差异</b>（差异来自反编译命名/参数解析）</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>3. 网络包（协议）变更</h2>
+    <table>
+        <tr><th>包</th><th>jar</th><th>源码</th></tr>
+        <tr><td><code>TaczAmmoPushS2CPacket</code></td><td>3 参构造（netId, netName, updates）</td><td>3 参 + 4 参构造（<code>partial</code>），新增 <code>boolean partial</code> 字段（按玩家背包裁剪的部分快照；全量为 false）</td></tr>
+        <tr><td><code>AmmoCountResponsePacket</code></td><td>3 参（netId, netName, ammoMap）</td><td>3 参 + 4 参（<code>partial</code>），同样新增 <code>boolean partial</code></td></tr>
+        <tr><td><code>RequestAmmoCountPacket</code></td><td>0 参（请求全量）</td><td>0 参 + 1 参（<code>List&lt;ResourceLocation&gt; ammoIds</code>，只请求指定弹药）</td></tr>
+        <tr><td colspan="3">TACZ 弹药推送的编码顺序变为 <code>netId, netName, partial, size, (id,count)*</code> —— <b>与旧版不兼容</b>，
+            客户端/服务端必须同版本。</td></tr>
+    </table>
+    <div class="note">
+        <b>新增 12 个包的分工</b>
+        附魔预览/献祭预览 4 包（<code>ApothPreviewPacket</code>、<code>RequestApothPreviewPacket</code>、
+        <code>SacrificePreviewPacket</code>、<code>RequestSacrificePreviewPacket</code>）；附魔合并 3 包
+        （<code>RequestEnchantMergePacket</code>、<code>EnchantMergeStatePacket</code>、<code>SubmitEnchantMergePacket</code>）；
+        枪械配件 3 包（<code>RequestNetAttachmentsPacket</code>、<code>NetAttachmentsPacket</code>、<code>NetRefitAttachmentPacket</code>）；
+        TACZ 合成 1 包（<code>TaczCraftPacket</code>）；TUD 映射 1 包（<code>TudMappingSyncPacket</code>）。
+    </div>
+</div>
+
+<div class="card">
+    <h2>4. Mixin 注册表与文件</h2>
+    <table>
+        <tr><th>beyond_integration.mixins.json</th><th>jar</th><th>源码</th></tr>
+        <tr><td><code>mixins</code>（通用）</td><td>BdBucketFluidSlotMixin, NetHopperBlockEntityTierMixin, NetMagnetItemMixin</td><td>AltarPowerConsumeMixin, BdBucketFillPurityMixin, MagicManagerContinuousManaMixin</td></tr>
+        <tr><td><code>client</code></td><td>RsAutoEatButtonGuardMixin, RsIntegrationAutoEatReturnMixin, RsIntegrationContainerTransferFixMixin, RsIntegrationSidePanelFixMixin, RsIntegrationSidePanelModuleFixMixin</td><td>GunRefitScreenNetAttachMixin, GunSmithTableScreenMixin, TaczaddonCraftBridgeMixin</td></tr>
+        <tr><td>其余字段</td><td colspan="2"><code>required / minVersion / package / compatibilityLevel / refmap / plugin</code> 完全一致</td></tr>
+    </table>
+    <p>mixin 包文件数 75 → 73（删 8、增 6，净 −2；两边都有 <code>MixinPlugin</code>）。
+        1.21.1 分支另有 1.21 专用的 <code>FakePlayerMixin</code>、<code>LivingEntityShootMixin</code>、
+        <code>PlaceboCacheWriteDisableMixin</code>、<code>LocalPlayerShootNetAmmoMixin</code> 等，与本文的版本演进无关。</p>
+</div>
+
+<div class="card">
+    <h2>5. 配置字段变更</h2>
+    <h3>5.1 CommandConfig（服务端）</h3>
+    <table>
+        <tr><th>动作</th><th>字段</th></tr>
+        <tr><td>删除（jar 有）</td><td><code>anvilBreakLevelMode</code>、<code>anvilBreakLevelPercent</code>、<code>anvilConflictPenalty</code>、<code>anvilConflictPercent</code>、
+            <code>anvilCostMode</code>、<code>anvilIgnoreConflict</code>、<code>anvilIgnoreSupport</code>、<code>anvilLevelCap</code>、<code>anvilPointsCap</code>、
+            <code>anvilSupportPenalty</code>、<code>anvilSupportPercent</code>、<code>anvilUnrestricted</code>、<code>anvilUnrestrictedPercent</code>、
+            <code>WORKSTATION_ACTIVATION_ENABLED</code>、<code>CRAFT_COOLDOWN_MS</code>、<code>CRAFT_MAX_DEPTH</code>、
+            <code>ENCHANTMENT_SEPARATION_MAX_REENTRANCY</code>（及 <code>isWorkstationEnabled</code>、<code>getWorkstationActivationCost</code> 等访问器）</td></tr>
+        <tr><td>新增（源码有）</td><td><code>enchantApothRequireSacrifice</code>、<code>enchantApothIgnoreShelfMax</code>、
+            <code>enchantApothStatHardCap{Eterna,Quanta,Arcana,Rectification}</code>、<code>enchantAutoLapis</code>、
+            <code>enchantSeparationEnabled</code>、<code>maidPowerEnabled</code>、<code>maidPowerPickupToNetwork</code>、
+            <code>maidPowerAutoRefill</code>、<code>maidPowerRefillInterval</code>、<code>maidPowerRefillMaxPoints</code>、
+            <code>xpRepairIgnoreMaidBlacklist</code></td></tr>
+    </table>
+    <h3>5.2 ClientConfig（客户端）</h3>
+    <ul>
+        <li>新增 <code>enchantLevelRoman</code>（附魔等级罗马数字）、<code>jeiIntegration</code>（JEI 角标 + Shift 取物总开关）。</li>
+        <li><code>workstationOrder</code> 默认列表、<code>enchantMergeRows</code>、<code>showNetSyncStatus</code> 与 jar 一致（默认已含 <code>ENCHANT_MERGE</code>）。</li>
+    </ul>
+    <div class="warn">
+        <b>旧配置迁移风险</b>
+        <code>anvil.*</code>、<code>workstations.*</code>、<code>craft.*</code> 整段消失后，旧 <code>config/beyond_integration-server.toml</code>
+        里这些键会被 Forge 忽略并可能被清理；<code>enchantment_separation.max_reentrancy</code> 也不再读取（改为
+        <code>enchant_table.separationEnabled</code> 开关）。
+    </div>
+</div>
+
+<div class="card">
+    <h2>6. 语言键与资源</h2>
+    <table>
+        <tr><th>项</th><th>jar</th><th>源码</th><th>变化</th></tr>
+        <tr><td><code>assets/beyond_integration/lang/zh_cn.json</code></td><td>780 键</td><td>849 键</td><td>+114 / −45</td></tr>
+        <tr><td><code>assets/beyond_integration/lang/en_us.json</code></td><td>781 键</td><td>849 键</td><td>+113 / −45</td></tr>
+        <tr><td>其余 44 项 <code>data/ assets/</code> 文件</td><td colspan="2">字节完全一致（md5 全等）</td><td>无</td></tr>
+        <tr><td>仅 jar 有</td><td colspan="2"><code>beyond_integration.refmap.json</code>（构建生成）、<code>META-INF/*.kotlin_module</code></td><td>构建产物，正常</td></tr>
+        <tr><td><code>META-INF/mods.toml</code></td><td>硬编码值</td><td>占位符 <code>${mod_id}</code> 等（gradle 展开）</td><td>仅打包方式差异</td></tr>
+    </table>
+    <h3>语言键变化分组（zh/en 同构）</h3>
+    <ul>
+        <li><b>新增</b>：<code>workbench.enchant_table.*</code>、<code>workbench.apoth_enchant_table.*</code>、
+            <code>page.net_settings.*</code>、<code>page.enchant_merge.*</code>、<code>config.maid_power.*</code>、
+            <code>config.comment.enchant_table.apothic.*</code>、<code>config.client.jei_integration*</code>、
+            <code>message.*.enchant_merge.*</code>、<code>message.*.apoth_sacrifice_*</code>、<code>message.*.network_attachment.*</code>、
+            <code>types.*.maid_power_type.name</code>、<code>page.component_gallery.title</code>、<code>page.layout_gallery.title</code>。</li>
+        <li><b>删除</b>：<code>config.anvil.*</code>（14 键）、<code>config.comment.anvil.*</code>（14 键）、
+            <code>config.workstation.*</code>（5 键）、<code>config.comment.workstations.*</code>（5 键）、
+            <code>config.craft.*</code>（2 键）、<code>config.comment.craft.*</code>（2 键）、<code>config.hidden.apoth</code>、
+            <code>config.enchant.max_reentrancy</code>、<code>config.comment.enchantment_separation.max_reentrancy</code>。</li>
+        <li><b>改文案</b>：<code>config.enchant_table.costPercent</code>、<code>levelGateIgnore</code>、
+            <code>config.enchant.level_gate_ignore</code>、<code>config.comment.potion_charm.interval/refresh_lead_ticks</code>（加“结算间隔不宜大于续效果提前量”说明）、
+            <code>hud.*.network_ammo.infinite</code>（<code>网络: ∞</code> → <code>网络: infinity</code>）。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>7. 构建与兼容性</h2>
+    <ul>
+        <li>jar 的 <code>MANIFEST.MF</code>：<code>Implementation-Title: new_forge_1-20-1</code>、<code>Implementation-Version: 0.8.0-beta</code>、
+            <code>MixinConfigs: beyond_integration.mixins.json</code>；源码 <code>MANIFEST.MF</code> 为 68 字节占位，由 gradle 生成。</li>
+        <li>协议层：<code>TaczAmmoPushS2CPacket</code> 等 3 个包编码变化，<b>跨版本联机不兼容</b>；新加的 12 个包在旧端不存在。</li>
+        <li>Mixin 层：依赖 RS 的 5 个补丁被移除后，<code>RsIntegrationCompat</code> 仍保留但不再注入；磁铁/漏斗 tier 移除后相关网络存储行为回到基线。</li>
+        <li>配置层：删除的 <code>anvil.* / workstations.* / craft.*</code> 键在升级后失效；新增的 <code>enchant_table.* / maid_power.*</code> 需重新配置（默认值可跑）。</li>
+        <li>资源层：<code>data/</code> 无变化，说明 BD 规则注册、配方、标签等未受影响。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>8. 待确认 / 需同步的文档</h2>
+    <table>
+        <tr><th>项</th><th>状态</th><th>说明</th></tr>
+        <tr><td><code>CommandConfig</code> 的 magnet 三字段</td><td>?</td><td>实现类与 lang 键已删，配置字段仍注册；确认是“删字段”还是“恢复磁铁功能”</td></tr>
+        <tr><td>RS 兼容是否彻底弃用</td><td>?</td><td><code>RsIntegrationCompat</code> 仍存在但 mixin 全删；确认是否只保留 API 占位</td></tr>
+        <tr><td><code>03-enchant-workbench.html</code></td><td>⚠ 过时</td><td>该篇仍写“0.8.x-1.20.1 附魔台/批量合并缺失、工作台全删”，当前源码已有 <code>EnchantTableMenu</code>、
+            <code>ApothEnchantTableMenu</code>、<code>EnchantMergeService</code> 与两个 <code>*Workbench.kt</code> 页面，需按本篇重写</td></tr>
+        <tr><td><code>07-potion-charm.html</code></td><td>⚠ 过时</td><td>“0.8.x-1.20.1 缺入口”已不成立：新增 <code>NetSettingsPage</code> 与 <code>PotionCharmTask</code>（BD NetTickTasks 调度）</td></tr>
+        <tr><td><code>04-network-ammo.html</code></td><td>⚠ 需补</td><td>TACZ 部分补：partial 快照、女仆背包计入、主网络镜像、<code>EnergyChargeTask</code>；配件装卸见 <code>NetAttachmentService</code></td></tr>
+        <tr><td><code>05-linkage-features.html</code></td><td>⚠ 需补</td><td>铁魔法新增 <code>MagicManagerContinuousManaMixin</code>（持续施法中断判定计入网络魔力）；
+            女仆 P 点新增 <code>AltarPowerConsumeMixin</code>（祭坛差额从网络扣）；Thirst 新增水纯度链路
+            （<code>BdBucketFillPurityMixin</code> → <code>WaterFluidNormalizeRule</code> → <code>readFluidPurity</code>）</td></tr>
+        <tr><td><code>08-jei-emi.html</code></td><td>⚠ 需补</td><td>新增客户端配置 <code>jei_integration</code> 总开关（关闭后不注入 JEI）</td></tr>
+        <tr><td><code>00-infrastructure.html</code> 代码量</td><td>⚠ 需更新</td><td>表中为 357 Java + 10 Kotlin / 69 Mixin，当前为 383 + 10 / 73（FORGE）、392 + 10 / 78（NEO）</td></tr>
+    </table>
+    <div class="note">
+        <b>反编译产物</b>
+        本文数据可由 <code>_decomp_080beta/</code>（jar 反编译源码）与
+        <code>NEW_FORGE_1.20.1/src/main/</code>、<code>NEW_NEOFORGE_1.21.1/src/main/</code> 复核；
+        反编译目录为临时产物，任务结束后可删除。
+    </div>
+</div>
+
+<footer>
+    <a href="index.html">← 返回 new_docs 索引</a> · 10 · 代码差异（0.8.0-beta → 当前源码）
+    上一篇 <a href="09-system-reference.html">09 系统与参考</a>
+</footer>
+
+</div>
+</body>
+</html>

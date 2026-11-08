@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beyond Integration — 功能文档索引</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>Beyond Integration 功能文档</h1>
+    <div class="sub">Forge 1.20.1 v0.7.0-dev · NeoForge 1.21.1 v0.7.0-dev（双分支同步，ywzj 载具除外）· modid: <code>beyond_integration</code> · 基于 Beyond Dimensions 维度网络存储的跨模组桥接扩展 · 共 34 篇功能文档（另见总览与关系图）</div>
+</header>
+
+<div class="card">
+    <h2>总览</h2>
+    <div class="toc-grid">
+
+        <a class="toc-card" href="功能与实现总览.html">
+            <div class="num">ALL</div>
+            <h3>功能与实现总览</h3>
+            <p>按模块归纳全部 34 篇文档的功能点 / 关键实现（类与 Mixin）/ 主要配置 / 双分支差异，附 Mixin 与数据包统计</p>
+        </a>
+
+    </div>
+</div>
+
+<div class="card">
+    <h2>0.7.0-dev 新增与变更</h2>
+    <ul>
+        <li><b>维度网络通道过滤</b>（<a href="11-net-pathway-filter.html">11</a>）：net_pathway 标记槽白名单（启用 / 仅接收输入 / 模糊），对外能力暴露裁剪；可配置标记槽行数。</li>
+        <li><b>维度网络方块配置保留</b>（<a href="11-net-pathway-filter.html">11</a>）：破坏保留配置 NBT（不含网络绑定）、手持对应物品 Shift+左键复制、8 个“自己合成自己”清 NBT 配方。</li>
+        <li><b>网络图腾</b>（<a href="06-auto-totem.html">06</a>）：统一称呼（原“自动图腾 / 复活救援”），含基础触发与强化触发；消耗提示改为 HUD。</li>
+        <li><b>JEI 主网络会话同步</b>（<a href="27-terminal-enhancements.html">27</a>）：<code>bd_tweaks.primary_net_jei_sync</code> 开启后任意界面按主网络显示数量角标与 Shift 取物。</li>
+        <li><b>Thirst 提纯</b>（<a href="21-thirst-integration.html">21</a>）：网络熔炉按标记自动组装水瓶 / 水桶执行 Thirst 熔炼配方，可配熔炼速度。</li>
+        <li><b>Goety 联动</b>（<a href="32-goety-integration.html">32</a>，仅 1.20.1-FORGE）：把维度网络作为独立灵魂源（激活仪式 / 牢笼魂源 / 通道替代牢笼 / 击杀沉淀 / 网络复活与折扣 / HUD 第三条 / 原版仪式环境绕过）。</li>
+        <li><b>通用 HUD 布局框架</b>（<a href="33-hud-layout.html">33</a>，仅客户端）：各 HUD 位置可自定义（相对/绝对），单界面同屏拖动编辑，统一配置 <code>hud_layout</code>。</li>
+        <li><b>兼容性</b>：移除对 BD <code>LeftButtonSidebar</code> 的依赖，兼容 BD <b>0.7.27 与 0.7.30</b>。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>功能篇</h2>
+    <p class="sub" style="margin:0 0 10px;">远程工作站、附魔链路、网络资源与维度网络增强。</p>
+    <div class="toc-grid">
+
+        <a class="toc-card" href="01-network-workstations.html">
+            <div class="num">01</div>
+            <h3>网络工作站</h3>
+            <p>远程合成台/铁砧/切石机/砂轮/锻造台/存储/附魔台，七合一菜单体系；桶/流体桶合成转换（BD 工作台/终端已接入）</p>
+        </a>
+
+        <a class="toc-card" href="02-enchant-table.html">
+            <div class="num">02</div>
+            <h3>网络附魔台</h3>
+            <p>功率取自网络 XP/玩家等级/固定值，预览/刷新/宽松选魔/解限</p>
+        </a>
+
+        <a class="toc-card" href="03-enchant-merge.html">
+            <div class="num">03</div>
+            <h3>批量附魔工作站</h3>
+            <p>单附魔书批量合并到装备：候选列表 + 等级滑条，消耗附魔书与网络 XP，取高合并</p>
+        </a>
+
+        <a class="toc-card" href="04-enchant-pipeline.html">
+            <div class="num">04</div>
+            <h3>附魔链路总览</h3>
+            <p>附魔分离 / 同类同级自动合并 / 批量附魔合并的详细流程与计费、配置对照</p>
+        </a>
+
+        <a class="toc-card" href="05-enchantment-separation.html">
+            <div class="num">05</div>
+            <h3>附魔分离器</h3>
+            <p>多附魔书自动拆分、XP 流体计费、可配置费用公式</p>
+        </a>
+
+        <a class="toc-card" href="06-auto-totem.html">
+            <div class="num">06</div>
+            <h3>网络图腾</h3>
+            <p>死亡时自动从网络抽取不死图腾；含基础触发与强化触发（Mixin 抢先拦截 + setHealth 直杀加价）</p>
+        </a>
+
+        <a class="toc-card" href="07-energy-charge.html">
+            <div class="num">07</div>
+            <h3>网络能量充能</h3>
+            <p>盔甲/手持/Curios/女仆饰物从网络 FE 自动充电</p>
+        </a>
+
+        <a class="toc-card" href="08-furnace-terminal.html">
+            <div class="num">08</div>
+            <h3>终端熔炼</h3>
+            <p>熔炉烧网络终端批量烧炼全网络可烧炼物品</p>
+        </a>
+
+        <a class="toc-card" href="09-hover-insert.html">
+            <div class="num">09</div>
+            <h3>悬停快速存储</h3>
+            <p>容器界面左键双向快速存入网络（收纳袋式）</p>
+        </a>
+
+        <a class="toc-card" href="10-workstation-activation.html">
+            <div class="num">10</div>
+            <h3>工作台献祭激活</h3>
+            <p>可选平衡项：献祭对应原版工作台激活（网络级），未激活点击=献祭；启用列表随同步包下发</p>
+        </a>
+
+        <a class="toc-card" href="11-net-pathway-filter.html">
+            <div class="num">11</div>
+            <h3>维度网络通道过滤</h3>
+            <p>net_pathway 标记槽白名单过滤（启用/仅接收输入/模糊），对外能力暴露裁剪；可配置标记槽行数；方块配置保留 / Shift+左键复制 / 清 NBT 配方</p>
+        </a>
+
+        <a class="toc-card" href="12-xp-rod.html">
+            <div class="num">12</div>
+            <h3>经验棒增强</h3>
+            <p>等级上限提升、分批发放、直设式发放（网络 XP 优先）</p>
+        </a>
+
+    </div>
+</div>
+
+<div class="card">
+    <h2>网络弹药系</h2>
+    <p class="sub" style="margin:0 0 10px;">网络弹药与网络绑定相关联动；末两项为<b>载具支持</b>。</p>
+    <div class="toc-grid">
+
+        <a class="toc-card" href="13-sw-virtual-ammo.html">
+            <div class="num">13</div>
+            <h3>SW 虚拟弹药系统</h3>
+            <p>Superb Warfare 弹药入网折算、射击扣弹、轮询差分推送</p>
+        </a>
+
+        <a class="toc-card" href="14-tacz-network-ammo.html">
+            <div class="num">14</div>
+            <h3>TACZ 网络供弹与装填</h3>
+            <p>TACZ 枪械从网络取弹、弹药盒提取、创造弹药计数</p>
+        </a>
+
+        <a class="toc-card" href="15-tacz-network-crafting.html">
+            <div class="num">15</div>
+            <h3>TACZ 枪械台网络合成</h3>
+            <p>枪械工作台配方“背包+网络”混合取料批量合成与 taczaddon 兼容</p>
+        </a>
+
+        <a class="toc-card" href="17-sentry-arm.html">
+            <div class="num">17</div>
+            <h3>哨戒机械臂联动</h3>
+            <p>Create 哨戒臂绑定网络、弹药供给、假玩家同步</p>
+        </a>
+
+        <a class="toc-card" href="18-maid-integration.html">
+            <div class="num">18</div>
+            <h3>女仆联动</h3>
+            <p>Touhou Little Maid 佩戴网络终端、网络弹药与能量充能（主要服务于网络弹药与网络绑定接口）</p>
+        </a>
+
+        <a class="toc-card" href="16-vehicle-network.html">
+            <div class="num">16</div>
+            <h3>载具绑定与网络充电（SW）</h3>
+            <p>载具支持：SW 载具绑定网络、周期充电、网络弹药、HUD 信息显示</p>
+        </a>
+
+        <a class="toc-card" href="19-ywzj-vehicle.html">
+            <div class="num">19</div>
+            <h3>ywzj 载具支持</h3>
+            <p>载具支持，仅 NeoForge：绑定/能量充电/弹药补给/HUD</p>
+        </a>
+
+    </div>
+</div>
+
+<div class="card">
+    <h2>联动篇</h2>
+    <p class="sub" style="margin:0 0 10px;">弹药/绑定之外的第三方集成。</p>
+    <div class="toc-grid">
+
+        <a class="toc-card" href="20-ftb-integration.html">
+            <div class="num">20</div>
+            <h3>FTB Quests 集成</h3>
+            <p>网络资源按任务需求计入检测类任务、多候选选择提交 GUI、奖励领取选择 GUI（勾选+逐条去向）、单条奖励 Shift 进网络、领取通知与入网标识、统一数值格式化、任务 tooltip 网络数量；检测到 RI 时让路</p>
+        </a>
+
+        <a class="toc-card" href="21-thirst-integration.html">
+            <div class="num">21</div>
+            <h3>口渴（Thirst）集成</h3>
+            <p>网络喂食器补水档位、只使用标记槽物品/流体、纯净水系列流体（仅网络注册，无方块/桶）、网络熔炉按标记自动组装水瓶/水桶执行 Thirst 熔炼配方提纯（可配熔炼速度）、机械动力（Create）灌装配方 + 沙滤提纯（可选依赖 thirst）</p>
+        </a>
+
+        <a class="toc-card" href="32-goety-integration.html">
+            <div class="num">32</div>
+            <h3>Goety 联动（网络灵魂源）</h3>
+            <p>把维度网络作为与「方舟 / 图腾」并列的独立灵魂源：激活仪式、牢笼魂源（终端 / 连接宝石 / 通道替代牢笼）、击杀沉淀与手动转化、网络复活与折扣、HUD 第三条网络灵魂条、原版仪式环境绕过（<b>仅 1.20.1-FORGE</b>）</p>
+        </a>
+
+        <a class="toc-card" href="36-network-potion-charm.html">
+            <div class="num">36</div>
+            <h3>网络药水护符（Apotheosis）</h3>
+            <p>药水护符放进维度网络即对主网络玩家 / 女仆生效：按效果去重、无法破坏免费 / 经验修补扣网络 XP、献祭附魔书解锁；含两条 1.20.1 开发线的入口差异（新线缺 UI）</p>
+        </a>
+
+    </div>
+</div>
+
+<div class="card">
+    <h2>系统与开发篇</h2>
+    <p class="sub" style="margin:0 0 10px;">拦截链、命令、协议、配置、API、终端增强与 BD 修改清单。</p>
+    <div class="toc-grid">
+
+        <a class="toc-card" href="22-blacklist.html">
+            <div class="num">22</div>
+            <h3>物品黑名单与插入拦截链</h3>
+            <p>网络插入前置拦截体系（黑名单/附魔分离/弹药折算）</p>
+        </a>
+
+        <a class="toc-card" href="23-commands.html">
+            <div class="num">23</div>
+            <h3>/bdtools 命令系统</h3>
+            <p>网络管理命令树、权限模型、双语输出</p>
+        </a>
+
+        <a class="toc-card" href="24-networking.html">
+            <div class="num">24</div>
+            <h3>网络数据包架构</h3>
+            <p>SimpleChannel / CustomPacketPayload 协议、条件注册策略</p>
+        </a>
+
+        <a class="toc-card" href="25-config-integrations.html">
+            <div class="num">25</div>
+            <h3>配置系统与第三方集成</h3>
+            <p>COMMON + CLIENT 配置分区、JEI/Jade/Cloth Config 集成</p>
+        </a>
+
+        <a class="toc-card" href="26-api-extensions.html">
+            <div class="num">26</div>
+            <h3>API 与扩展点</h3>
+            <p>api 包接口、女仆网络 API、GUI 扩展注册表、订阅中心</p>
+        </a>
+
+        <a class="toc-card" href="27-terminal-enhancements.html">
+            <div class="num">27</div>
+            <h3>BD 终端界面增强</h3>
+            <p>左侧栏接管与重排、RI 按钮屏蔽替代、JEI 避让/数量角标/Shift 取物品、行数最大值跟随</p>
+        </a>
+
+        <a class="toc-card" href="28-bd-modifications.html">
+            <div class="num">28</div>
+            <h3>BD 功能修改项</h3>
+            <p>BI 通过 Mixin 修改/扩展 BD 目标类的清单：网络核心、存储、终端界面、通道过滤、网络磁铁/漏斗档位、经验、熔炉/喂食器、Neo 专属</p>
+        </a>
+
+        <a class="toc-card" href="31-primary-net-sync.html">
+            <div class="num">31</div>
+            <h3>主网络同步统一机制</h3>
+            <p>配置驱动选择性推送 · 客户端全量镜像接口 · 条件式取数 · 异常重同步（仅 1.20.1-FORGE）</p>
+        </a>
+
+        <a class="toc-card" href="33-hud-layout.html">
+            <div class="num">33</div>
+            <h3>通用 HUD 布局框架</h3>
+            <p>各 HUD 位置可自定义（相对/绝对）· 单界面同屏拖动编辑 · 统一配置 <code>hud_layout</code> · 扩展仅三步（仅客户端）</p>
+        </a>
+
+        <a class="toc-card" href="34-branch-diff.html">
+            <div class="num">34</div>
+            <h3>双分支差异速查</h3>
+            <p>Forge 1.20.1 / NeoForge 1.21.1 的功能覆盖与实现差异速查（架构、网络、落点、资源元数据），链接根目录完整对照 Markdown</p>
+        </a>
+
+        <a class="toc-card" href="35-version-matrix.html">
+            <div class="num">35</div>
+            <h3>版本主线矩阵 · 按联动模组归纳</h3>
+            <p>两条主线 <b>BD 0.7.30</b> 与 <b>BD 0.8.x</b>，各分 <b>1.20.1 / 1.21.1</b> 分支（共 4 个工程）按联动模组逐项对照：BD 核心 / Apotheosis / TACZ / SW / 铁魔法 / Goety / Thirst / 女仆 / 哨戒 / 载具 / JEI·EMI / RI / Jade / 经验棒</p>
+        </a>
+
+    </div>
+</div>
+
+<div class="card">
+    <h2>参考篇</h2>
+    <div class="toc-grid">
+
+        <a class="toc-card" href="29-bd-api.html">
+            <div class="num">29</div>
+            <h3>BD API 参考</h3>
+            <p>Beyond Dimensions 公开 API：网络/存储/拦截链/事件/物品/菜单/注册表</p>
+        </a>
+
+        <a class="toc-card" href="30-bd-texture-guide.html">
+            <div class="num">30</div>
+            <h3>BD 贴图使用指南</h3>
+            <p>BD 贴图目录与命名规范、普通纹理 / GUI 精灵的引用方式、<code>CommonTextures</code> 常量与可复用部件、BI 复用示例</p>
+        </a>
+
+    </div>
+</div>
+
+<div class="card">
+    <h2>功能关系网络</h2>
+    <div class="toc-grid">
+
+        <a class="toc-card" href="功能关系网络.html">
+            <div class="num">NET</div>
+            <h3>功能关系网络</h3>
+            <p>主模组 Beyond Dimensions、扩展本体 Beyond Integration 的功能模块与第三方依赖可视化关系图（可交互高亮）</p>
+        </a>
+
+    </div>
+</div>
+
+<div class="card">
+    <h2>快速了解</h2>
+    <p>Beyond Integration <b>不注册任何方块/物品/实体</b>；仅注册终端熔炼配方序列化器、口渴集成的 4 档纯净水流体（<code>FluidType</code>/<code>Fluid</code>，无方块/桶）与网络通道过滤菜单类型（<code>net_pathway_filter</code>），是纯跨模组桥接扩展。核心机制：</p>
+    <table>
+        <tr><th>机制</th><th>说明</th><th>代表文件</th></tr>
+        <tr><td>插入拦截链</td><td>物品进入网络前被拦截处理（黑名单、附魔分离、弹药折算）</td><td><code>UnifiedStorageBeforeInsertHandler</code> 4 个实现</td></tr>
+        <tr><td>Mixin 注入</td><td>78（Forge）/ 75（NeoForge）个 Mixin 注入 TACZ/SW/哨戒臂/ywzj/BD/JEI/FTB，按模组加载条件启用（RI 加载时 JEI/FTB 集成让路）</td><td><code>mixin/</code> 包 + <code>MixinPlugin</code></td></tr>
+        <tr><td>网络数据包</td><td>40（Forge）/ 41（NeoForge）个数据包，SW/TACZ 条件注册（Forge），主线程化处理</td><td><code>network/PacketHandler</code></td></tr>
+        <tr><td>SavedData 持久化</td><td>每网络虚拟弹药、附魔分离/充电开关、创造弹药计数</td><td><code>NetworkAmmoData</code>（经 <code>NetworkDataStore</code> 统一读写）</td></tr>
+        <tr><td>客户端缓存</td><td>服务端轮询差分推送 → 客户端节流缓存 → HUD/界面渲染</td><td><code>client/*Cache</code> / <code>client/*State</code></td></tr>
+        <tr><td>统一订阅</td><td>BD 存储订阅统一经弱引用订阅中心管理，网络销毁/停服批量退订</td><td><code>core/subscribe/BdSubscriptionHub</code></td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>使用提示</h2>
+    <ul>
+        <li>从 0.3.0 起，<b>服务端与客户端都需要安装</b>本模组。</li>
+        <li>安装 Cloth Config API 可在游戏内修改配置（COMMON 与 CLIENT 两份文件；无 Cloth 时手动编辑 toml）。</li>
+        <li>以任何方式把 SW 弹药 / 弹药盒存入网络都会自动折算为虚拟弹药（空箱保留）；TACZ 弹药盒入网自动拆箱（空盒保留）。</li>
+        <li>网络接口方块可从网络弹药库提取实体弹药（提取映射见文档 13 配置）。</li>
+        <li>网络相关功能需要对应网络权限：成员可访问存储，经理/所有者可切换附魔分离、自动充电等开关。</li>
+        <li><b>BD UI 框架变更预告</b>：Beyond Dimensions 本体计划在下一版本更换 UI 框架；本模组所有依赖 BD 界面的代码（<code>client/gui/**</code>、<code>DimensionsNetGUIMixin</code>、<code>DimensionsStorageMenu</code> 等）已加提示注释，待 BD 正式发布后需统一校对坐标、纹理与按钮布局。</li>
+    </ul>
+    <div class="note">原英文 / 双语对照文档（旧版）已合并进本中文文档体系，原文件归档至 <code>存档/archived_features/docs_legacy</code>，不再单独维护。功能拆分等规划类内容已移至项目根 <code>计划项目/可能的小玩意/可能的功能拆分/</code>。</div>
+</div>
+
+<div class="card">
+    <h2>双分支差异速查</h2>
+    <table>
+        <tr><th>项</th><th>Forge 1.20.1</th><th>NeoForge 1.21.1</th></tr>
+        <tr><td>包结构</td><td>功能类按 <code>feature.*</code> 细分</td><td>多数处理器平铺于 <code>handler.*</code>，工作站菜单在 <code>init.*</code></td></tr>
+        <tr><td>网络包</td><td><code>SimpleChannel</code> 注册 40 包（SW/TACZ 条件注册）</td><td><code>CustomPacketPayload</code> 注册 41 包（全部无条件），<code>network/payload/</code> 为新风格实现</td></tr>
+        <tr><td>Mixin 条件</td><td>sentry / tacz / taczaddon(1.1.8.1) / superbwarfare</td><td>sentry / tacz / superbwarfare / ywzj_vehicle</td></tr>
+        <tr><td>附魔台</td><td>原版模式</td><td>原版模式 + Apotheosis 神化菜单/界面（入口暂未启用）</td></tr>
+        <tr><td>载具</td><td>SW 载具</td><td>SW 载具 + ywzj 载具（见文档 19）</td></tr>
+        <tr><td>配置文件</td><td colspan="2">均为 COMMON（<code>beyond_integration-common.toml</code>）+ CLIENT（<code>beyond_integration-client.toml</code>）两份</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>图例说明</h2>
+    <div class="flow row" style="justify-content:flex-start; flex-wrap:wrap;">
+        <div class="step server"><span class="tag">服务端</span>服务端处理</div>
+        <div class="arrow"></div>
+        <div class="step client"><span class="tag">客户端</span>客户端处理</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">IO</span>数据包 / 事件</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>判断</b>条件分支</div>
+        <div class="arrow"></div>
+        <div class="step data"><b>数据</b>缓存 / 存档</div>
+    </div>
+    <p style="color:var(--text-dim); font-size:12.5px; margin:8px 0 0;">文档中红色框 = 服务端逻辑，绿色框 = 客户端逻辑，紫色框 = 数据包/事件，黄色 = 判断，虚线 = 数据存储。箭头旁文字为传递的数据。</p>
+</div>
+
+<footer>
+    Beyond Integration v0.7.3 · 文档基于 <code>1.20.1-FORGE</code> 与 <code>1.21.1_NEOFORGE</code> 分支源码 · 若与代码不符以源码为准
+</footer>
+
+</div>
+</body>
+</html>
+

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>25 · 批量附魔工作站 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>25 · 批量附魔工作站（附魔合并）</h1>
+    <div class="sub">把网络中的单附魔书批量合并到单件装备：列出装备可附魔项、逐项滑条选等级、消耗附魔书 + 网络 XP 流体、取高合并</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>批量附魔工作站是第 <b>8</b> 种远程工作站（id <code>enchant_merge</code>）。它是<b>附魔分离器的逆操作</b>：分离器把多附魔书拆成单附魔书，本工作站把网络中的<b>单附魔书</b>合并回一件装备。</p>
+    <ul>
+        <li><b>放入装备</b>——单件可附魔装备（附魔书除外；已附魔装备允许升级）。</li>
+        <li><b>候选由客户端构建</b>——客户端基于装备可附魔列表 + 客户端网络视图（单附魔书最高等级 / 库存 / 等级位掩码）生成候选，服务端不再下发候选。</li>
+        <li><b>逐项选等级</b>——每项一个带档位刻度的等级滑条，范围 <code>1 .. max(网络最高, 已有等级)</code>；滑条等级与勾选状态<b>解耦且记忆</b>：取消勾选不改变滑条等级，重新勾选沿用。</li>
+        <li><b>冲突禁用（随选择更新）</b>——禁用判定依据<b>当前选择列表</b>：已有附魔（未被清除） + 已勾选（等级 &gt; 0）构成“生效集合”，与生效集合冲突的新附魔项即时禁用；<b>装备已有附魔永不因冲突禁用</b>（含已有互相冲突的情况，合并时照常保留）。是否启用冲突判定读 <code>enchantIgnoreConflict</code>。</li>
+        <li><b>精确等级优先</b>——所选等级 S 若有同等级单附魔书，直接使用并按附魔分离器公式计费（网络 XP 流体）。</li>
+        <li><b>高等级书拆分</b>——无 S 级书时，取比 S 高且<b>最接近</b>的等级 L 书按折半递归拆分（等价：回存 <code>(L-1)…S</code> 各一本、S 级打到装备上）；每步（等级 −1）消耗普通书——默认 <b>1 本/步</b>（保留原附魔书载体），配置开启原载体消耗则 <b>2 本/步</b>；每步经验消耗可配，<b>默认 0</b>。</li>
+        <li><b>取高合并 + 等级降序写入</b>——装备已有该附魔只升不降；写入装备的附魔按<b>所选等级从高到低</b>排序（同级保持启用顺序）。</li>
+        <li><b>预览 = 操作后物品悬浮框</b>——合并按钮悬浮框直接渲染“操作后物品”的实际提示，并在对应附魔条目行尾以彩色后缀标注变化（<code>[+]</code> 新增 / <code>[↑ 旧→新]</code> 升级 / <code>[↓ 旧→新]</code> 降级；被移除项以删除线显示）。</li>
+        <li><b>产物留槽</b>——合并后的装备留在界面输入槽，关闭界面按“归还方向”处理。</li>
+    </ul>
+    <div class="note"><b>与附魔分离器的分工</b>分离器（文档 05）负责“书 → 多本单附魔书”；本工作站负责“单附魔书 → 装备”。两者共同覆盖附魔在网络中的拆解与重组。多附魔书<b>不</b>直接参与合并（需先经分离器拆开）。</div>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>类（Forge / NeoForge）</th><th>职责</th></tr>
+        <tr><td>菜单</td><td><code>feature/crafting/DimensionsEnchantMergeMenu</code>（F）<br><code>init/DimensionsEnchantMergeMenu</code>（N）</td><td>候选扫描 / 执行合并 / 扣费 / 槽位与清理</td></tr>
+        <tr><td>界面</td><td><code>client/gui/DimensionsEnchantMergeGUI</code></td><td>装备槽 / 候选列表 / 条目点击选中 / 等级滑条 / 翻页 / 合并按钮</td></tr>
+        <tr><td>候选构建</td><td><code>client/gui/DimensionsEnchantMergeGUI#rebuild()</code></td><td>客户端：装备可附魔列表 + 客户端网络视图；无书 / 冲突项禁用</td></tr>
+        <tr><td>冲突刷新</td><td><code>DimensionsEnchantMergeGUI#refreshConflicts()</code></td><td>依据当前选择列表刷新冲突禁用（已有附魔不禁用）</td></tr>
+        <tr><td>结果预览</td><td><code>DimensionsEnchantMergeGUI#mergePreview()</code></td><td>渲染操作后物品悬浮框 + 变化项彩色后缀标注</td></tr>
+        <tr><td>提交合并</td><td><code>network/SubmitEnchantMergePacket</code>（F）<br><code>network/payload/SubmitEnchantMergePayload</code>（N）</td><td>C2S：选中附魔 id + 所选等级</td></tr>
+        <tr><td>菜单注册</td><td><code>init/ModMenus.ENCHANT_MERGE</code></td><td>MenuType 注册</td></tr>
+        <tr><td>界面注册</td><td><code>client/ClientRegistrar</code>（F）/ <code>client/ClientEventHandler</code>（N）</td><td>MenuScreens / MenuScreens 注册</td></tr>
+        <tr><td>模式常量</td><td><code>client/gui/WorkstationModeConstants</code></td><td>模式枚举 / 按钮坐标 / 图标（新增一项，五数组等长）</td></tr>
+        <tr><td>快捷键</td><td><code>client/BDKeyBindings.OPEN_ENCHANT_MERGE</code></td><td>默认未绑定</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>打开流程</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>网络 GUI 工作站按钮 / 快捷键</b><code>OpenStorageMenuPacket(ENCHANT_MERGE)</code></div>
+        <div class="arrow"><span class="al">C2S</span></div>
+        <div class="step server"><span class="tag">服务端</span><b>校验</b>workstations.enabled 含 <code>enchant_merge</code>；献祭激活状态；主网络存在</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>创建菜单</b>DimensionsEnchantMergeMenu(主网络统一存储)</div>
+    </div>
+    <div class="note"><b>与其它工作站一致</b>复用既有 <code>OpenStorageMenuPacket</code> / 献祭激活链路，无需新增打开包；仅在枚举末尾追加 <code>ENCHANT_MERGE</code> 并补 <code>switch</code> 分支即可。</div>
+</div>
+
+<div class="card">
+    <h2>候选构建流程（客户端）</h2>
+    <p>GUI 每 10 tick 或装备变化时由客户端 <code>rebuild()</code> 重建（服务端不再计算/下发候选）：</p>
+    <div class="flow">
+        <div class="step client"><b>装备校验</b>非空、非附魔书、物品可附魔（已附魔允许升级）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>扫描客户端网络视图</b><code>menu.clientNetStorage</code> → 仅取单附魔书的最高等级 / 库存 / 等级位掩码</div>
+        <div class="arrow"></div>
+        <div class="step decision"><b>遍历可附魔列表</b>仅列适用附魔；标记冲突 / 无书 / 无可提升</div>
+    </div>
+    <div class="flow row">
+        <div class="step client"><b>启用项</b>网络有书 且 最高等级 &gt; 已有 且 不与“生效集合”冲突</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>禁用项</b>无书 / 冲突 → 显示禁用贴图，不可点击、滑条不可操作</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>滑条等级</b>记忆等级 → 否则已有等级 → 否则网络最高</div>
+    </div>
+    <div class="flow">
+        <div class="step client"><span class="tag">冲突即时更新</span><b><code>refreshConflicts()</code></b>勾选 / 滑条 / 满级 / 清除 / 还原 后即时重算启用状态（不重新扫描网络）</div>
+        <div class="arrow"><span class="al">提交合并操作</span></div>
+        <div class="step server"><span class="tag">服务端</span><b>只接受合并操作结果</b>校验资源并执行（见下方流程）</div>
+    </div>
+    <div class="note"><b>生效集合定义</b>已有附魔（未被清除）∪ 已勾选（等级 &gt; 0）。已有附魔永不因冲突被禁用；仅新附魔项会因与生效集合冲突而禁用。</div>
+</div>
+
+<div class="card">
+    <h2>界面布局</h2>
+    <p>面板 <code>176 × 135</code>（工作台区域，高度由菜单 <code>getPanelHeight()</code> 提供、GUI 以其为唯一来源），纵向分为：标题、装备信息区、候选列表（5 行/页）、底部操作栏；<b>无元素边框与列表表头</b>。</p>
+    <table>
+        <tr><th>区域</th><th>坐标（面板局部）</th><th>说明</th></tr>
+        <tr><td>标题</td><td><code>(6, 4)</code></td><td>「附魔合并」</td></tr>
+        <tr><td>装备信息区</td><td><code>y=15</code></td><td>与标题间隔 3px；输入槽 + 装备名/空提示 + 经验费用</td></tr>
+        <tr><td>装备输入槽</td><td><code>(7,15) 18×18</code></td><td>贴图 <code>common_slots.png</code>；菜单槽位 <code>WEQ_X=8, WEQ_Y=15</code>（<code>ey(15)</code>）</td></tr>
+        <tr><td>候选行</td><td><code>y=35</code> 起，行高 <code>16</code>，5 行</td><td>左 16px 复选框按钮（内叠状态物品：禁用 barrier / 已选附魔书(光效) / 未选 书）+ 右 184px 条目背景（<code>enchant_merge_entry.png</code>）；名称 + 等级滑条 + 等级；行间无间隔</td></tr>
+        <tr><td>操作栏</td><td><code>y=117</code> 起</td><td>◀ 页码 ▶ / 满级 / 清除 / 还原 / 合并</td></tr>
+    </table>
+    <div class="flow">
+        <div class="step client"><span class="tag">交互</span><b>点击条目/复选框</b>切换该项是否合并（取消勾选不改变滑条等级）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>滑条</b>拖动/滚轮调整等级（1..范围），自动选中；实时更新费用</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>翻页</b>候选 &gt; 5 项时分页显示</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>合并</b>提交勾选项与所选等级</div>
+    </div>
+    <div class="note"><b>外观与交互实现</b>
+    面板背景使用 <code>textures/gui/standard_background.png</code>（176×62 纵向拉伸到面板高）；字体统一 9px。
+    附魔条目贴图 <code>textures/gui/enchant_merge_entry.png</code>（<b>200×48</b>）：左侧 16px 为复选框按钮、右侧 184px 为条目背景，各三态（禁用 <code>v=0</code> / 高亮 <code>v=16</code> / 正常 <code>v=32</code>）；分两段 blit——按钮按“选中/未选/禁用”取态，条目背景按“悬停/正常/禁用”取态。
+    等级滑条为带档位刻度的滑块（最小/最大刻度在两端、手柄中心对准当前档位，拖动吸附整数）。
+    复选框内叠加状态物品图标（缩放 0.7 居中）：禁用 <code>barrier</code>、已选 <code>enchanted_book</code>（附魔光效）、未选 <code>book</code>。
+    经验费用显示在装备名下方，带<b>与铁砧同款的暗色半透明底</b>（<code>0x4F000000</code>）以突出显示。</div>
+    <div class="note"><b>布局稿</b>可交互 HTML 预览：<code>docs/gui-preview-enchant-merge.html</code>（早期深色设计稿，实际外观以本文与源码为准）。</div>
+</div>
+
+<div class="card">
+    <h2>底部操作按钮与结果预览</h2>
+    <table>
+        <tr><th>按钮</th><th>图标</th><th>行为</th></tr>
+        <tr><td>◀ / ▶</td><td>slot_button + up_arrow（旋转）</td><td>上一页 / 下一页</td></tr>
+        <tr><td>满级</td><td><code>minecraft:nether_star</code></td><td>把所有可升级项拉到最高；逐项跳过早选冲突项（一组冲突项只保留先到的一个）</td></tr>
+        <tr><td>清除</td><td><code>minecraft:bucket</code></td><td>把装备已有附魔全部标记为移除（等级 0），提交后清空装备附魔</td></tr>
+        <tr><td>还原</td><td><code>minecraft:recovery_compass</code></td><td>回到装备已有附魔的初始选择（保留原有附魔、撤销全部改动、清空滑条记忆）</td></tr>
+        <tr><td>合并</td><td><code>minecraft:anvil</code></td><td>提交勾选项与所选等级（无勾选时禁用）</td></tr>
+    </table>
+    <div class="note"><b>结果预览（合并按钮悬浮框）</b>直接渲染“操作后物品”的实际悬浮框；对发生变化的附魔条目在其行尾追加彩色后缀——<code>[+]</code>（新增，绿）、<code>[↑ 旧→新]</code>（升级，绿）、<code>[↓ 旧→新]</code>（降级，红）；被移除的附魔在结果中已不存在，以 <code>✗ 名称 等级</code> 红色删除线追加在末尾。</div>
+</div>
+
+<div class="card">
+    <h2>合并执行与计费（服务端）</h2>
+    <div class="flow">
+        <div class="step io"><span class="tag">C2S</span><b>SubmitEnchantMergePacket</b>containerId + [(附魔 id, 所选等级)]</div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>重新扫描网络书</b>逐项校验：有书？适用？冲突放行？</div>
+        <div class="arrow"><span class="al">所选等级 0 = 清除；低于已有 = 降级；高于已有 = 升级</span></div>
+        <div class="step server"><b>费用计算</b>精确等级项 calcCost([附魔@所选等级], 1)；拆分项 = 步数 × split_xp_cost（默认 0）</div>
+    </div>
+    <div class="flow row">
+        <div class="step server"><b>精确等级</b>消耗对应等级书，按公式扣 XP</div>
+        <div class="arrow"></div>
+        <div class="step server"><b>拆分</b>消耗最接近高等级书，回存 (L-1)…S 各一本；每步扣 1/2 本普通书 + 可配经验</div>
+    </div>
+    <div class="flow">
+        <div class="step decision"><b>预检</b>网络 XP 足够？每本书可用（simulate extract）？</div>
+        <div class="arrow"><span class="al">任一不足 → 整体中止，不扣任何资源</span></div>
+        <div class="step server"><b>执行</b>预检通过后扣 XP 流体 → 逐本扣书 → <b>按等级降序</b>写入装备（取高 / 清除 / 降级）</div>
+        <div class="arrow"></div>
+        <div class="step end"><b>产物留槽</b>音效 + 统计；触发候选重算</div>
+    </div>
+    <div class="good"><b>资源安全</b>先整体预检再执行，避免“扣了书却没有 XP”或部分扣除；费用按所选等级（而非书的等级）计算，支持“高级书 → 低级附魔”的拆级用法。</div>
+</div>
+
+<div class="card">
+    <h2>费用公式（复用附魔分离器）</h2>
+    <pre><code># 每项费用（默认规则）
+(base_cost + (level - 1) × level_multiplier) × 附魔倍率
+# 附魔倍率：high_cost_list 指定的附魔用其倍率，其余用 default_multiplier
+# 可选自定义公式（use_formula = true）：
+base + (level - 1) * multiplier        # 变量：base / level / multiplier / books
+# 最终 XP 流体（mB）= 费用点数 × 20</code></pre>
+    <div class="note"><b>配置复用</b>计费项直接读取 <code>enchantment_separation</code> 分区的 <code>base_cost</code> / <code>level_multiplier</code> / <code>default_multiplier</code> / <code>high_cost_list</code> / <code>use_formula</code> / <code>cost_formula</code>，无需独立配置。</div>
+    <div class="note"><b>费用悬浮框</b>悬停经验费用（文本带与铁砧同款暗色底）显示计费公式与逐项明细（精确等级 / 拆分行含普通书消耗），末尾按原版升级经验曲线由 0 级反推并显示「<b>≈ 玩家从 0 级升到 X 级</b>」（翻译键 <code>xp.level_equiv</code>）。</div>
+</div>
+
+<div class="card">
+    <h2>配置项</h2>
+    <table>
+        <tr><th>配置</th><th>分区</th><th>说明</th></tr>
+        <tr><td><code>workstations.enabled</code></td><td>workstations</td><td>需包含 <code>enchant_merge</code> 才会显示按钮并允许打开（默认列表已追加）</td></tr>
+        <tr><td><code>workstations.activation.costs</code></td><td>workstations</td><td>若启用献祭激活，需为本工作站配置献祭物（默认 <code>enchant_merge:minecraft:enchanting_table:1</code>）</td></tr>
+        <tr><td><code>enchantIgnoreConflict</code></td><td>enchant_table</td><td>是否允许合并冲突附魔（关闭时，新附魔与“生效集合”冲突即被禁用；已有附魔不受影响）</td></tr>
+        <tr><td><code>enchant_merge.enable</code></td><td>enchant_merge</td><td>附魔合并工作站总开关（默认开）</td></tr>
+        <tr><td><code>enchant_merge.consume_original_book</code></td><td>enchant_merge</td><td>拆分时是否消耗原附魔书载体：false = 每步 1 本普通书；true = 每步 2 本（默认 false）</td></tr>
+        <tr><td><code>enchant_merge.split_xp_cost</code></td><td>enchant_merge</td><td>每步拆分消耗经验点（0 = 不消耗，默认 0）</td></tr>
+        <tr><td><code>base_cost</code> / <code>level_multiplier</code> / <code>default_multiplier</code> / <code>high_cost_list</code></td><td>enchantment_separation</td><td>合并费用公式与倍率</td></tr>
+        <tr><td><code>use_formula</code> / <code>cost_formula</code></td><td>enchantment_separation</td><td>自定义费用公式</td></tr>
+        <tr><td><code>workstation_order</code></td><td>客户端</td><td>右侧按钮顺序/可见集，需包含 <code>ENCHANT_MERGE</code></td></tr>
+    </table>
+    <div class="note"><b>无独立配置分区</b>本工作站刻意不新增 COMMON 配置，全部复用现有附魔相关配置，降低整合包维护成本。</div>
+</div>
+
+<div class="card">
+    <h2>数据包</h2>
+    <div class="flow row">
+        <div class="step io"><b>SubmitEnchantMergePacket</b>C2S · 选中项与等级（服务端只执行）</div>
+        <div class="arrow"></div>
+        <div class="step io"><b>CleanWorkstationPacket</b>复用 · 清空/归还</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>已知边界</h2>
+    <ul>
+        <li><b>UI 框架依赖（重要）</b>：本工作站界面基于 Beyond Dimensions 现有 GUI 的布局/坐标/纹理（<code>standard_background</code>、<code>slot_button</code>、<code>up_arrow</code> 等）实现；BD 本体计划在<b>下个版本更换 UI 框架</b>，待其正式发布后需统一校对代码与新版 GUI。源码中所有相关类已加提示注释。</li>
+        <li>仅支持网络中的<b>单附魔书</b>；多附魔书需先经附魔分离器拆分。</li>
+        <li>候选仅列“有单附魔书且可提升/可新增”的项；网络无书时不出现（避免无效勾选）。</li>
+        <li>同一附魔最高等级的多本书按精确存储键扣除；若同等级附魔书存在不同 NBT 变体，只取扫描到的首个键对应的库存展示与扣除。</li>
+        <li>滑条可调低于已有等级（<b>降级</b>，免费）或取消勾选（<b>清除</b>，免费、不返还书）；高于已有为升级。清除 / 降级不消耗附魔书。</li>
+        <li>冲突禁用为<b>客户端体验</b>（依据选择列表即时更新）；服务端在合并时仍以“装备已有附魔”做冲突复核，不阻止已有互相冲突的附魔保留。</li>
+        <li>写入装备的附魔按所选等级降序排列；取消勾选不改变滑条记忆等级。</li>
+        <li>合并为窗口内即时操作；并发改动网络（同 tick 内其他来源）由预检 + 实际扣除返回值兜底，极端情况下可能少合并一项而不扣费。</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>相关源文件（Forge 分支）</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/feature/crafting/DimensionsEnchantMergeMenu.java<span class="fdesc">候选扫描 / 合并执行 / 计费</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/gui/DimensionsEnchantMergeGUI.java<span class="fdesc">列表 / 滑条 / 交互</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/network/SubmitEnchantMergePacket.java<span class="fdesc">C2S 提交合并操作</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/feature/enchant/EnchantmentBookSeparatorHandler.java<span class="fdesc">calcCost / xpFluidKey 复用</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/init/ModMenus.java<span class="fdesc">ENCHANT_MERGE 注册</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/gui/WorkstationModeConstants.java<span class="fdesc">模式常量</span></li>
+    </ul>
+    <div class="note"><b>NeoForge 对应</b><code>init/DimensionsEnchantMergeMenu</code>、<code>client/gui/DimensionsEnchantMergeGUI</code>、<code>network/payload/SubmitEnchantMergePayload</code>。</div>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 25/26 · Beyond Integration v0.7.3
+</footer>
+
+</div>
+</body>
+</html>

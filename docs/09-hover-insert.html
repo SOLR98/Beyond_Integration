@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>18 · 悬停快速存储 — Beyond Integration 文档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+    <h1>18 · 悬停快速存储（收纳袋式存入网络）</h1>
+    <div class="sub">在任意容器界面悬停槽位左键点击，把物品快速存入（或取出）绑定网络的终端</div>
+</header>
+
+<div class="card">
+    <h2>功能概述</h2>
+    <p>模仿原版收纳袋（Bundle）的交互：当光标物品或悬停槽位物品中任意一方是<b>绑定网络的终端</b>（NBT 含 <code>NetId</code>）时，左键点击即可双向快速转移：</p>
+    <ul>
+        <li><b>存入网络</b>——光标持物、悬停槽位是联网终端：光标物品整组存入该网络，余量留在光标</li>
+        <li><b>从网络取出</b>——光标持联网终端、悬停槽位有物品：把槽位物品存入光标终端的网络（走 <code>safeTake</code> 触发 <code>mayPickup/onTake</code>，避免结果槽刷取）</li>
+    </ul>
+    <p>客户端在可快速存入的槽位左上角绘制绿色 <code>+</code> 提示；服务端校验玩家是网络成员（owner/manager/member）后才执行。</p>
+</div>
+
+<div class="card">
+    <h2>组件构成</h2>
+    <table>
+        <tr><th>组件</th><th>类</th><th>职责</th></tr>
+        <tr><td>点击注入</td><td><code>mixin/NetedItemClickMixin</code></td><td>注入原版 <code>Item.overrideOtherStackedOnMe</code> / <code>overrideStackedOnOther</code>（仅 PRIMARY、仅服务端）</td></tr>
+        <tr><td>业务处理</td><td><code>handler/HoverInsertHandler</code></td><td>权限校验 / insert / safeTake / 余量归还</td></tr>
+        <tr><td>视觉提示</td><td><code>client/HoverStoreOverlay</code></td><td>悬停槽位左上角绿色 <code>+</code></td></tr>
+        <tr><td>物品提示</td><td><code>handler/NetworkIdTooltipHandler</code>（Forge）<br><code>handler/ItemTooltipHandler</code>（NeoForge）</td><td>tooltip 显示“可快速存入网络”等提示</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>交互流程</h2>
+    <div class="flow">
+        <div class="step client"><span class="tag">客户端</span><b>容器界面悬停槽位</b>HoverStoreOverlay 判定任一物品绑定网络</div>
+        <div class="arrow"><span class="al">绘制绿色 +（guiLeft + hovered.x - 2）</span></div>
+        <div class="step client"><b>左键点击</b>原版物品覆写链触发</div>
+        <div class="arrow"></div>
+        <div class="step io"><span class="tag">C2S</span><b>ServerboundContainerClickPacket</b></div>
+        <div class="arrow"></div>
+        <div class="step server"><span class="tag">服务端</span><b>NetedItemClickMixin</b>读取终端 NBT → HoverInsertHandler.tryInsert</div>
+    </div>
+    <div class="flow">
+        <div class="step decision"><b>权限校验</b>net.isOwner || isManager || getPlayers().contains(uuid)</div>
+        <div class="arrow"><span class="al">无权限 → action bar hover_insert.no_permission</span></div>
+        <div class="step server"><b>存入</b>storage.insert(new ItemStackKey(物品副本), 数量, false)</div>
+        <div class="arrow"><span class="al">insert 返回余量（leftover）</span></div>
+        <div class="step server"><b>余量处理</b>正向：留在光标；反向：returnToPlayer（背包满则掉落）</div>
+        <div class="arrow"></div>
+        <div class="step client"><b>提示</b>hover_insert.success / hover_insert.failed</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>提示与边界</h2>
+    <table>
+        <tr><th>项</th><th>说明</th></tr>
+        <tr><td>触发条件</td><td>仅左键（<code>ClickAction.PRIMARY</code>）；槽位需 <code>allowModification</code>（反向）</td></tr>
+        <tr><td>权限</td><td>网络成员即可（非仅 owner/manager）</td></tr>
+        <tr><td>匹配</td><td>物品按 <code>ItemStackKey</code> 精确匹配（NBT 变种视为不同键）</td></tr>
+        <tr><td>tooltip</td><td>携带网络 ID 的物品显示网络 ID；悬停联网物品且光标持物时显示“可快速存入”</td></tr>
+    </table>
+    <div class="warn"><b>已知边界</b>客户端 <code>HoverStoreOverlay</code> 与服务端 <code>HoverInsertHandler</code> 各自实现了“可快速存入”的判定条件，修改其一时需同步另一侧。</div>
+</div>
+
+<div class="card">
+    <h2>相关源文件</h2>
+    <ul class="files">
+        <li>src/main/java/com/solr98/beyondintegration/mixin/NetedItemClickMixin.java<span class="fdesc">原版 Item 覆写链注入</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/handler/HoverInsertHandler.java<span class="fdesc">服务端业务逻辑</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/client/HoverStoreOverlay.java<span class="fdesc">绿色 + 渲染</span></li>
+        <li>src/main/java/com/solr98/beyondintegration/handler/NetworkIdTooltipHandler.java<span class="fdesc">tooltip</span></li>
+    </ul>
+    <div class="note"><b>NeoForge 对应</b>同为 <code>mixin/NetedItemClickMixin</code> + <code>handler/HoverInsertHandler</code>（主类注册 <code>HoverStoreOverlay::onScreenRender</code>），tooltip 合并进 <code>handler/ItemTooltipHandler</code>。</div>
+</div>
+
+<footer>
+    <a href="index.html">← 返回索引</a> · 18/21 · Beyond Integration v0.6.5
+</footer>
+
+</div>
+</body>
+</html>
