@@ -1,0 +1,323 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.148'
+    id 'org.jetbrains.kotlin.jvm' version '2.4.10'
+    id 'org.jetbrains.kotlin.plugin.compose' version '2.4.10'
+}
+
+version = mod_version
+group = mod_group_id
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+        name = 'Kotlin for Forge'
+        url = 'https://thedarkcolour.github.io/KotlinForForge/'
+        content { includeGroup "thedarkcolour" }
+    }
+    maven {
+        name = "CompixelUI"
+        url = "https://maven.wintercogs.com/releases"
+        content { includeGroup "dev.compixel" }
+    }
+    maven {
+        url = "https://maven.blamejared.com"
+    }
+    maven { url 'https://modmaven.dev/' }
+    maven {
+        name = "TerraformersMC"
+        url = "https://maven.terraformersmc.com/"
+    }
+    maven { url "https://cursemaven.com" }
+    maven {
+        name = "Curios"
+        url = uri("https://maven.theillusivec4.top/")
+    }
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+    }
+    maven {
+        url "https://maven.latvian.dev/releases"
+        content {
+            includeGroup "dev.latvian.mods"
+            includeGroup "dev.latvian.apps"
+        }
+    }
+    maven {
+        url 'https://jitpack.io'
+        content { includeGroup "com.github.rtyley" }
+    }
+    maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
+    maven { url = "https://maven.createmod.net" }
+    maven { url 'https://maven.aliyun.com/repository/public' }
+}
+
+base {
+    archivesName = "${mod_id}-${minecraft_version}-neoforge"
+}
+
+// jar 名称格式与 1.20.1 线保持一致：beyond_integration-<mc>-<loader>-<version>.jar
+// 注意：NeoGradle moddev 会覆盖 base.archivesName，故直接在 jar 任务上强制命名
+tasks.named('jar', Jar) {
+    archiveFileName = "${mod_id}-${minecraft_version}-neoforge-${mod_version}.jar"
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+// Kotlin / Compose：BD 新版 CompixelUI 界面（BdPage）依赖
+kotlin {
+    jvmToolchain(21)
+}
+
+neoForge {
+    // Specify the version of NeoForge to use.
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    // This line is optional. Access Transformers are automatically detected
+    // accessTransformers.add('src/main/resources/META-INF/accesstransformer.cfg')
+
+    // Default run configurations.
+    // These can be tweaked, removed, or duplicated as needed.
+    runs {
+        client {
+            client()
+
+            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        // This run config launches GameTestServer and runs all registered gametests, then exits.
+        // By default, the server will crash when no gametests are provided.
+        // The gametest system is also enabled by default for other run configs under the /test command.
+        gameTestServer {
+            type = "gameTestServer"
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        data {
+                data()
+
+            // example of overriding the workingDirectory set in configureEach above, uncomment if you want to use it
+            // gameDirectory = project.file('run-data')
+
+            // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+
+        // applies to all the run configs above
+        configureEach {
+            // Recommended logging data for a userdev environment
+            // The markers can be added/remove as needed separated by commas.
+            // "SCAN": For mods scan.
+            // "REGISTRIES": For firing of registry events.
+            // "REGISTRYDUMP": For getting the contents of all registries.
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+
+            // Recommended logging level for the console
+            // You can set various levels here.
+            // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        // define mod <-> source bindings
+        // these are used to tell the game which sources are for which mod
+        // mostly optional in a single mod project
+        // but multi mod projects should define one per mod
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+// Include resources generated by data generators.
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+// ── 本地 Beyond Dimensions 构建 ──
+// BI 需要的界面改动在 new_BD 的源码里；每次编译/运行前自动构建 BD jar，
+// 并同步到 run/mods，不再手动复制。
+def bdDir = file("../NEW_BD/BeyondDimensions-1.21.1")
+// BD 版本从它自己的 gradle.properties 读，避免上游升版本后这里写死失效
+def bdProps = new Properties()
+new File(bdDir, "gradle.properties").withInputStream { bdProps.load(it) }
+def bdVersion = bdProps.getProperty("mod_version", "0.8.9")
+def bdJarName = "beyonddimensions-1.21.1-neoforge-${bdVersion}.jar"
+def bdJar = file("${bdDir}/build/libs/${bdJarName}")
+
+tasks.register("buildLocalBD", Exec) {
+    group = "beyond integration"
+    description = "Build the local Beyond Dimensions jar"
+    workingDir bdDir
+    commandLine "cmd", "/c", "gradlew.bat", "jar", "--console=plain"
+    environment "JAVA_HOME", System.getenv("JAVA_HOME") ?: "C:\\Program Files\\Java\\jdk-21.0.11"
+    inputs.dir("${bdDir}/src/main")
+    inputs.file("${bdDir}/build.gradle")
+    inputs.file("${bdDir}/gradle.properties")
+    outputs.file(bdJar)
+}
+
+tasks.register("syncLocalBD", Copy) {
+    dependsOn "buildLocalBD"
+    from bdJar
+    into file("run/mods")
+}
+
+// ── 本地哨戒机械臂（sentrymechanicalarm）构建 ──
+// BI 的哨戒联动（SentryArm*Mixin / SentryFakePlayerNetMarker / SentryNetIdAccessor）
+// 需要该模组参与开发运行时；源码工程在旧分支 libs 下（Kotlin DSL，JDK 21）。
+// 这里改为动态构建，替代原先指向 libs/*.jar（该 jar 实际并不存在，属空引用）的写法。
+def sentryDir = file("../1.21.1_NEOFORGE/libs/sentrymechanicalarm-1.3.6-1.21.1")
+def sentryProps = new Properties()
+new File(sentryDir, "gradle.properties").withInputStream { sentryProps.load(it) }
+def sentryVersion = sentryProps.getProperty("mod_version", "1.3.6")
+def sentryBaseName = sentryProps.getProperty("archives_base_name", "sentrymechanicalarm-neoforge-1.21.1")
+def sentryJar = file("${sentryDir}/build/libs/${sentryBaseName}-${sentryVersion}.jar")
+def localJdk21 = System.getenv("JAVA_HOME") ?: "C:\\Program Files\\Java\\jdk-21.0.11"
+
+tasks.register("buildLocalSentry", Exec) {
+    group = "beyond integration"
+    description = "Build the local Sentry Mechanical Arm jar"
+    workingDir sentryDir
+    // 该工程的 gradle.properties 里 org.gradle.java.home 是机器相关的绝对路径，
+    // 这里用 -D 覆盖，保证用 JDK 21（PATH 默认可能是 JDK 26，会报 class file major version 70）
+    commandLine "cmd", "/c", "gradlew.bat", "jar", "--console=plain",
+            "-Dorg.gradle.java.home=${localJdk21}"
+    environment "JAVA_HOME", localJdk21
+    inputs.dir("${sentryDir}/src/main")
+    inputs.file("${sentryDir}/build.gradle.kts")
+    inputs.file("${sentryDir}/gradle.properties")
+    outputs.file(sentryJar)
+}
+
+tasks.named("compileJava") { dependsOn "buildLocalBD" }
+tasks.named("compileKotlin") { dependsOn "buildLocalBD" }
+// BI 编译期会解析哨戒类型的引用（MixinPlugin / 反射分支），故先产出 jar
+tasks.named("compileJava") { dependsOn "buildLocalSentry" }
+tasks.named("compileKotlin") { dependsOn "buildLocalSentry" }
+tasks.matching {
+    it.name in ["runClient", "runServer", "runData", "runGameTestServer"]
+}.configureEach {
+    dependsOn "syncLocalBD"
+    dependsOn "buildLocalSentry"
+}
+
+dependencies {
+    // ── 仓库依赖（联网构建）──
+    // Beyond Dimensions：开发期用 new_BD 本地构建版（含界面改动），运行时由 run/mods 加载
+    compileOnly files(bdJar)
+    // Beyond Dimensions（CurseForge）
+    // implementation "curse.maven:beyond-dimensions-1222890:9224058"
+    // CompixelUI 编译期类（发布版 jar-in-jar 不向编译类路径暴露）；版本须与 BD 0.8.9 对齐
+    compileOnly "dev.compixel:compixel-neoforge-1.21.1-with-kotlin:0.1.18"
+    // CompixelUI 运行时（与 BD 0.8.9 的 compixel_version=0.1.18 一致）
+    implementation "dev.compixel:compixel-neoforge-1.21.1:0.1.18"
+    // Kotlin 运行时（与 CompixelUI / BD 对齐）
+    implementation "maven.modrinth:kotlin-for-forge:5.12.0"
+    // 编译期 KFF API（运行时 jar 是 jar-in-jar，不向编译类路径暴露）
+    compileOnly "thedarkcolour:kotlinforforge-neoforge:5.3.0"
+    // BD 的 GuideME 依赖
+    implementation "curse.maven:guideme-1173950:8897145"
+
+    // Optional client-side EMI API/runtime for BD terminal shortcuts.
+    implementation files("libs/emi-1.1.24+1.21.1+neoforge.jar")
+    implementation "curse.maven:ae2-lightning-tech-1527395:9131948"
+    implementation "maven.modrinth:ae2:19.2.18"
+    implementation "curse.maven:thunderbolt-core-1631756:9108142"
+    implementation "curse.maven:geckolib-388172:7707149"
+    // Iron's Spells 'n Spellbooks（网络魔力源联动）
+    implementation "curse.maven:playeranimator-658587:7389814"
+    implementation "curse.maven:irons-lib-1492763:8973642"
+    implementation "curse.maven:irons-spells-n-spellbooks-855414:8680204"
+    implementation "curse.maven:sodium-394468:6382651"
+    implementation "curse.maven:cloth-config-348521:5729127"
+    implementation "curse.maven:curios-309927:6529130"
+    implementation "curse.maven:jei-238222:7420587"
+    implementation "curse.maven:sophisticated-core-618298:8140101"
+    implementation "curse.maven:sophisticated-storage-619320:8136817"
+    implementation "curse.maven:create-328085:7963363"
+    implementation "curse.maven:patchouli-306770:7730942"
+    implementation "curse.maven:limitless-vehicle-1446269:8068686"
+    // 哨戒机械臂：由 buildLocalSentry 动态构建（源码在 ../1.21.1_NEOFORGE/libs/sentrymechanicalarm-1.3.6-1.21.1）
+    implementation files(sentryJar)
+    implementation fileTree(dir: 'libs', include: ['ponder-neoforge-1.0.85+mc1.21.1.jar'])
+    implementation "curse.maven:touhou-little-maid-355044:8061852"
+    implementation "curse.maven:superb-warfare-1218165:8104860"
+    implementation "curse.maven:tacz-1-21-1-1353462:8127849"
+    implementation "curse.maven:tacz-addon-1238419:9069262"
+    implementation "curse.maven:jade-324717:7545219"
+    implementation "curse.maven:placebo-283644:8463693"
+    implementation "curse.maven:apothic-enchanting-1063926:8469450"
+    implementation "curse.maven:apothic-attributes-898963:8502288"
+    implementation "curse.maven:apothic-spawners-986583:8469405"
+    implementation "curse.maven:apotheosis-313970:8564919"
+    implementation "curse.maven:thirst-was-reclaimed-884742:8893710"
+    implementation "curse.maven:legendary-survival-overhaul-840254:8597620"
+    // Goety：网络灵魂源联动（1.21.1 / NeoForge 3.x）
+    implementation "curse.maven:goety-586095:9207885"
+}
+
+// This block of code expands all declared replace properties in the specified resource targets.
+// A missing property will result in an error. Properties are expanded using ${} Groovy notation.
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            neo_version_range      : neo_version_range,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+
+// Include the output of "generateModMetadata" as an input directory for the build
+// this works with both building through Gradle and the IDE.
+sourceSets.main.resources.srcDir generateModMetadata
+// To avoid having to run "generateModMetadata" manually, make it run on every project reload
+neoForge.ideSyncTask generateModMetadata
+
+// Example configuration to allow publishing using the maven-publish plugin
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/repo"
+        }
+    }
+}
+
+// IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

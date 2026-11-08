@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "beyonddimensions:net_furnace_block"
+    }
+  ],
+  "result": {
+    "id": "beyonddimensions:net_furnace_block",
+    "count": 1
+  }
+}

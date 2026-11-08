@@ -1,0 +1,361 @@
+package com.solr98.beyondintegration.feature.ammo.common;
+
+import com.mojang.logging.LogUtils;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.saveddata.SavedData;
+import org.slf4j.Logger;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * 网络弹药附加数据（SavedData 存档持久化）
+ * 以网络 ID 为键保存 SW 虚拟弹药、TACZ 创造弹药箱与附魔分离开关，
+ * 随服务器世界存档读写，并提供静态实例访问与脏标记接口。
+ *
+ * <p>NBT 存储格式与 1.21.1 版本统一（文件键名统一为
+ * {@code beyond_integration_data}）：networkAmmo / enchantSeparation /
+ * creativeTypes / creativeAllType 四段；旧版 {@code beyond_integration_attachments}
+ * （Networks 结构）存档由 {@link #loadLegacy(CompoundTag)} 在读取时兼容迁移。
+ */
+public class NetworkAmmoData extends SavedData {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
+
+    /** 存档数据条目名称（与 1.21.1 统一为 beyond_integration_data） */
+    private static final String NAME = "beyond_integration_data";
+    /** 网络ID -> 附加数据（并发安全的静态缓存） */
+    private static final Map<Integer, Attachment> data = new ConcurrentHashMap<>();
+
+    /** 全局单例实例 */
+    private static NetworkAmmoData instance;
+
+    /**
+     * 初始化/加载存档数据（不存在则新建）
+     * 新建/加载前清空静态缓存，防止切换世界/存档时残留旧数据被写入新存档。
+     */
+    public static void initialize(ServerLevel level) {
+        data.clear();
+        instance = level.getDataStorage().computeIfAbsent(
+                new net.minecraft.world.level.saveddata.SavedData.Factory<>(
+                        NetworkAmmoData::new, NetworkAmmoData::load, null),
+                NAME);
+    }
+
+    /**
+     * 标记数据已修改（触发自动保存）
+     */
+    public static void markDirty() {
+        if (instance != null) instance.setDirty();
+    }
+
+    /**
+     * 获取当前已初始化的活动实例（主世界加载后可用；未初始化返回 null）。
+     * 供 NetworkDataStore 兜底读取/强制落盘使用。
+     */
+    public static NetworkAmmoData activeInstance() {
+        return instance;
+    }
+
+    /** 空构造：供 SavedData 创建新实例使用 */
+    public NetworkAmmoData() {}
+
+    /**
+     * 从 NBT 反序列化加载数据（统一新格式；加载前清空静态缓存，避免跨存档数据残留）。
+     */
+    public static NetworkAmmoData load(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        // 静态 map 跨存档残留清理：新存档加载前清空，避免旧存档数据污染
+        data.clear();
+
+        // 1) networkAmmo（旧版虚拟弹药）：仅用于一次性迁移到散装弹药物品，见
+        //    DimensionsNetMixin#beyond$migrateLegacySuperbAmmo；新存档不再写入该段
+        CompoundTag netsTag = tag.getCompound("networkAmmo");
+        for (String key : netsTag.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            CompoundTag netTag = netsTag.getCompound(key);
+            CompoundTag ammoTag = netTag.getCompound("ammo");
+            Attachment att = data.computeIfAbsent(netId, k -> new Attachment());
+            for (String ak : ammoTag.getAllKeys()) {
+                att.superbAmmo.put(ak, ammoTag.getLong(ak));
+            }
+        }
+
+        // 2) enchantSeparation：网络 ID → 附魔分离开关
+        CompoundTag esTag = tag.getCompound("enchantSeparation");
+        for (String key : esTag.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            data.computeIfAbsent(netId, k -> new Attachment()).enchantSeparation = esTag.getBoolean(key);
+        }
+
+        // 2b) energyCharge：网络 ID → 自动充电开关
+        CompoundTag ecTag = tag.getCompound("energyCharge");
+        for (String key : ecTag.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            data.computeIfAbsent(netId, k -> new Attachment()).energyCharge = ecTag.getBoolean(key);
+        }
+
+        // 2c) potionCharmMode：网络 ID → 网络药水护符生效目标
+        CompoundTag pcTag = tag.getCompound("potionCharmMode");
+        for (String key : pcTag.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            data.computeIfAbsent(netId, k -> new Attachment()).potionCharmMode = pcTag.getInt(key);
+        }
+
+        // 2d) potionCharmMending：网络 ID → 经验修补献祭解锁
+        CompoundTag pcmTag = tag.getCompound("potionCharmMending");
+        for (String key : pcmTag.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            data.computeIfAbsent(netId, k -> new Attachment()).potionCharmMending = pcmTag.getBoolean(key);
+        }
+
+        // 2e) soulArkActivated：网络 ID → 网络方舟献祭激活
+        CompoundTag saTag = tag.getCompound("soulArkActivated");
+        for (String key : saTag.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            data.computeIfAbsent(netId, k -> new Attachment()).soulArkActivated = saTag.getBoolean(key);
+        }
+
+        // 3) creativeTypes：网络 ID → {"size": n, "0".."n-1": 弹药类型}
+        CompoundTag ctTag = tag.getCompound("creativeTypes");
+        for (String key : ctTag.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            CompoundTag perNet = ctTag.getCompound(key);
+            int size = perNet.getInt("size");
+            Attachment att = data.computeIfAbsent(netId, k -> new Attachment());
+            for (int i = 0; i < size; i++) {
+                att.taczCreativeTypeCounts.put(perNet.getString(String.valueOf(i)), 1);
+            }
+        }
+
+        // 4) creativeAllType：网络 ID → 全类型创造标记（"*" 计数 1）
+        CompoundTag catTag = tag.getCompound("creativeAllType");
+        for (String key : catTag.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            data.computeIfAbsent(netId, k -> new Attachment()).taczCreativeTypeCounts.put("*", 1);
+        }
+
+        if (instance == null) instance = new NetworkAmmoData();
+        return instance;
+    }
+
+    /**
+     * 旧版格式（{@code beyond_integration_attachments}，Networks 结构）解析，
+     * 用于读取存档时的兼容迁移；解析结果与 {@link #load} 一致地填充静态缓存。
+     */
+    public static NetworkAmmoData loadLegacy(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        data.clear();
+        CompoundTag networks = tag.getCompound("Networks");
+        for (String key : networks.getAllKeys()) {
+            int netId = parseNetId(key);
+            if (netId < 0) continue;
+            CompoundTag netTag = networks.getCompound(key);
+            Attachment att = new Attachment();
+            if (netTag.contains("SuperbAmmo")) {
+                CompoundTag ammoTag = netTag.getCompound("SuperbAmmo");
+                for (String ak : ammoTag.getAllKeys()) {
+                    att.superbAmmo.put(ak, ammoTag.getLong(ak));
+                }
+            }
+            if (netTag.contains("TaczCreativeTypes")) {
+                CompoundTag ctTag = netTag.getCompound("TaczCreativeTypes");
+                for (String tk : ctTag.getAllKeys()) {
+                    att.taczCreativeTypeCounts.put(tk, ctTag.getInt(tk));
+                }
+            }
+            att.enchantSeparation = netTag.contains("EnchantSeparation") && netTag.getBoolean("EnchantSeparation");
+            data.put(netId, att);
+        }
+        if (instance == null) instance = new NetworkAmmoData();
+        return instance;
+    }
+
+    /**
+     * 将内存数据序列化写入 NBT（统一新格式，与 1.21.1 一致）。
+     */
+    @Override
+    public CompoundTag save(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        // 1) networkAmmo：旧版 SW 虚拟弹药（仅当仍有未迁移记录时写入；迁移完成后不再产生该段）
+        CompoundTag netsTag = new CompoundTag();
+        boolean hasLegacyAmmo = false;
+        for (var entry : data.entrySet()) {
+            if (entry.getValue().superbAmmo.isEmpty()) continue;
+            hasLegacyAmmo = true;
+            CompoundTag netTag = new CompoundTag();
+            CompoundTag ammoTag = new CompoundTag();
+            for (var e : entry.getValue().superbAmmo.entrySet()) {
+                ammoTag.putLong(e.getKey(), e.getValue());
+            }
+            netTag.put("ammo", ammoTag);
+            netsTag.put(String.valueOf(entry.getKey()), netTag);
+        }
+        if (hasLegacyAmmo) tag.put("networkAmmo", netsTag);
+
+        // 2) enchantSeparation：网络 ID → 附魔分离开关
+        CompoundTag esTag = new CompoundTag();
+        for (var entry : data.entrySet()) {
+            esTag.putBoolean(String.valueOf(entry.getKey()), entry.getValue().enchantSeparation);
+        }
+        tag.put("enchantSeparation", esTag);
+
+        // 2b) energyCharge：网络 ID → 自动充电开关
+        CompoundTag ecTag = new CompoundTag();
+        for (var entry : data.entrySet()) {
+            ecTag.putBoolean(String.valueOf(entry.getKey()), entry.getValue().energyCharge);
+        }
+        tag.put("energyCharge", ecTag);
+
+        // 2c) potionCharmMode：网络 ID → 网络药水护符生效目标
+        CompoundTag pcTag = new CompoundTag();
+        for (var entry : data.entrySet()) {
+            pcTag.putInt(String.valueOf(entry.getKey()), entry.getValue().potionCharmMode);
+        }
+        tag.put("potionCharmMode", pcTag);
+
+        // 2d) potionCharmMending：网络 ID → 经验修补献祭解锁
+        CompoundTag pcmTag = new CompoundTag();
+        for (var entry : data.entrySet()) {
+            pcmTag.putBoolean(String.valueOf(entry.getKey()), entry.getValue().potionCharmMending);
+        }
+        tag.put("potionCharmMending", pcmTag);
+
+        // 2e) soulArkActivated：网络 ID → 网络方舟献祭激活
+        CompoundTag saTag = new CompoundTag();
+        for (var entry : data.entrySet()) {
+            saTag.putBoolean(String.valueOf(entry.getKey()), entry.getValue().soulArkActivated);
+        }
+        tag.put("soulArkActivated", saTag);
+
+        CompoundTag iesTag = new CompoundTag();
+        for (var entry : data.entrySet()) {
+        }
+
+        // 3) creativeTypes：网络 ID → {"size": n, "0".."n-1": 弹药类型}（"*" 全类型标记排除）
+        CompoundTag ctTag = new CompoundTag();
+        for (var entry : data.entrySet()) {
+            CompoundTag perNet = new CompoundTag();
+            int idx = 0;
+            for (String s : entry.getValue().taczCreativeTypeCounts.keySet()) {
+                if ("*".equals(s)) continue;
+                perNet.putString(String.valueOf(idx++), s);
+            }
+            perNet.putInt("size", idx);
+            ctTag.put(String.valueOf(entry.getKey()), perNet);
+        }
+        tag.put("creativeTypes", ctTag);
+
+        // 4) creativeAllType：网络 ID → 全类型创造标记（仅 true 写入）
+        CompoundTag catTag = new CompoundTag();
+        for (var entry : data.entrySet()) {
+            if (entry.getValue().taczCreativeTypeCounts.containsKey("*")) {
+                catTag.putBoolean(String.valueOf(entry.getKey()), true);
+            }
+        }
+        tag.put("creativeAllType", catTag);
+
+        return tag;
+    }
+
+    /**
+     * 获取指定网络的附加数据（不存在则创建新条目）
+     */
+    public static Attachment getOrCreate(int netId) {
+        return data.computeIfAbsent(netId, k -> new Attachment());
+    }
+
+    /**
+     * 删除指定网络的附加数据
+     */
+    public static void remove(int netId) {
+        data.remove(netId);
+    }
+
+    /** 仍留有旧版 SW 虚拟弹药记录的网络 ID（供一次性迁移到散装弹药物品）。 */
+    public static java.util.List<Integer> legacySuperbAmmoNetIds() {
+        java.util.List<Integer> out = new java.util.ArrayList<>();
+        for (var entry : data.entrySet()) {
+            if (!entry.getValue().superbAmmo.isEmpty()) out.add(entry.getKey());
+        }
+        return out;
+    }
+
+    /** 解析网络 ID 键（损坏键返回 -1，保证存档可加载）。 */
+    private static int parseNetId(String key) {
+        try {
+            return Integer.parseInt(key);
+        } catch (NumberFormatException e) {
+            LOGGER.warn("NetworkAmmoData: skipping corrupted net key '{}'", key);
+            return -1;
+        }
+    }
+
+    /**
+     * 单个网络附加的弹药数据
+     */
+    public static class Attachment {
+        /** SW 虚拟弹药表（弹药类型 -> 数量） */
+        private final Map<String, Long> superbAmmo = new HashMap<>();
+        /** TACZ 创造弹药箱记录（弹药ID -> 数量，"*" 表示全类型创造） */
+        private final Map<String, Integer> taczCreativeTypeCounts = new HashMap<>();
+        /** 附魔分离开关（默认关闭） */
+        private boolean enchantSeparation = false;
+        /** 自动充电开关（网络级，默认开启） */
+        private boolean energyCharge = true;
+        /** 网络药水护符生效目标（网络级，0=仅玩家/1=仅女仆/2=玩家和女仆/3=关闭；默认仅玩家） */
+        private int potionCharmMode = 0;
+        /** 网络药水护符"经验修补"献祭解锁（网络级，默认未解锁；献祭单附魔经验修补书后置位） */
+        private boolean potionCharmMending = false;
+        /** 网络方舟献祭激活（网络级，默认未激活；献祭后解锁该网络的灵魂源） */
+        private boolean soulArkActivated = false;
+        /** 附魔物品(装备)分离开关（默认开启） */
+
+        /** 获取 SW 旧版虚拟弹药表（仅供迁移到弹药物品使用） */
+        public Map<String, Long> getSuperbAmmo() { return superbAmmo; }
+        /** 整体替换 SW 旧版虚拟弹药表 */
+        public void setSuperbAmmo(Map<String, Long> map) {
+            superbAmmo.clear();
+            superbAmmo.putAll(map);
+        }
+        /** 获取 TACZ 创造弹药箱记录（类型 → 数量；"*" 表示全类型） */
+        public Map<String, Integer> getTaczCreativeTypeCounts() { return taczCreativeTypeCounts; }
+        /** 获取 TACZ 创造弹药类型集合（"*" 表示全类型） */
+        public java.util.Set<String> getTaczCreativeTypes() { return taczCreativeTypeCounts.keySet(); }
+        /** 是否启用全类型创造（所有弹药视为无限） */
+        public boolean getCreativeAllType() { return taczCreativeTypeCounts.containsKey("*"); }
+        /** 设置全类型创造开关 */
+        public void setCreativeAllType(boolean allType) {
+            if (allType) taczCreativeTypeCounts.put("*", 1);
+            else taczCreativeTypeCounts.remove("*");
+        }
+        /** 是否启用附魔分离（装备级） */
+        public boolean isEnchantSeparation() { return enchantSeparation; }
+        /** 设置附魔分离开关（装备级） */
+        public void setEnchantSeparation(boolean v) { this.enchantSeparation = v; }
+        public boolean isEnergyCharge() { return energyCharge; }
+        /** 设置自动充电开关 */
+        public void setEnergyCharge(boolean v) { this.energyCharge = v; }
+        /** 网络药水护符生效目标（见 PotionCharmMode 序号） */
+        public int getPotionCharmMode() { return potionCharmMode; }
+        /** 设置网络药水护符生效目标 */
+        public void setPotionCharmMode(int v) { this.potionCharmMode = v; }
+        /** 网络药水护符"经验修补"是否已献祭解锁 */
+        public boolean isPotionCharmMending() { return potionCharmMending; }
+        /** 设置网络药水护符"经验修补"献祭解锁 */
+        public void setPotionCharmMending(boolean v) { this.potionCharmMending = v; }
+        /** 网络方舟是否已献祭激活 */
+        public boolean isSoulArkActivated() { return soulArkActivated; }
+        /** 设置网络方舟献祭激活 */
+        public void setSoulArkActivated(boolean v) { this.soulArkActivated = v; }
+        /** 是否启用附魔物品(装备)分离 */
+        /** 设置附魔物品(装备)分离开关 */
+    }
+}
