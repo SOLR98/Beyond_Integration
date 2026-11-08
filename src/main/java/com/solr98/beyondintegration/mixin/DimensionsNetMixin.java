@@ -88,13 +88,16 @@ public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvid
                                 if (ammoId == null) return;
                                 typeKey = ammoId.toString();
                             }
-                            // 全类型：boolean true/false；单种：insert 覆盖(add)、extract 清理(remove)
-                            if (allType) {
-                                setCreativeAllType(insert);
+                            // 存在性语义：插入直接置位；取出仅在该 key 已从存储归零时清除
+                            // （delta 在存储修改后触发，getStackByKey 读到的是最新剩余量，多箱场景正确）
+                            if (insert) {
+                                if (allType) setCreativeAllType(true);
+                                else getTaczCreativeTypes().add(typeKey);
+                            } else if (self().getUnifiedStorage().getStackByKey(ik).amount() <= 0) {
+                                if (allType) setCreativeAllType(false);
+                                else getTaczCreativeTypes().remove(typeKey);
                             } else {
-                                java.util.Set<String> types = getTaczCreativeTypes();
-                                if (insert) types.add(typeKey);
-                                else types.remove(typeKey);
+                                return;
                             }
                             NetworkAmmoData.get().setDirty();
                             return;

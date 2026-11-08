@@ -149,17 +149,15 @@ public class TaczAmmoExtractor {
     }
 
     /** 汇总网络中全部弹药数量（弹药类型 ID → 数量）；创造箱为 Integer.MAX_VALUE，全类型创造返回 "*"。
-     *  遍历时顺带对账创造箱虚拟计数（只增不删，变化落盘），使创造弹更新不依赖 delta 事件，
-     *  随快照周期自动收敛。 */
+     *  创造箱标记由 delta 订阅按"存在性"维护，此处只读合并，不做对账回写。 */
     public static Map<String, Integer> countAllAmmoInNetwork(DimensionsNet net) {
         Map<String, Integer> result = new LinkedHashMap<>();
         if (net == null) return result;
 
         Map<String, Integer> creativeCounts = net instanceof TaczCreativeAccessor acc
                 ? acc.getTaczCreativeCounts() : null;
-        boolean creativeChanged = false;
 
-        // 单次遍历统一存储：物理弹药按弹药 ID 累加 + 创造箱对账/无限标记
+        // 单次遍历统一存储：物理弹药按弹药 ID 累加 + 创造箱无限标记
         UnifiedStorage storage = net.getUnifiedStorage();
         for (KeyAmount ka : storage.getStorage()) {
             if (!(ka.key() instanceof ItemStackKey ik)) continue;
@@ -167,21 +165,12 @@ public class TaczAmmoExtractor {
 
             if (stack.getItem() instanceof IAmmoBox box) {
                 if (box.isAllTypeCreative(stack)) {
-                    if (creativeCounts != null && creativeCounts.getOrDefault("*", 0) <= 0) {
-                        creativeCounts.put("*", 1);
-                        creativeChanged = true;
-                    }
                     result.clear();
                     result.put("*", Integer.MAX_VALUE);
-                    if (creativeChanged) NetworkAmmoData.get().setDirty();
                     return result;
                 }
                 ResourceLocation boxAmmoId = box.getAmmoId(stack);
                 if (box.isCreative(stack) && boxAmmoId != null) {
-                    if (creativeCounts != null && creativeCounts.getOrDefault(boxAmmoId.toString(), 0) <= 0) {
-                        creativeCounts.put(boxAmmoId.toString(), 1);
-                        creativeChanged = true;
-                    }
                     result.put(boxAmmoId.toString(), Integer.MAX_VALUE);
                 }
             } else if (stack.getItem() instanceof IAmmo iAmmo) {
@@ -215,7 +204,6 @@ public class TaczAmmoExtractor {
             }
         }
 
-        if (creativeChanged) NetworkAmmoData.get().setDirty();
         return result;
     }
 

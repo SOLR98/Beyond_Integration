@@ -1,0 +1,33 @@
+{
+  "type": "goety:ritual",
+  "ritual_type": "beyond_integration:soul_source",
+  "craftType": "necroturgy",
+  "activation_item": {
+    "item": "beyonddimensions:net_terminal_item"
+  },
+  "ingredients": [
+    { "item": "beyonddimensions:space_time_stable_frame" },
+    { "item": "beyonddimensions:space_time_stable_frame" },
+    { "item": "beyonddimensions:space_time_stable_frame" },
+    { "item": "beyonddimensions:space_time_stable_frame" },
+    { "item": "minecraft:echo_shard" },
+    { "item": "minecraft:echo_shard" },
+    { "item": "minecraft:echo_shard" },
+    { "item": "minecraft:echo_shard" },
+    { "item": "goety:cursed_cage" },
+    { "item": "goety:cursed_cage" },
+    { "item": "goety:totem_of_souls" },
+    { "item": "goety:arca" }
+  ],
+  "result": {
+    "id": "beyonddimensions:net_terminal_item"
+  },
+  "soulCost": 1,
+  "duration": 10,
+  "conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "goety"
+    }
+  ]
+}

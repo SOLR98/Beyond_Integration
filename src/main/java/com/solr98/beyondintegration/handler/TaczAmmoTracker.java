@@ -73,7 +73,6 @@ public class TaczAmmoTracker {
      */
     private static void reconcileCreativeBoxes(DimensionsNet net) {
         if (!(net instanceof TaczCreativeAccessor tac)) return;
-        Map<String, Integer> counts = tac.getTaczCreativeCounts();
         boolean changed = false;
         var opt = net.getUnifiedStorage().getBucket(ItemStackKey.ID);
         if (opt.isEmpty()) return;
@@ -84,14 +83,13 @@ public class TaczAmmoTracker {
             ItemStack stack = ik.getReadOnlyStack();
             if (!(stack.getItem() instanceof IAmmoBox box)) continue;
             if (box.isAllTypeCreative(stack)) {
-                if (counts.getOrDefault("*", 0) <= 0) {
-                    counts.put("*", 1);
+                if (!tac.getCreativeAllType()) {
+                    tac.setCreativeAllType(true);
                     changed = true;
                 }
             } else if (box.isCreative(stack)) {
                 ResourceLocation ammoId = box.getAmmoId(stack);
-                if (ammoId != null && counts.getOrDefault(ammoId.toString(), 0) <= 0) {
-                    counts.put(ammoId.toString(), 1);
+                if (ammoId != null && tac.getTaczCreativeTypes().add(ammoId.toString())) {
                     changed = true;
                 }
             }

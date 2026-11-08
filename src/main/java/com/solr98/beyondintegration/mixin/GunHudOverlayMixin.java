@@ -9,7 +9,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -21,7 +20,12 @@ import java.util.Map;
 /**
  * 注入目标：TacZ 的 {@code GunHudOverlay}（客户端枪械 HUD 覆盖层）。
  * 目的：在原弹药计数基础上，将各维度网络中的弹药数量合并进 HUD 显示，
- * 并展示网络名称与总弹药数（无限网络显示 infinity）。
+ * 并展示网络名称与总弹药数量（无限网络显示 infinity）。
+ *
+ * 数据刷新只依赖 {@code render(GuiGraphics, DeltaTracker)} 这一个稳定入口：
+ * 不同 TacZ 构建的内部统计方法差异很大（handleInventoryAmmo 在官方测试构建中已被移除，
+ * handleCacheCount 存在 4 参 / 5 参两种签名），而 render 签名在官方测试构建与
+ * 移植版（1.1.8-hotfix-r1 起）中一致，因此不再注入内部统计方法。
  */
 @Mixin(targets = "com.tacz.guns.client.gui.overlay.GunHudOverlay", remap = false)
 public class GunHudOverlayMixin {
@@ -29,25 +33,31 @@ public class GunHudOverlayMixin {
     @Unique private static Map<Integer, Integer> beyond$networkAmmoMap = Map.of();
     @Unique private static ResourceLocation beyond$lastAmmoId = null;
 
-    // 拦截 handleInventoryAmmo：计算原库存弹药后，刷新网络弹药数量缓存并请求快照
-    @Inject(method = "handleInventoryAmmo", at = @At("RETURN"))
-    private static void beyond$onHandleInventoryAmmo(ItemStack stack, Inventory inventory, CallbackInfo ci) {
-        ResourceLocation ammoId = TaczAmmoExtractor.getAmmoIdClient(stack);
-        if (ammoId == null) return;
-        beyond$networkAmmoMap = TaczAmmoCache.getAllNetworkCounts(ammoId);
-        beyond$lastAmmoId = ammoId;
-        TaczAmmoCache.requestQuick(ammoId);
-    }
-
-    // 在原 HUD 渲染后追加绘制网络名称与网络弹药总数
+    // 在原 HUD 渲染后刷新网络弹药缓存并追加绘制网络名称与网络弹药总数
     @Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V", at = @At("RETURN"), remap = false)
     private void beyond$onRender(GuiGraphics graphics, net.minecraft.client.DeltaTracker deltaTracker, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null) return;
         ItemStack stack = player.getMainHandItem();
-        if (!(stack.getItem() instanceof IGun)) return;
-        if (beyond$networkAmmoMap.isEmpty() || beyond$lastAmmoId == null) return;
+        if (!(stack.getItem() instanceof IGun)) {
+            beyond$networkAmmoMap = Map.of();
+            beyond$lastAmmoId = null;
+            return;
+        }
+
+        // 每帧按主手枪刷新网络弹药缓存（缓存读取与请求均有内部节流）
+        ResourceLocation ammoId = TaczAmmoExtractor.getAmmoIdClient(stack);
+        if (ammoId == null) {
+            beyond$networkAmmoMap = Map.of();
+            beyond$lastAmmoId = null;
+            return;
+        }
+        beyond$networkAmmoMap = TaczAmmoCache.getAllNetworkCounts(ammoId);
+        beyond$lastAmmoId = ammoId;
+        TaczAmmoCache.requestQuick(ammoId);
+
+        if (beyond$networkAmmoMap.isEmpty()) return;
 
         int netId = -1;
         long displayCount = 0;
@@ -88,4 +98,3 @@ public class GunHudOverlayMixin {
         pose.popPose();
     }
 }
-
