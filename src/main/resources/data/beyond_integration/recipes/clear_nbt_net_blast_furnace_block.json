@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "beyonddimensions:net_blast_furnace_block"
+    }
+  ],
+  "result": {
+    "item": "beyonddimensions:net_blast_furnace_block"
+  }
+}

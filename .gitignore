@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+out/
+
+# 本地运行环境与构建依赖（不随仓库分发）
+run/
+libs/
+taczpack/
+
+# 本地 BD 源码（构建时需自行准备 NEW_BD/ 或工程内 new_BD/）
+new_BD/
+NEW_BD/
+
+# 备份与临时产物
+src_backup_*/
+lang_backup/
+.tmp_mc*/
+mcp-*.json
+_tmp_*
+*.log
+*.hprof
+src.zip
+runclient-*.txt
+
+# IDE
+.idea/
+*.iml

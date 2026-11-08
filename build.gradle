@@ -1,0 +1,431 @@
+buildscript {
+    repositories {
+        // These repositories are only for Gradle plugins, put any other repositories in the repository block further below
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
+}
+
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+    // Kotlin + Compose：用于向 BD 0.8 界面注入 BdPage（BD 界面体系是 Kotlin/Compixel）
+    id 'org.jetbrains.kotlin.jvm' version '2.4.10'
+    id 'org.jetbrains.kotlin.plugin.compose' version '2.4.10'
+}
+
+apply plugin: 'org.spongepowered.mixin'
+
+group = mod_group_id
+version = mod_version
+
+base {
+    archivesName = "${mod_id}-${minecraft_version}-forge"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+// Kotlin 与 Java 同目标版本（BD 0.8 界面体系：Kotlin 2.4.10 + Compose 编译器插件）
+kotlin {
+    jvmToolchain(17)
+}
+
+minecraft {
+    // The mappings can be changed at any time and must be in the following format.
+    // Channel:   Version:
+    // official   MCVersion             Official field/method names from Mojang mapping files
+    // parchment  YYYY.MM.DD-MCVersion  Open community-sourced parameter names and javadocs layered on top of official
+    //
+    // You must be aware of the Mojang license when using the 'official' or 'parchment' mappings.
+    // See more information here: https://github.com/MinecraftForge/MCPConfig/blob/master/Mojang.md
+    //
+    // Parchment is an unofficial project maintained by ParchmentMC, separate from MinecraftForge
+    // Additional setup is needed to use their mappings: https://parchmentmc.org/docs/getting-started
+    //
+    // Use non-default mappings at your own risk. They may not always work.
+    // Simply re-run your setup task after changing the mappings to update your workspace.
+    mappings channel: mapping_channel, version: mapping_version
+
+    // When true, this property will have all Eclipse/IntelliJ IDEA run configurations run the "prepareX" task for the given run configuration before launching the game.
+    // In most cases, it is not necessary to enable.
+    // enableEclipsePrepareRuns = true
+    // enableIdeaPrepareRuns = true
+
+    // This property allows configuring Gradle's ProcessResources task(s) to run on IDE output locations before launching the game.
+    // It is REQUIRED to be set to true for this template to function.
+    // See https://docs.gradle.org/current/dsl/org.gradle.language.jvm.tasks.ProcessResources.html
+    copyIdeResources = true
+
+    // When true, this property will add the folder name of all declared run configurations to generated IDE run configurations.
+    // The folder name can be set on a run configuration using the "folderName" property.
+    // By default, the folder name of a run configuration is the name of the Gradle project containing it.
+    // generateRunFolders = true
+
+    // This property enables access transformers for use in development.
+    // They will be applied to the Minecraft artifact.
+    // The access transformer file can be anywhere in the project.
+    // However, it must be at "META-INF/accesstransformer.cfg" in the final mod jar to be loaded by Forge.
+    // This default location is a best practice to automatically put the file in the right place in the final jar.
+    // See https://docs.minecraftforge.net/en/latest/advanced/accesstransformers/ for more information.
+    // accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+
+    // Default run configurations.
+    // These can be tweaked, removed, or duplicated as needed.
+    runs {
+        // applies to all the run configs below
+        configureEach {
+            workingDirectory project.file('run')
+
+            // Recommended logging data for a userdev environment
+            // The markers can be added/remove as needed separated by commas.
+            // "SCAN": For mods scan.
+            // "REGISTRIES": For firing of registry events.
+            // "REGISTRYDUMP": For getting the contents of all registries.
+            property 'forge.logging.markers', 'REGISTRIES'
+
+
+            // Recommended logging level for the console
+            // You can set various levels here.
+            // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        client {
+            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        // This run config launches GameTestServer and runs all registered gametests, then exits.
+        // By default, the server will crash when no gametests are provided.
+        // The gametest system is also enabled by default for other run configs under the /test command.
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        data {
+            // example of overriding the workingDirectory set in configureEach above
+            workingDirectory project.file('run-data')
+
+            // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+    }
+}
+
+mixin {
+    add sourceSets.main, "${mod_id}.refmap.json"
+
+    config "${mod_id}.mixins.json"
+}
+
+// Include resources generated by data generators.
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+// ── 本地 Beyond Dimensions 1.20.1 构建（NEW_BD/BeyondDimensions-1.20.1-ui-port） ──
+// 编译前自动构建 BD jar 并作为 implementation 依赖引入，开发运行时同步到 run/mods。
+// BD 1.20.1 的产物是 SRG 名，必须经 fg.deobf 重映射；fg.deobf 只对模块坐标生效，故用 flatDir。
+// CompixelUI 的运行时 jar（模块名 dev.compixel.runtime）内 shadow 了 org.intellij.lang.annotations，
+// 与 Minecraft / Kotlin for Forge 传递的 org.jetbrains:annotations 同包；dev 环境 ModLauncher
+// 会把两者都作为模块 export 给 mclanguage，导致 ResolutionException（两个模块导出同一个包）。
+// 运行时不需要 annotations 这个 jar，这里统一排除，编译期再用 compileOnly 补回。
+configurations.all {
+    // **运行时**彻底排除 org.jetbrains:annotations：
+    // CF 版 CompixelUI 的 jarJar 里有 dev.compixel.runtime，它 shadow 了
+    // org.intellij.lang.annotations；与 org.jetbrains:annotations 同包时，dev 环境
+    // ModLauncher 会把两者都 export 给 lowcodelanguage，报
+    //   ResolutionException: Modules org.jetbrains.annotations and dev.compixel.runtime
+    //   export package org.jetbrains.annotations to module lowcodelanguage
+    // 注意：只排除“runtime”命名配置**不够**——ForgeGradle 的 minecraft 配置也会进模块层。
+    // 编译期必须保留：Kotlin 编译器生成代码时要能找到 NotNull 等类；
+    // 且 Kotlin 2.4 走 Build Tools API，其类路径配置是 kotlinBuildToolsApiClasspath
+    // （不是 kotlinCompiler*），故按 kotlin* 前缀整体放行。
+    if (name == 'compileClasspath' || name == 'annotationProcessor' || name.startsWith('kotlin')) {
+        return
+    }
+    exclude group: 'org.jetbrains', module: 'annotations'
+}
+
+def bdDir = file("../NEW_BD/BeyondDimensions-1.20.1-ui-port")
+def bdPropsFile = new File(bdDir, "gradle.properties")
+def bdProps = new Properties()
+if (bdPropsFile.exists()) {
+    bdPropsFile.withInputStream { bdProps.load(it) }
+}
+def bdGroup = bdProps.getProperty("mod_group_id", "com.wintercogs.beyonddimensions")
+def bdArtifact = "beyonddimensions-${bdProps.getProperty('minecraft_version', '1.20.1')}-forge"
+def bdVersion = bdProps.getProperty("mod_version", "0.8.3")
+def bdJarDir = new File(bdDir, "build/libs")
+def bdJar = new File(bdJarDir, "${bdArtifact}-${bdVersion}.jar")
+
+tasks.register("buildLocalBD", Exec) {
+    group = "beyond integration"
+    description = "Build the local Beyond Dimensions 1.20.1 jar"
+    workingDir bdDir
+    commandLine "cmd", "/c", "gradlew.bat", "jar", "--console=plain"
+    environment "JAVA_HOME", System.getenv("JAVA_HOME") ?: "C:\\Program Files\\Java\\jdk-21.0.11"
+    inputs.dir(new File(bdDir, "src/main"))
+    inputs.file(new File(bdDir, "build.gradle"))
+    inputs.file(bdPropsFile)
+    outputs.file(bdJar)
+}
+
+tasks.named("compileJava", JavaCompile) { dependsOn "buildLocalBD" }
+// BD 已通过 implementation 进入开发运行时类路径，不需要再复制到 run/mods（否则会重复加载同一 mod）
+
+// ── 本地 taczaddon 构建（libs/1.20.1_FORGE/taczaddon-main） ──
+// 与 buildLocalBD 同法：源码动态构建出 jar，再作为 implementation 依赖引入。
+// taczaddon-main/build.gradle 的 jar 任务已 finalizedBy reobfJar，产物为 SRG，
+// 与 BD 一样必须经 fg.deobf 重映射，故走 flatDir。
+def taczAddonDir = file("../libs/1.20.1_FORGE/taczaddon-main")
+def taczAddonPropsFile = new File(taczAddonDir, "gradle.properties")
+def taczAddonProps = new Properties()
+if (taczAddonPropsFile.exists()) {
+    taczAddonPropsFile.withInputStream { taczAddonProps.load(it) }
+}
+def taczAddonGroup = taczAddonProps.getProperty("mod_group_id", "com.mafuyu404.taczaddon")
+def taczAddonVersion = taczAddonProps.getProperty("mod_version", "1.1.8.3")
+def taczAddonArtifact = "${taczAddonProps.getProperty('mod_id', 'taczaddon')}-${taczAddonVersion}-forge-${taczAddonProps.getProperty('minecraft_version', '1.20.1')}"
+def taczAddonJarDir = new File(taczAddonDir, "build/libs")
+def taczAddonJar = new File(taczAddonJarDir, "${taczAddonArtifact}.jar")
+
+tasks.register("buildLocalTaczAddon", Exec) {
+    group = "beyond integration"
+    description = "Build the local taczaddon jar from libs/1.20.1_FORGE/taczaddon-main"
+    // 逃生开关：jar 已存在且无需重建时用 -PskipLocalTaczAddon 跳过
+    onlyIf { !project.hasProperty("skipLocalTaczAddon") }
+    workingDir taczAddonDir
+    commandLine "cmd", "/c", "gradlew.bat", "jar", "--console=plain"
+    environment "JAVA_HOME", System.getenv("JAVA_HOME") ?: "C:\\Program Files\\Java\\jdk-17"
+    inputs.dir(new File(taczAddonDir, "src/main"))
+    inputs.file(new File(taczAddonDir, "build.gradle"))
+    inputs.file(taczAddonPropsFile)
+    outputs.file(taczAddonJar)
+}
+tasks.named("compileJava", JavaCompile) { dependsOn "buildLocalTaczAddon" }
+
+repositories {
+    // 本地 Beyond Dimensions 构建产物（buildLocalBD 的输出目录）
+    flatDir {
+        dir bdJarDir
+    }
+    // 本地 taczaddon 构建产物（buildLocalTaczAddon 的输出目录）
+    flatDir {
+        dir taczAddonJarDir
+    }
+    // 本地 mod jar（rs_integration 等，需经 fg.deobf 重映射）
+    flatDir {
+        dir 'libs'
+    }
+
+    maven {
+        name = "SpongePowered"
+        url = "https://repo.spongepowered.org/repository/maven-public/"
+        }
+        maven {
+            url = "https://maven.blamejared.com"
+        }
+        maven { url 'https://modmaven.dev/' }
+        maven {
+            name = "TerraformersMC"
+            url = "https://maven.terraformersmc.com/"
+        }
+        maven {
+            url "https://cursemaven.com"
+        }
+    maven {
+        name = "Curios"
+        url = uri("https://maven.theillusivec4.top/")
+    }
+    maven { url = "https://maven.shadowsoffire.dev/releases" }
+        maven {
+            name = "Modrinth"
+            url = "https://api.modrinth.com/maven"
+        }
+        // kubejs
+        maven {
+            url "https://maven.latvian.dev/releases"
+            content {
+                includeGroup "dev.latvian.mods"
+                includeGroup "dev.latvian.apps"
+            }
+        }
+        maven {
+            url 'https://jitpack.io'
+            content {
+                includeGroup "com.github.rtyley"
+            }
+        }
+        maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
+        maven { url = "https://maven.createmod.net" }
+        maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
+        maven { url = "https://maven.createmod.net" }
+        maven {
+            url 'https://maven.aliyun.com/repository/public'
+        }
+    maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
+    maven { url = "https://maven.createmod.net" }
+
+    // CompixelUI（BD 0.8.3 的菜单/界面基于它）
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'CompixelUI'
+                url = uri(providers.gradleProperty('compixel_repository').orElse('https://maven.wintercogs.com/releases').get())
+            }
+        }
+        filter { includeGroup 'dev.compixel' }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    // CompixelUI 编译期 API（BD 菜单实现 SyncedMenu，引用 BD 菜单即需要）
+    compileOnly "dev.compixel:compixel-forge-1.20.1-with-kotlin:${bdProps.getProperty('compixel_version', '0.1.15')}"
+    // 编译期注解（运行期被排除，见上方 configurations 排除项）
+    compileOnly "org.jetbrains:annotations:24.0.1"
+    // 运行时用 CF 版 CompixelUI：其 jarJar 带 dev.compixel.runtime（Kotlin 运行时），
+    // 与 SBW 需要的 Kotlin for Forge 同处一类路径；不要再换成 maven 标准版。
+    implementation fg.deobf("curse.maven:compixel-1715758:9330608")
+    // 必须依赖 - BeyondDimensions：改用 NEW_BD 本地源码编译版（见上方 buildLocalBD）
+    implementation fg.deobf("${bdGroup}:${bdArtifact}:${bdVersion}")
+    // 旧分支使用的 BD 发布版
+    // implementation fg.deobf("maven.modrinth:6zGxpbt7:XXnCAMBQ")
+    // taczaddon - 本地源码动态构建（buildLocalTaczAddon，仅 Forge 1.20.1 有此 addon）。
+    // 需要改 taczaddon 源码做 PR 验证时，不再依赖 curse 固定工件。
+    implementation fg.deobf("${taczAddonGroup}:${taczAddonArtifact}:${taczAddonVersion}")
+    // Project ID: 361579
+    implementation fg.deobf("curse.maven:spark-361579:4738952")
+    // JEI (配方查看器) - Project ID: 238222
+    compileOnly fg.deobf("curse.maven:jei-238222:7920915")
+    runtimeOnly fg.deobf("curse.maven:jei-238222:7920915")
+    // 新版 JEI（15.56+，IngredientGridTooltipHelper 移入 .ingredients 包）：仅编译期，
+    // 用于 New 后缀 Mixin 的双版本适配（运行时按实际布局由 MixinPlugin 选择）
+    compileOnly files("libs/jei-1.20.1-forge-15.56.0.205.jar")
+    implementation fg.deobf("curse.maven:irons-spells-n-spellbooks-855414:7402504")
+    implementation fg.deobf("curse.maven:packet-fixe-689467:7872374")
+    implementation fg.deobf("curse.maven:embeddium-908741:5681725")
+    implementation fg.deobf("curse.maven:touhou-little-maid-355044:7894263")
+    implementation fg.deobf("curse.maven:jade-324717:6855440")
+    implementation fg.deobf("curse.maven:create-328085:7178761")
+    implementation fg.deobf("curse.maven:create-sentry-mechanical-arm-1411575:8032077")
+    implementation fg.deobf("curse.maven:curios-309927:${curios}")
+    implementation fg.deobf("curse.maven:geckolib-388172:${geckolib}")
+    implementation fg.deobf("curse.maven:playeranimator-658587:${playeranimator}")
+    implementation fg.deobf("curse.maven:timeless-and-classics-zero-1028108:8141310")
+    implementation fg.deobf("curse.maven:superb-warfare-1218165:8046997")
+    implementation fg.deobf("curse.maven:kotlin-for-forge-351264:7291067")
+    implementation fg.deobf("curse.maven:cloth-config-348521:5729105")
+    implementation fg.deobf("curse.maven:when-dungeons-arise-442508:4983862")
+    implementation fg.deobf("curse.maven:mekanism-268560:6552911")
+    implementation fg.deobf("curse.maven:mekanism-tools-268567:6552915")
+    implementation fg.deobf("curse.maven:mekanism-generators-268566:6552914")
+    implementation fg.deobf("curse.maven:limitless-vehicle-1446269:8068642")
+    implementation fg.deobf("curse.maven:refined-storage-243076:4844585")
+    implementation fg.deobf("curse.maven:applied-energistics-2-223794:7148487")
+    implementation fg.deobf("curse.maven:guideme-1173950:8204776")
+    implementation fg.deobf("curse.maven:apothic-attributes-898963:5634071")
+    implementation fg.deobf("curse.maven:apotheosis-313970:6461960")
+    implementation fg.deobf("curse.maven:placebo-283644:6274231")
+    implementation fg.deobf("curse.maven:inventory-profiles-next-495267:7565992")
+    implementation fg.deobf("curse.maven:libipn-679177:5208511")
+    implementation fg.deobf("curse.maven:quark-243121:6427817")
+    implementation fg.deobf("curse.maven:zeta-968868:7335229")
+    implementation fg.deobf("curse.maven:mouse-tweaks-60089:5338457")
+    // rs_integration 1.5.2.2（本地 jar，替换 CurseMaven 的旧版 9115092）：
+    // 该版本已修复构造期读配置抛 IllegalStateException 的问题，故不再需要 BI 的三个
+    // 配置读取回退 Mixin（RsIntegration*FixMixin 已删）。flatDir + fg.deobf 处理 SRG→official 重映射。
+    implementation fg.deobf("rs_integration:rs_integration:1.5.2.2")
+    // ffs_money 1.1.6（本地 jar，MCreator 产物）：flatDir + fg.deobf 处理 SRG→official 重映射。
+    implementation fg.deobf("ffs_money:ffs_money:1.1.6-forge-1.20.1")
+    implementation fg.deobf("curse.maven:inventory-hud-forge-357540:5639966")
+    implementation fg.deobf("curse.maven:goety-586095:8951387")
+    implementation fg.deobf("curse.maven:goety-revelation-1236817:9077060")
+    implementation fg.deobf("curse.maven:endinglibrary-1471165:9038151")
+    implementation fg.deobf("curse.maven:kaleidoscope-tavern-1475175:8350841")
+    implementation fg.deobf("curse.maven:ae2-lightning-tech-1527395:9132014")
+    implementation fg.deobf("curse.maven:thunderbolt-core-1631756:9131969")
+    implementation fg.deobf("maven.modrinth:vtvveeqA:E4ejDjYy")
+
+    implementation fg.deobf("curse.maven:tacz-unidict-1305429:8147682")
+    implementation fg.deobf("curse.maven:appleskin-248787:4770828")
+    implementation fg.deobf("curse.maven:thirst-was-taken-679270:6660408")
+    implementation fg.deobf("curse.maven:thirst-was-reclaimed-884742:8852255")
+    implementation fg.deobf("curse.maven:legendary-survival-overhaul-840254:8591693")
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // JDBC drivers for audit database backend
+    implementation 'org.xerial:sqlite-jdbc:3.45.3.0'
+}
+
+// This block of code expands all declared replace properties in the specified resource targets.
+// A missing property will result in an error. Properties are expanded using ${} Groovy notation.
+// When "copyIdeResources" is enabled, this will also run before the game launches in IDE environments.
+// See https://docs.gradle.org/current/dsl/org.gradle.language.jvm.tasks.ProcessResources.html
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+            mod_authors: mod_authors, mod_description: mod_description,
+    ]
+
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+
+    // mixin 配置在 bootstrap 阶段从 classes 输出读取（开发环境 runClient），
+    // 同步进 classes 目录以保证 --mixin.config 能加载到
+    doLast {
+        copy {
+            from 'src/main/resources/beyond_integration.mixins.json'
+            into layout.buildDirectory.dir('classes/java/main')
+        }
+    }
+}
+
+// Example for how to get properties into the manifest for reading at runtime.
+tasks.named('jar', Jar).configure {
+    // mixins.json 同时存在于 resources 与 classes（开发环境同步），打包时去重
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    manifest {
+        attributes([
+                "Specification-Title": mod_id,
+                "Specification-Vendor": mod_authors,
+                "Specification-Version": "1", // We are version 1 of ourselves
+                "Implementation-Title": project.name,
+                "Implementation-Version": project.jar.archiveVersion,
+                "Implementation-Vendor": mod_authors,
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+
+    // This is the preferred method to reobfuscate your jar file
+    finalizedBy 'reobfJar'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+    // 迁移期一次性列出全部编译错误，避免默认 100 条截断
+    options.compilerArgs += ['-Xmaxerrs', '5000']
+}

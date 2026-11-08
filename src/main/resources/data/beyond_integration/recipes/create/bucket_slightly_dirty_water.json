@@ -1,0 +1,30 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "thirst"
+    }
+  ],
+  "type": "create:filling",
+  "ingredients": [
+    {
+      "item": "minecraft:bucket"
+    },
+    {
+      "amount": 1000,
+      "fluid": "beyond_integration:slightly_dirty_water"
+    }
+  ],
+  "results": [
+    {
+      "item": "minecraft:water_bucket",
+      "nbt": {
+        "Purity": 1
+      }
+    }
+  ]
+}

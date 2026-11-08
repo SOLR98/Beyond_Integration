@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    "beyond_integration:dirty_water",
+    "beyond_integration:flowing_dirty_water",
+    "beyond_integration:slightly_dirty_water",
+    "beyond_integration:flowing_slightly_dirty_water",
+    "beyond_integration:acceptable_water",
+    "beyond_integration:flowing_acceptable_water",
+    "beyond_integration:purified_water",
+    "beyond_integration:flowing_purified_water"
+  ]
+}

@@ -1,0 +1,279 @@
+package com.solr98.beyondintegration.network;
+
+import com.solr98.beyondintegration.BeyondIntegration;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.simple.SimpleChannel;
+
+/** 网络包注册与发送中心：统一创建 SimpleChannel，注册全部数据包并封装向服务端/客户端发送的方法 */
+public class PacketHandler {
+
+    /** 网络协议版本号，客户端与服务端不一致时拒绝连接 */
+    private static final String PROTOCOL_VERSION = "1";
+    /** 自增的包 ID 计数器 */
+    private static int id = 0;
+
+    /** 模组主网络通道实例 */
+    public static final SimpleChannel INSTANCE = NetworkRegistry.newSimpleChannel(
+            new ResourceLocation(BeyondIntegration.MODID, "main"),
+            () -> PROTOCOL_VERSION,
+            PROTOCOL_VERSION::equals,
+            PROTOCOL_VERSION::equals
+    );
+
+    /** 注册所有数据包（与 1.21.1 分支及参考模组一致：无条件注册，保证两端包 ID 完全一致） */
+    public static void register() {
+
+        INSTANCE.registerMessage(id++, ProtectItemPacket.class,
+                ProtectItemPacket::encode,
+                ProtectItemPacket::decode,
+                ProtectItemPacket::handle);
+
+        INSTANCE.registerMessage(id++, NetworkItemCountsPacket.class,
+                NetworkItemCountsPacket::encode,
+                NetworkItemCountsPacket::decode,
+                NetworkItemCountsPacket::handle);
+
+        INSTANCE.registerMessage(id++, PrimaryNetSyncPacket.class,
+                PrimaryNetSyncPacket::encode,
+                PrimaryNetSyncPacket::decode,
+                PrimaryNetSyncPacket::handle);
+
+        INSTANCE.registerMessage(id++, HudHintPacket.class,
+                HudHintPacket::encode,
+                HudHintPacket::decode,
+                HudHintPacket::handle);
+
+        INSTANCE.registerMessage(id++, SoulEnergySyncPacket.class,
+                SoulEnergySyncPacket::encode,
+                SoulEnergySyncPacket::decode,
+                SoulEnergySyncPacket::handle);
+
+        INSTANCE.registerMessage(id++, ToggleEnchantSeparationPacket.class,
+                ToggleEnchantSeparationPacket::encode,
+                ToggleEnchantSeparationPacket::decode,
+                ToggleEnchantSeparationPacket::handle);
+
+        INSTANCE.registerMessage(id++, EnchantSeparationSyncPacket.class,
+                EnchantSeparationSyncPacket::encode,
+                EnchantSeparationSyncPacket::decode,
+                EnchantSeparationSyncPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestEnchantSeparationPacket.class,
+                RequestEnchantSeparationPacket::encode,
+                RequestEnchantSeparationPacket::decode,
+                RequestEnchantSeparationPacket::handle);
+
+        INSTANCE.registerMessage(id++, ToggleEnergyChargePacket.class,
+                ToggleEnergyChargePacket::encode,
+                ToggleEnergyChargePacket::decode,
+                ToggleEnergyChargePacket::handle);
+
+        INSTANCE.registerMessage(id++, EnergyChargeSyncPacket.class,
+                EnergyChargeSyncPacket::encode,
+                EnergyChargeSyncPacket::decode,
+                EnergyChargeSyncPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestEnergyChargePacket.class,
+                RequestEnergyChargePacket::encode,
+                RequestEnergyChargePacket::decode,
+                RequestEnergyChargePacket::handle);
+
+        INSTANCE.registerMessage(id++, CyclePotionCharmModePacket.class,
+                CyclePotionCharmModePacket::encode,
+                CyclePotionCharmModePacket::decode,
+                CyclePotionCharmModePacket::handle);
+
+        INSTANCE.registerMessage(id++, PotionCharmSyncPacket.class,
+                PotionCharmSyncPacket::encode,
+                PotionCharmSyncPacket::decode,
+                PotionCharmSyncPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestPotionCharmPacket.class,
+                RequestPotionCharmPacket::encode,
+                RequestPotionCharmPacket::decode,
+                RequestPotionCharmPacket::handle);
+
+        INSTANCE.registerMessage(id++, SacrificeMendingPacket.class,
+                SacrificeMendingPacket::encode,
+                SacrificeMendingPacket::decode,
+                SacrificeMendingPacket::handle);
+
+        INSTANCE.registerMessage(id++, ExtractNetworkItemPacket.class,
+                ExtractNetworkItemPacket::encode,
+                ExtractNetworkItemPacket::decode,
+                ExtractNetworkItemPacket::handle);
+
+
+
+        INSTANCE.registerMessage(id++, SuperbAmmoStatusResponsePacket.class,
+                SuperbAmmoStatusResponsePacket::encode,
+                SuperbAmmoStatusResponsePacket::decode,
+                SuperbAmmoStatusResponsePacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestSuperbAmmoStatusPacket.class,
+                RequestSuperbAmmoStatusPacket::encode,
+                RequestSuperbAmmoStatusPacket::decode,
+                RequestSuperbAmmoStatusPacket::handle);
+
+        INSTANCE.registerMessage(id++, SuperbAmmoDeltaS2CPacket.class,
+                SuperbAmmoDeltaS2CPacket::encode,
+                SuperbAmmoDeltaS2CPacket::decode,
+                SuperbAmmoDeltaS2CPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestItemAmmoPacket.class,
+                RequestItemAmmoPacket::encode,
+                RequestItemAmmoPacket::decode,
+                RequestItemAmmoPacket::handle);
+
+        INSTANCE.registerMessage(id++, ItemAmmoResponsePacket.class,
+                ItemAmmoResponsePacket::encode,
+                ItemAmmoResponsePacket::decode,
+                ItemAmmoResponsePacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestNetworkItemsPacket.class,
+                RequestNetworkItemsPacket::encode,
+                RequestNetworkItemsPacket::decode,
+                RequestNetworkItemsPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestAmmoCountPacket.class,
+                RequestAmmoCountPacket::encode,
+                RequestAmmoCountPacket::decode,
+                RequestAmmoCountPacket::handle);
+
+        INSTANCE.registerMessage(id++, AmmoCountResponsePacket.class,
+                AmmoCountResponsePacket::encode,
+                AmmoCountResponsePacket::decode,
+                AmmoCountResponsePacket::handle);
+
+        INSTANCE.registerMessage(id++, TaczAmmoPushS2CPacket.class,
+                TaczAmmoPushS2CPacket::encode,
+                TaczAmmoPushS2CPacket::decode,
+                TaczAmmoPushS2CPacket::handle);
+
+        INSTANCE.registerMessage(id++, SyncConfigSyncPacket.class,
+                SyncConfigSyncPacket::encode,
+                SyncConfigSyncPacket::decode,
+                SyncConfigSyncPacket::handle);
+
+        INSTANCE.registerMessage(id++, SyncResyncRequestPacket.class,
+                SyncResyncRequestPacket::encode,
+                SyncResyncRequestPacket::decode,
+                SyncResyncRequestPacket::handle);
+
+        INSTANCE.registerMessage(id++, SoulBeamPacket.class,
+                SoulBeamPacket::encode,
+                SoulBeamPacket::decode,
+                SoulBeamPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestApothPreviewPacket.class,
+                RequestApothPreviewPacket::encode,
+                RequestApothPreviewPacket::decode,
+                RequestApothPreviewPacket::handle);
+
+        INSTANCE.registerMessage(id++, ApothPreviewPacket.class,
+                ApothPreviewPacket::encode,
+                ApothPreviewPacket::decode,
+                ApothPreviewPacket::handle);
+
+        INSTANCE.registerMessage(id++, RequestSacrificePreviewPacket.class,
+                RequestSacrificePreviewPacket::encode,
+                RequestSacrificePreviewPacket::decode,
+                RequestSacrificePreviewPacket::handle);
+
+        INSTANCE.registerMessage(id++, SacrificePreviewPacket.class,
+                SacrificePreviewPacket::encode,
+                SacrificePreviewPacket::decode,
+                SacrificePreviewPacket::handle);
+
+        INSTANCE.registerMessage(id++, ManaSyncPacket.class,
+                ManaSyncPacket::encode,
+                ManaSyncPacket::decode,
+                ManaSyncPacket::handle);
+
+        // 网络喂食器口渴设置（BD 0.8 界面无此项，BI 以 BdPage 页签注入）
+        INSTANCE.registerMessage(id++, RequestFeederThirstPacket.class,
+                RequestFeederThirstPacket::encode,
+                RequestFeederThirstPacket::decode,
+                RequestFeederThirstPacket::handle);
+
+        INSTANCE.registerMessage(id++, SetFeederThirstPacket.class,
+                SetFeederThirstPacket::encode,
+                SetFeederThirstPacket::decode,
+                SetFeederThirstPacket::handle);
+
+        INSTANCE.registerMessage(id++, FeederThirstStatePacket.class,
+                FeederThirstStatePacket::encode,
+                FeederThirstStatePacket::decode,
+                FeederThirstStatePacket::handle);
+
+        // 经验棒自动修复设置（同上，BI 以 BdPage 页签注入经验棒界面）
+        INSTANCE.registerMessage(id++, RequestXpRepairPacket.class,
+                RequestXpRepairPacket::encode,
+                RequestXpRepairPacket::decode,
+                RequestXpRepairPacket::handle);
+
+        INSTANCE.registerMessage(id++, SetXpRepairPacket.class,
+                SetXpRepairPacket::encode,
+                SetXpRepairPacket::decode,
+                SetXpRepairPacket::handle);
+
+        // 附魔合并（BdPage：装备来自网络，服务端扫描附魔书并执行合并）
+        INSTANCE.registerMessage(id++, RequestEnchantMergePacket.class,
+                RequestEnchantMergePacket::encode,
+                RequestEnchantMergePacket::decode,
+                RequestEnchantMergePacket::handle);
+
+        INSTANCE.registerMessage(id++, SubmitEnchantMergePacket.class,
+                SubmitEnchantMergePacket::encode,
+                SubmitEnchantMergePacket::decode,
+                SubmitEnchantMergePacket::handle);
+
+        INSTANCE.registerMessage(id++, EnchantMergeStatePacket.class,
+                EnchantMergeStatePacket::encode,
+                EnchantMergeStatePacket::decode,
+                EnchantMergeStatePacket::handle);
+
+        INSTANCE.registerMessage(id++, XpRepairStatePacket.class,
+                XpRepairStatePacket::encode,
+                XpRepairStatePacket::decode,
+                XpRepairStatePacket::handle);
+
+        INSTANCE.registerMessage(id++, TaczCraftPacket.class,
+                TaczCraftPacket::encode,
+                TaczCraftPacket::decode,
+                TaczCraftPacket::handle);
+
+        INSTANCE.registerMessage(id++, TudMappingSyncPacket.class,
+                TudMappingSyncPacket::encode,
+                TudMappingSyncPacket::decode,
+                TudMappingSyncPacket::handle);
+
+        // 网络配件（独立列路线，tacz 改装界面）
+        INSTANCE.registerMessage(id++, RequestNetAttachmentsPacket.class,
+                RequestNetAttachmentsPacket::encode,
+                RequestNetAttachmentsPacket::decode,
+                RequestNetAttachmentsPacket::handle);
+        INSTANCE.registerMessage(id++, NetAttachmentsPacket.class,
+                NetAttachmentsPacket::encode,
+                NetAttachmentsPacket::decode,
+                NetAttachmentsPacket::handle);
+        INSTANCE.registerMessage(id++, NetRefitAttachmentPacket.class,
+                NetRefitAttachmentPacket::encode,
+                NetRefitAttachmentPacket::decode,
+                NetRefitAttachmentPacket::handle);
+    }
+
+    /** 客户端 → 服务端发送 */
+    public static void sendToServer(Object msg) {
+        INSTANCE.sendToServer(msg);
+    }
+
+    /** 服务端 → 指定玩家发送（假玩家 / 未连接玩家：静默跳过，避免 connection 为 null 崩溃） */
+    public static void sendToPlayer(ServerPlayer player, Object msg) {
+        if (player == null || player.connection == null) return;
+        INSTANCE.sendTo(msg, player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
+    }
+}
