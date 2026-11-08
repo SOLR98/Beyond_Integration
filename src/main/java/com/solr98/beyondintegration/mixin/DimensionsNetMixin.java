@@ -97,10 +97,14 @@ public class DimensionsNetMixin implements SuperbAmmoAccessor, NetworkNameProvid
                                     return;
                                 }
                             }
+                            // 存在性语义：插入直接置位；取出仅在该 key 已从存储归零时清除
+                            // （delta 在存储修改后触发，getStackByKey 读到最新剩余量，多箱场景正确）
                             if (insert) {
-                                counts.merge(typeKey, (int) size, Integer::sum);
+                                counts.put(typeKey, 1);
+                            } else if (self().getUnifiedStorage().getStackByKey(ik).amount() <= 0) {
+                                counts.remove(typeKey);
                             } else {
-                                counts.computeIfPresent(typeKey, (k, v) -> v <= (int) size ? null : v - (int) size);
+                                return;
                             }
                             NetworkAmmoData.markDirty();
                             return;

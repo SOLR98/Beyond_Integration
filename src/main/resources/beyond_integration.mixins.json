@@ -38,9 +38,7 @@
     "XpExchangeSettingsMixin",
     "XpUtilMixin",
     "XpExchangeItemMixin",
-    "XpExchangeItemOpenMixin",
     "XpExchangeMenuMixin",
-    "XpExchangeMenuTypeMixin",
     "TaczaddonBdFilterMixin",
     "LivingEntityTotemReviveMixin",
     "FeederThirstItemMixin",
@@ -93,6 +91,8 @@
     "ReloadKeyMixin",
     "VehicleClientInteractMixin",
     "FeederThirstGUIMixin",
+    "XpExchangeRepairGUIMixin",
+    "BDBaseGUIRepairClickMixin",
     "NetHopperGUITierMixin",
     "SoulEnergyGuiMixin"
   ]

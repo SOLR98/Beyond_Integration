@@ -25,6 +25,12 @@ public class NetworkAmmoHandler {
      * 判断射击者是否拥有可用网络弹药（依次检查玩家网络、实体终端、女仆终端）
      */
     public static boolean hasNetworkAmmo(LivingEntity shooter, ItemStack gun) {
+        // 哨戒假玩家：使用其绑定的网络（fake player 没有主网络、也没有终端物品）
+        if (shooter instanceof net.minecraftforge.common.util.FakePlayer fp) {
+            DimensionsNet bound = com.solr98.beyondintegration.feature.sentry.SentryFakePlayerNetMarker.getNet(fp);
+            if (bound != null && TaczAmmoExtractor.countAmmoInNetwork(gun, bound) > 0) return true;
+        }
+
         ServerPlayer player = findServerPlayer(shooter);
         if (player != null) {
             int count = TaczAmmoExtractor.countAmmoInNetwork(gun, player);
@@ -49,6 +55,15 @@ public class NetworkAmmoHandler {
      */
     public static int consumeFromNetwork(LivingEntity shooter, ItemStack gun, int needed) {
         if (needed <= 0) return 0;
+
+        // 哨戒假玩家：按绑定的网络扣弹
+        if (shooter instanceof net.minecraftforge.common.util.FakePlayer fp) {
+            DimensionsNet bound = com.solr98.beyondintegration.feature.sentry.SentryFakePlayerNetMarker.getNet(fp);
+            if (bound != null) {
+                int taken = TaczAmmoExtractor.consumeAmmoDirectly(gun, needed, bound);
+                if (taken > 0) return taken;
+            }
+        }
 
         ServerPlayer player = findServerPlayer(shooter);
         if (player != null) {

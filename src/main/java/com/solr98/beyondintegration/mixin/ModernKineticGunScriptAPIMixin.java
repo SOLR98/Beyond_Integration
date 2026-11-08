@@ -1,5 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 
+import com.solr98.beyondintegration.feature.ammo.tacz.NetworkAmmoHandler;
 import com.solr98.beyondintegration.feature.ammo.tacz.NetworkAwareAmmoHandler;
 import com.tacz.guns.item.ModernKineticGunScriptAPI;
 import net.minecraft.world.entity.LivingEntity;
@@ -28,9 +29,16 @@ public class ModernKineticGunScriptAPIMixin {
     private void onConsumeAmmoFromPlayer(int neededAmount, CallbackInfoReturnable<Integer> cir) {
         int fromOrig = cir.getReturnValueI();
         if (fromOrig >= neededAmount) return;
-        if (!(shooter instanceof net.minecraft.server.level.ServerPlayer sp)) return;
+        if (shooter == null) return;
 
-        int fromNet = NetworkAwareAmmoHandler.consumeFromNetworks(sp, itemStack, neededAmount - fromOrig);
+        int stillNeed = neededAmount - fromOrig;
+        int fromNet;
+        if (shooter instanceof net.minecraft.server.level.ServerPlayer sp) {
+            fromNet = NetworkAwareAmmoHandler.consumeFromNetworks(sp, itemStack, stillNeed);
+        } else {
+            // 女仆等非玩家实体 / 哨戒 fake player：终端或绑定网络
+            fromNet = NetworkAmmoHandler.consumeFromNetwork(shooter, itemStack, stillNeed);
+        }
         if (fromNet > 0) {
             cir.setReturnValue(fromOrig + fromNet);
         }

@@ -65,7 +65,6 @@ public class ClientRegistrar {
         MenuScreens.register(ModMenus.ENCHANT_MERGE.get(),DimensionsEnchantMergeGUI::new);
         MenuScreens.register(ModMenus.NET_PATHWAY_FILTER.get(), com.solr98.beyondintegration.client.gui.NetPathwayFilterGUI::new);
         MenuScreens.register(ModMenus.MAGNET.get(), com.solr98.beyondintegration.client.gui.MagnetGUI::new);
-        MenuScreens.register(ModMenus.XP_EXCHANGE.get(), com.solr98.beyondintegration.client.gui.BiXpExchangeGUI::new);
         });});
         FMLJavaModLoadingContext.get().getModEventBus().addListener((RegisterKeyMappingsEvent e)->{
             e.register(BDKeyBindings.OPEN_CRAFT);

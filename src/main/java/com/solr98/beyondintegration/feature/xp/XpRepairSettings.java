@@ -1,18 +1,14 @@
 package com.solr98.beyondintegration.feature.xp;
 
-import com.solr98.beyondintegration.CommandConfig;
 import com.wintercogs.beyonddimensions.api.ids.BDConstants;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * 经验棒物品上的自动修复设置（NBT）。
- * <p>分工：服务端配置决定“能使用哪些”（允许的模式 / 最高档位 / 修复数值），
- * 经验棒界面上的按钮决定“实际使用”（开关 / 模式 / 档位），按物品保存并随菜单 QuickData 同步。
+ * <p>分工：服务端配置决定修复模式 / 档位列表 / 修复数值，
+ * 经验棒界面上的按钮决定“实际使用”（开关 / 档位索引 / 修复范围），按物品保存并随菜单 QuickData 同步。
  */
 public final class XpRepairSettings {
 
@@ -20,8 +16,8 @@ public final class XpRepairSettings {
     public enum ToggleState { ON, OFF }
 
     private static final String TAG_ENABLED = "beyond_integration:xp_repair_enabled";
-    private static final String TAG_MODE = "beyond_integration:xp_repair_mode";
-    private static final String TAG_TIER = "beyond_integration:xp_repair_tier";
+    /** 档位索引（对应服务端 xp_repair_tiers 列表）。 */
+    private static final String TAG_TIER_INDEX = "beyond_integration:xp_repair_tier_index";
     private static final String TAG_RANGE_ARMOR = "beyond_integration:xp_repair_range_armor";
     private static final String TAG_RANGE_INVENTORY = "beyond_integration:xp_repair_range_inventory";
     private static final String TAG_RANGE_HANDS = "beyond_integration:xp_repair_range_hands";
@@ -34,8 +30,8 @@ public final class XpRepairSettings {
 
     public static boolean isEnabled(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return false;
-        CompoundTag tag = stack.getOrCreateTag();
-        return !tag.contains(TAG_ENABLED) || tag.getBoolean(TAG_ENABLED);
+        CompoundTag tag = stack.getTag();
+        return tag == null || !tag.contains(TAG_ENABLED) || tag.getBoolean(TAG_ENABLED);
     }
 
     public static void setEnabled(ItemStack stack, boolean enabled) {
@@ -60,10 +56,11 @@ public final class XpRepairSettings {
     public static boolean isMaidEnabled(ItemStack stack) { return getRange(stack, TAG_RANGE_MAID); }
     public static void setMaidEnabled(ItemStack stack, boolean v) { setRange(stack, TAG_RANGE_MAID, v); }
 
+
     private static boolean getRange(ItemStack stack, String key) {
         if (stack == null || stack.isEmpty()) return false;
-        CompoundTag tag = stack.getOrCreateTag();
-        return !tag.contains(key) || tag.getBoolean(key);
+        CompoundTag tag = stack.getTag();
+        return tag == null || !tag.contains(key) || tag.getBoolean(key);
     }
 
     private static void setRange(ItemStack stack, String key, boolean v) {
@@ -71,69 +68,56 @@ public final class XpRepairSettings {
         stack.getOrCreateTag().putBoolean(key, v);
     }
 
-    // ── 模式（百分比 / 固定值）──
+    // ── 档位索引（对应服务端 xp_repair_tiers 列表）──
 
-    public static CommandConfig.XpRepairAmountMode getMode(ItemStack stack) {
-        List<CommandConfig.XpRepairAmountMode> modes = availableModes();
-        if (modes.isEmpty()) return CommandConfig.XpRepairAmountMode.PERCENT;
-        CommandConfig.XpRepairAmountMode fallback = modes.get(0);
+    public static int getTierIndex(ItemStack stack) {
+        int fallback = XpRepairTiers.defaultIndex();
         if (stack == null || stack.isEmpty()) return fallback;
-        CompoundTag tag = stack.getOrCreateTag();
-        if (!tag.contains(TAG_MODE)) return fallback;
-        try {
-            CommandConfig.XpRepairAmountMode mode =
-                    CommandConfig.XpRepairAmountMode.valueOf(tag.getString(TAG_MODE));
-            return modes.contains(mode) ? mode : fallback;
-        } catch (Throwable ignored) {
-            return fallback;
+        CompoundTag tag = stack.getTag();
+        if (tag == null) return fallback;
+        if (tag.contains(TAG_TIER_INDEX)) {
+            return clampIndex(tag.getInt(TAG_TIER_INDEX));
         }
+        return fallback;
     }
 
-    public static void setMode(ItemStack stack, CommandConfig.XpRepairAmountMode mode) {
-        if (stack == null || stack.isEmpty() || mode == null) return;
-        stack.getOrCreateTag().putString(TAG_MODE, mode.name());
+    public static void setTierIndex(ItemStack stack, int index) {
+        if (stack == null || stack.isEmpty()) return;
+        stack.getOrCreateTag().putInt(TAG_TIER_INDEX, clampIndex(index));
     }
 
-    // ── 档位（LOW / NORMAL / HIGH / MAX）──
-
-    public static CommandConfig.XpRepairTier getTier(ItemStack stack) {
-        CommandConfig.XpRepairTier max = maxTier();
-        CommandConfig.XpRepairTier fallback = clampTier(CommandConfig.XpRepairTier.NORMAL);
-        if (stack == null || stack.isEmpty()) return fallback;
-        CompoundTag tag = stack.getOrCreateTag();
-        if (!tag.contains(TAG_TIER)) return fallback;
-        try {
-            return clampTier(CommandConfig.XpRepairTier.valueOf(tag.getString(TAG_TIER)));
-        } catch (Throwable ignored) {
-            return fallback;
-        }
+    /** 越界收敛到当前档位列表范围。 */
+    private static int clampIndex(int index) {
+        int count = XpRepairTiers.count();
+        if (count <= 0) return 0;
+        return Math.max(0, Math.min(index, count - 1));
     }
 
-    public static void setTier(ItemStack stack, CommandConfig.XpRepairTier tier) {
-        if (stack == null || stack.isEmpty() || tier == null) return;
-        stack.getOrCreateTag().putString(TAG_TIER, clampTier(tier).name());
+
+    // ── 快速数据同步（QuickData）──
+
+    /** 把开关 / 档位 / 各修复范围写入快速数据标签。 */
+    public static void writeToTag(ItemStack stack, CompoundTag tag) {
+        if (tag == null) return;
+        tag.putBoolean(TAG_ENABLED, isEnabled(stack));
+        tag.putInt(TAG_TIER_INDEX, getTierIndex(stack));
+        tag.putBoolean(TAG_RANGE_ARMOR, isArmorEnabled(stack));
+        tag.putBoolean(TAG_RANGE_INVENTORY, isInventoryEnabled(stack));
+        tag.putBoolean(TAG_RANGE_HANDS, isHandsEnabled(stack));
+        tag.putBoolean(TAG_RANGE_CURIOS, isCuriosEnabled(stack));
+        tag.putBoolean(TAG_RANGE_MAID, isMaidEnabled(stack));
     }
 
-    // ── 配置允许集合 ──
-
-    /** 配置允许的修复模式（至少一种；两种都关时返回空）。 */
-    public static List<CommandConfig.XpRepairAmountMode> availableModes() {
-        List<CommandConfig.XpRepairAmountMode> modes = new ArrayList<>(2);
-        if (CommandConfig.xpRepairAllowPercent()) modes.add(CommandConfig.XpRepairAmountMode.PERCENT);
-        if (CommandConfig.xpRepairAllowAbsolute()) modes.add(CommandConfig.XpRepairAmountMode.ABSOLUTE);
-        return modes;
-    }
-
-    /** 配置允许的最高修复档位。 */
-    public static CommandConfig.XpRepairTier maxTier() {
-        return CommandConfig.xpRepairMaxTier();
-    }
-
-    /** 将档位收敛到配置允许范围（不超过 maxTier）。 */
-    public static CommandConfig.XpRepairTier clampTier(CommandConfig.XpRepairTier tier) {
-        if (tier == null) return CommandConfig.XpRepairTier.LOW;
-        int max = maxTier().ordinal();
-        return tier.ordinal() <= max ? tier : CommandConfig.XpRepairTier.values()[max];
+    /** 从快速数据标签读回设置并写回物品 NBT。 */
+    public static void readFromTag(ItemStack stack, CompoundTag tag) {
+        if (tag == null || stack == null || stack.isEmpty()) return;
+        if (tag.contains(TAG_ENABLED)) setEnabled(stack, tag.getBoolean(TAG_ENABLED));
+        if (tag.contains(TAG_TIER_INDEX)) setTierIndex(stack, tag.getInt(TAG_TIER_INDEX));
+        if (tag.contains(TAG_RANGE_ARMOR)) setArmorEnabled(stack, tag.getBoolean(TAG_RANGE_ARMOR));
+        if (tag.contains(TAG_RANGE_INVENTORY)) setInventoryEnabled(stack, tag.getBoolean(TAG_RANGE_INVENTORY));
+        if (tag.contains(TAG_RANGE_HANDS)) setHandsEnabled(stack, tag.getBoolean(TAG_RANGE_HANDS));
+        if (tag.contains(TAG_RANGE_CURIOS)) setCuriosEnabled(stack, tag.getBoolean(TAG_RANGE_CURIOS));
+        if (tag.contains(TAG_RANGE_MAID)) setMaidEnabled(stack, tag.getBoolean(TAG_RANGE_MAID));
     }
 
     /** BD 图集精灵纹理 ID（按钮图标）。 */

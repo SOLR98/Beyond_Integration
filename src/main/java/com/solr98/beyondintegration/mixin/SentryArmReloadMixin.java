@@ -32,7 +32,12 @@ public class SentryArmReloadMixin {
         // TACZ 1.1.4 无 useInventoryAmmo：跳过接管
         if (!com.solr98.beyondintegration.compat.tacz.TaczApiCompat.supportsUseInventoryAmmo()) return;
         try {
-            if (iGun.useInventoryAmmo(gunStack)) return;
+            if (iGun.useInventoryAmmo(gunStack)) {
+                // 背包直读枪：没有弹匣可填，射击时由 consumeAmmoFromPlayer → findAndExtractInventoryAmmo
+                // 从网络扣弹（见 AbstractGunItemMixin），这里视为换弹完成
+                cir.setReturnValue(true);
+                return;
+            }
             DimensionsNet net = getTerminalNetwork();
             if (net == null) return;
 

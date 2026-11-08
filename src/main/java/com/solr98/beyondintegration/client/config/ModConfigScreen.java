@@ -572,72 +572,18 @@ public class ModConfigScreen {
                 .setDefaultValue(true)
                 .setSaveConsumer(CommandConfig.SERVER.xpAutoRepairEnabled::set)
                 .build());
-        xpRod.addEntry(eb.startBooleanToggle(
-                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_allow_percent"),
-                CommandConfig.SERVER.xpRepairAllowPercent.get())
-                .setDefaultValue(true)
-                .setSaveConsumer(CommandConfig.SERVER.xpRepairAllowPercent::set)
-                .build());
-        xpRod.addEntry(eb.startBooleanToggle(
-                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_allow_absolute"),
-                CommandConfig.SERVER.xpRepairAllowAbsolute.get())
-                .setDefaultValue(true)
-                .setSaveConsumer(CommandConfig.SERVER.xpRepairAllowAbsolute::set)
-                .build());
         xpRod.addEntry(eb.startEnumSelector(
-                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_max_tier"),
-                CommandConfig.XpRepairTier.class,
-                CommandConfig.SERVER.xpRepairMaxTier.get())
-                .setDefaultValue(CommandConfig.XpRepairTier.MAX)
-                .setSaveConsumer(CommandConfig.SERVER.xpRepairMaxTier::set)
+                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_mode"),
+                CommandConfig.XpRepairAmountMode.class,
+                CommandConfig.SERVER.xpRepairMode.get())
+                .setDefaultValue(CommandConfig.XpRepairAmountMode.PERCENT)
+                .setSaveConsumer(CommandConfig.SERVER.xpRepairMode::set)
                 .build());
-        xpRod.addEntry(eb.startIntField(
-                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_tier_low_percent"),
-                CommandConfig.SERVER.xpRepairTierLowPercent.get())
-                .setDefaultValue(5).setMin(0).setMax(100)
-                .setSaveConsumer(CommandConfig.SERVER.xpRepairTierLowPercent::set)
-                .build());
-        xpRod.addEntry(eb.startIntField(
-                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_tier_low_interval"),
-                CommandConfig.SERVER.xpRepairTierLowInterval.get())
-                .setDefaultValue(20).setMin(1).setMax(200)
-                .setSaveConsumer(CommandConfig.SERVER.xpRepairTierLowInterval::set)
-                .build());
-        xpRod.addEntry(eb.startIntField(
-                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_tier_normal_percent"),
-                CommandConfig.SERVER.xpRepairTierNormalPercent.get())
-                .setDefaultValue(10).setMin(0).setMax(100)
-                .setSaveConsumer(CommandConfig.SERVER.xpRepairTierNormalPercent::set)
-                .build());
-        xpRod.addEntry(eb.startIntField(
-                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_tier_normal_interval"),
-                CommandConfig.SERVER.xpRepairTierNormalInterval.get())
-                .setDefaultValue(10).setMin(1).setMax(200)
-                .setSaveConsumer(CommandConfig.SERVER.xpRepairTierNormalInterval::set)
-                .build());
-        xpRod.addEntry(eb.startIntField(
-                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_tier_high_percent"),
-                CommandConfig.SERVER.xpRepairTierHighPercent.get())
-                .setDefaultValue(20).setMin(0).setMax(100)
-                .setSaveConsumer(CommandConfig.SERVER.xpRepairTierHighPercent::set)
-                .build());
-        xpRod.addEntry(eb.startIntField(
-                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_tier_high_interval"),
-                CommandConfig.SERVER.xpRepairTierHighInterval.get())
-                .setDefaultValue(5).setMin(1).setMax(200)
-                .setSaveConsumer(CommandConfig.SERVER.xpRepairTierHighInterval::set)
-                .build());
-        xpRod.addEntry(eb.startIntField(
-                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_tier_max_percent"),
-                CommandConfig.SERVER.xpRepairTierMaxPercent.get())
-                .setDefaultValue(50).setMin(0).setMax(100)
-                .setSaveConsumer(CommandConfig.SERVER.xpRepairTierMaxPercent::set)
-                .build());
-        xpRod.addEntry(eb.startIntField(
-                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_tier_max_interval"),
-                CommandConfig.SERVER.xpRepairTierMaxInterval.get())
-                .setDefaultValue(1).setMin(1).setMax(200)
-                .setSaveConsumer(CommandConfig.SERVER.xpRepairTierMaxInterval::set)
+        xpRod.addEntry(eb.startStrList(
+                Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_tiers"),
+                new ArrayList<>(CommandConfig.SERVER.xpRepairTiers.get()))
+                .setDefaultValue(Arrays.asList("low:5:20", "normal:10:10", "high:20:5", "max:50:1"))
+                .setSaveConsumer(list -> CommandConfig.SERVER.xpRepairTiers.set(new ArrayList<>(list)))
                 .build());
         xpRod.addEntry(eb.startIntField(
                 Component.translatable("beyond_integration.config.bd_tweaks.xp_repair_absolute"),

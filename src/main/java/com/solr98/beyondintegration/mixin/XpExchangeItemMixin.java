@@ -33,4 +33,13 @@ public class XpExchangeItemMixin {
             XpAutoRepairHandler.onInventoryTick(stack, level, player);
         }
     }
+
+    /** 物品 tooltip：追加网络经验修复装备的说明。 */
+    @Inject(method = "appendHoverText", at = @At("TAIL"), remap = true)
+    private void beyondintegration$repairHint(ItemStack stack, Level level,
+                                              java.util.List<net.minecraft.network.chat.Component> tooltipComponents,
+                                              net.minecraft.world.item.TooltipFlag isAdvanced, CallbackInfo ci) {
+        tooltipComponents.add(net.minecraft.network.chat.Component.translatable(
+                "tooltip.beyond_integration.xp_repair.item_hint"));
+    }
 }

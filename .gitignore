@@ -1,0 +1,27 @@
+# Gradle
+.gradle/
+build/
+out/
+
+# 运行环境（本地）
+run/
+libs/
+libs_jar/
+taczpack/
+
+# IDE
+.idea/workspace.xml
+.idea/runConfigurations/
+
+# 根目录临时文件与截图
+/*.png
+/新建 文本文档.txt
+/列表.md
+/latest*.log
+/crash-*.txt
+/aabb.md
+/ai分析.md
+
+# 本地配置文件
+/beyond_integration-common.toml
+/config.toml

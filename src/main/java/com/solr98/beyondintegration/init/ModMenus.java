@@ -3,7 +3,6 @@ package com.solr98.beyondintegration.init;
 import com.solr98.beyondintegration.BeyondIntegration;
 import com.solr98.beyondintegration.common.menu.MagnetMenu;
 import com.solr98.beyondintegration.common.menu.NetPathwayFilterMenu;
-import com.wintercogs.beyonddimensions.common.menu.XpExchangeMenu;
 import com.solr98.beyondintegration.feature.crafting.*;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
@@ -39,8 +38,6 @@ public class ModMenus {
     public static final RegistryObject<MenuType<NetPathwayFilterMenu>> NET_PATHWAY_FILTER = MENU_TYPES.register("net_pathway_filter",()->IForgeMenuType.create(NetPathwayFilterMenu::new));
     // 网络磁铁菜单（BI 复制 BD 磁铁界面，用于后续自定义）
     public static final RegistryObject<MenuType<MagnetMenu>> MAGNET = MENU_TYPES.register("magnet",()->IForgeMenuType.create(MagnetMenu::new));
-    // 经验棒菜单（BI 复制 BD 经验棒界面：自动修复范围/模式/档位按钮）
-    public static final RegistryObject<MenuType<XpExchangeMenu>> XP_EXCHANGE = MENU_TYPES.register("xp_exchange",()->IForgeMenuType.create(XpExchangeMenu::new));
     // 注册到事件总线
     public static void register(IEventBus b){MENU_TYPES.register(b);}
 }
