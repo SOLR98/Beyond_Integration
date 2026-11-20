@@ -28,12 +28,16 @@ base {
 }
 
 java {
-    toolchain.languageVersion = JavaLanguageVersion.of(17)
+    // 临时：用 JDK 21 编译（release 17，产物仍是 Java 17 class）
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
 }
 
 // Kotlin 与 Java 同目标版本（BD 0.8 界面体系：Kotlin 2.4.10 + Compose 编译器插件）
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
 }
 
 minecraft {
@@ -161,74 +165,14 @@ configurations.all {
     exclude group: 'org.jetbrains', module: 'annotations'
 }
 
-def bdDir = file("../NEW_BD/BeyondDimensions-1.20.1-ui-port")
-def bdPropsFile = new File(bdDir, "gradle.properties")
-def bdProps = new Properties()
-if (bdPropsFile.exists()) {
-    bdPropsFile.withInputStream { bdProps.load(it) }
-}
-def bdGroup = bdProps.getProperty("mod_group_id", "com.wintercogs.beyonddimensions")
-def bdArtifact = "beyonddimensions-${bdProps.getProperty('minecraft_version', '1.20.1')}-forge"
-def bdVersion = bdProps.getProperty("mod_version", "0.8.3")
-def bdJarDir = new File(bdDir, "build/libs")
-def bdJar = new File(bdJarDir, "${bdArtifact}-${bdVersion}.jar")
+// ── 临时：BD 与前置 CompixelUI 改从 CurseForge 导入（不再依赖本地 NEW_BD 源码） ──
+// BD 发布版 jar 是 SRG 名，仍经 fg.deobf 重映射；CF 坐标天然支持。
+// 本地开发要回到源码构建时，恢复上面的 buildLocalBD 流程即可。
 
-tasks.register("buildLocalBD", Exec) {
-    group = "beyond integration"
-    description = "Build the local Beyond Dimensions 1.20.1 jar"
-    workingDir bdDir
-    commandLine "cmd", "/c", "gradlew.bat", "jar", "--console=plain"
-    environment "JAVA_HOME", System.getenv("JAVA_HOME") ?: "C:\\Program Files\\Java\\jdk-21.0.11"
-    inputs.dir(new File(bdDir, "src/main"))
-    inputs.file(new File(bdDir, "build.gradle"))
-    inputs.file(bdPropsFile)
-    outputs.file(bdJar)
-}
-
-tasks.named("compileJava", JavaCompile) { dependsOn "buildLocalBD" }
-// BD 已通过 implementation 进入开发运行时类路径，不需要再复制到 run/mods（否则会重复加载同一 mod）
-
-// ── 本地 taczaddon 构建（libs/1.20.1_FORGE/taczaddon-main） ──
-// 与 buildLocalBD 同法：源码动态构建出 jar，再作为 implementation 依赖引入。
-// taczaddon-main/build.gradle 的 jar 任务已 finalizedBy reobfJar，产物为 SRG，
-// 与 BD 一样必须经 fg.deobf 重映射，故走 flatDir。
-def taczAddonDir = file("../libs/1.20.1_FORGE/taczaddon-main")
-def taczAddonPropsFile = new File(taczAddonDir, "gradle.properties")
-def taczAddonProps = new Properties()
-if (taczAddonPropsFile.exists()) {
-    taczAddonPropsFile.withInputStream { taczAddonProps.load(it) }
-}
-def taczAddonGroup = taczAddonProps.getProperty("mod_group_id", "com.mafuyu404.taczaddon")
-def taczAddonVersion = taczAddonProps.getProperty("mod_version", "1.1.8.3")
-def taczAddonArtifact = "${taczAddonProps.getProperty('mod_id', 'taczaddon')}-${taczAddonVersion}-forge-${taczAddonProps.getProperty('minecraft_version', '1.20.1')}"
-def taczAddonJarDir = new File(taczAddonDir, "build/libs")
-def taczAddonJar = new File(taczAddonJarDir, "${taczAddonArtifact}.jar")
-
-tasks.register("buildLocalTaczAddon", Exec) {
-    group = "beyond integration"
-    description = "Build the local taczaddon jar from libs/1.20.1_FORGE/taczaddon-main"
-    // 逃生开关：jar 已存在且无需重建时用 -PskipLocalTaczAddon 跳过
-    onlyIf { !project.hasProperty("skipLocalTaczAddon") }
-    workingDir taczAddonDir
-    commandLine "cmd", "/c", "gradlew.bat", "jar", "--console=plain"
-    environment "JAVA_HOME", System.getenv("JAVA_HOME") ?: "C:\\Program Files\\Java\\jdk-17"
-    inputs.dir(new File(taczAddonDir, "src/main"))
-    inputs.file(new File(taczAddonDir, "build.gradle"))
-    inputs.file(taczAddonPropsFile)
-    outputs.file(taczAddonJar)
-}
-tasks.named("compileJava", JavaCompile) { dependsOn "buildLocalTaczAddon" }
+// ── 临时：taczaddon 改从 CurseForge 导入（不再依赖本地 libs/1.20.1_FORGE/taczaddon-main 源码） ──
 
 repositories {
-    // 本地 Beyond Dimensions 构建产物（buildLocalBD 的输出目录）
-    flatDir {
-        dir bdJarDir
-    }
-    // 本地 taczaddon 构建产物（buildLocalTaczAddon 的输出目录）
-    flatDir {
-        dir taczAddonJarDir
-    }
-    // 本地 mod jar（rs_integration 等，需经 fg.deobf 重映射）
+    // 本地 mod jar（rs_integration 等，需经 fg.deobf 重映射；临时构建不再使用）
     flatDir {
         dir 'libs'
     }
@@ -297,27 +241,27 @@ dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
     // CompixelUI 编译期 API（BD 菜单实现 SyncedMenu，引用 BD 菜单即需要）
-    compileOnly "dev.compixel:compixel-forge-1.20.1-with-kotlin:${bdProps.getProperty('compixel_version', '0.1.15')}"
+    // 临时：编译期也改从 CurseForge 导入，与运行时同一工件，
+    // 避免 maven 版 with-kotlin 自带的 Kotlin 运行时与 KFF 在模块层重复。
+    compileOnly "dev.compixel:compixel-forge-1.20.1-with-kotlin:0.1.15"
     // 编译期注解（运行期被排除，见上方 configurations 排除项）
     compileOnly "org.jetbrains:annotations:24.0.1"
     // 运行时用 CF 版 CompixelUI：其 jarJar 带 dev.compixel.runtime（Kotlin 运行时），
     // 与 SBW 需要的 Kotlin for Forge 同处一类路径；不要再换成 maven 标准版。
     implementation fg.deobf("curse.maven:compixel-1715758:9330608")
-    // 必须依赖 - BeyondDimensions：改用 NEW_BD 本地源码编译版（见上方 buildLocalBD）
-    implementation fg.deobf("${bdGroup}:${bdArtifact}:${bdVersion}")
-    // 旧分支使用的 BD 发布版
-    // implementation fg.deobf("maven.modrinth:6zGxpbt7:XXnCAMBQ")
-    // taczaddon - 本地源码动态构建（buildLocalTaczAddon，仅 Forge 1.20.1 有此 addon）。
-    // 需要改 taczaddon 源码做 PR 验证时，不再依赖 curse 固定工件。
-    implementation fg.deobf("${taczAddonGroup}:${taczAddonArtifact}:${taczAddonVersion}")
+    // 必须依赖 - BeyondDimensions：临时改从 CurseForge 导入（0.8.9 for 1.20.1 forge）
+    implementation fg.deobf("curse.maven:beyond-dimensions-1222890:9380026")
+    // taczaddon - 临时改从 CurseForge 导入（1.1.8.3-fix for 1.20.1 forge）
+    implementation fg.deobf("curse.maven:tacz-addon-1238419:9396417")
     // Project ID: 361579
     implementation fg.deobf("curse.maven:spark-361579:4738952")
     // JEI (配方查看器) - Project ID: 238222
     compileOnly fg.deobf("curse.maven:jei-238222:7920915")
     runtimeOnly fg.deobf("curse.maven:jei-238222:7920915")
     // 新版 JEI（15.56+，IngredientGridTooltipHelper 移入 .ingredients 包）：仅编译期，
-    // 用于 New 后缀 Mixin 的双版本适配（运行时按实际布局由 MixinPlugin 选择）
-    compileOnly files("libs/jei-1.20.1-forge-15.56.0.205.jar")
+    // 用于 New 后缀 Mixin 的双版本适配（运行时按实际布局由 MixinPlugin 选择）。
+    // 临时：改从 Modrinth maven 导入（原为本地 libs/jei-1.20.1-forge-15.56.0.205.jar）。
+    compileOnly fg.deobf("maven.modrinth:jei:9jqubC9n")
     implementation fg.deobf("curse.maven:irons-spells-n-spellbooks-855414:7402504")
     implementation fg.deobf("curse.maven:packet-fixe-689467:7872374")
     implementation fg.deobf("curse.maven:embeddium-908741:5681725")
@@ -348,12 +292,10 @@ dependencies {
     implementation fg.deobf("curse.maven:quark-243121:6427817")
     implementation fg.deobf("curse.maven:zeta-968868:7335229")
     implementation fg.deobf("curse.maven:mouse-tweaks-60089:5338457")
-    // rs_integration 1.5.2.2（本地 jar，替换 CurseMaven 的旧版 9115092）：
-    // 该版本已修复构造期读配置抛 IllegalStateException 的问题，故不再需要 BI 的三个
-    // 配置读取回退 Mixin（RsIntegration*FixMixin 已删）。flatDir + fg.deobf 处理 SRG→official 重映射。
-    implementation fg.deobf("rs_integration:rs_integration:1.5.2.2")
-    // ffs_money 1.1.6（本地 jar，MCreator 产物）：flatDir + fg.deobf 处理 SRG→official 重映射。
-    implementation fg.deobf("ffs_money:ffs_money:1.1.6-forge-1.20.1")
+    // rs_integration：临时改回 CurseMaven 发布版（本地 1.5.2.2 jar 不带入仓库）。
+    // 注意：9115092 是旧版，若运行期出现其构造期读配置报错，换回本地 jar 即可。
+    implementation fg.deobf("curse.maven:rs-integration-1630184:9115092")
+    // ffs_money 已确认无任何代码依赖，临时构建直接移除。
     implementation fg.deobf("curse.maven:inventory-hud-forge-357540:5639966")
     implementation fg.deobf("curse.maven:goety-586095:8951387")
     implementation fg.deobf("curse.maven:goety-revelation-1236817:9077060")
@@ -426,6 +368,8 @@ tasks.named('jar', Jar).configure {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+    // 临时：JDK 21 编译、release 17，保证产物 class 版本与 Mixin JAVA_17 一致
+    options.release = 17
     // 迁移期一次性列出全部编译错误，避免默认 100 条截断
     options.compilerArgs += ['-Xmaxerrs', '5000']
 }

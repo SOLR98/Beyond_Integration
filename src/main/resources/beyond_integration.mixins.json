@@ -67,6 +67,7 @@
     "TaczaddonIngredientCountMixin",
     "TaczaddonCompatibilityServiceMixin",
     "TaczaddonCraftBridgeMixin",
+                   "TaczaddonCraftBridgeMixinNew",
     "AmmoBarOverlayMixin",
     "BdBucketTransferHelperMixin",
     "VehicleHudNetworkMixin",

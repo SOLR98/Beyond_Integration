@@ -30,8 +30,9 @@ import java.util.Map;
  * </ul>
  * 界面关闭时复位状态。
  */
-@Mod.EventBusSubscriber(modid = BeyondIntegration.MODID, value = Dist.CLIENT,
-        bus = Mod.EventBusSubscriber.Bus.FORGE)
+// 注意：本类静态字段引用 com.tacz.* 类型，不能交给 @Mod.EventBusSubscriber 自动注册
+// （无 TACZ 时 Class.forName 会在静态初始化抛 NoClassDefFoundError）。
+// 改由 ClientSetup 在 TACZ 已加载时手动注册。
 public final class NetAttachmentRefreshTicker {
 
     private static final int CHECK_INTERVAL_TICKS = 20;

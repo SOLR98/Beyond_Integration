@@ -95,8 +95,17 @@ public class MixinPlugin implements IMixinConfigPlugin {
         if (targetClassName.startsWith("com.mafuyu404.taczaddon.")) {
             // taczaddon 自 1.1.8.1 起大幅重构；接受 1.1.8.1 起的所有版本
             // （1.1.8.1 / 1.1.8.1-hotfix* / 1.1.8.2 等），旧版 1.1.8 不注入
-            return modList.isLoaded("taczaddon")
-                    && modList.getModContainerById("taczaddon")
+            if (!modList.isLoaded("taczaddon")) return false;
+            // 1.2.0 起 taczaddon 删除了 ContainerItemSource / GunSmithExternalSourceState /
+            // GunSmithCompatibilityService，并把 GunSmithCraftBridgeState 移到 gunsmith.client 且删除
+            // requestCraft。目标类不存在时显式跳过，避免 Mixin 应用阶段 ClassNotFoundException
+            // 拖垮启动（与 1.21.1 的 VirtualContainerLoader 迁移同类问题）。
+            if (!classResourcePresent(targetClassName.replace('.', '/') + ".class")) return false;
+            String sentrySimple = mixinClassName.substring(mixinClassName.lastIndexOf('.') + 1);
+            // 合成桥：旧移植 requestCraft / 1.2.0 的 request，按目标类实际方法二选一
+            if ("TaczaddonCraftBridgeMixin".equals(sentrySimple)) return hasMethod(targetClassName, "requestCraft");
+            if ("TaczaddonCraftBridgeMixinNew".equals(sentrySimple)) return hasMethod(targetClassName, "request");
+            return modList.getModContainerById("taczaddon")
                     .map(c -> isTaczAddonCompatible(c.getModInfo().getVersion().toString()))
                     .orElse(false);
         }
@@ -167,6 +176,26 @@ public class MixinPlugin implements IMixinConfigPlugin {
 
     /** TACZ 核心类资源路径（用于不加载类的前提下探测 API 版本）。 */
     private static final String TACZ_ABSTRACT_GUN = "com/tacz/guns/api/item/gun/AbstractGunItem.class";
+
+
+    /** 目标类是否声明了指定方法（读类字节，不触发类加载）。 */
+    private static boolean hasMethod(String className, String methodName) {
+        String path = className.replace('.', '/') + ".class";
+        try (var in = MixinPlugin.class.getClassLoader().getResourceAsStream(path)) {
+            if (in != null) {
+                ClassNode node = new ClassNode();
+                new org.objectweb.asm.ClassReader(in).accept(node,
+                        org.objectweb.asm.ClassReader.SKIP_CODE
+                                | org.objectweb.asm.ClassReader.SKIP_DEBUG
+                                | org.objectweb.asm.ClassReader.SKIP_FRAMES);
+                for (var m : node.methods) {
+                    if (methodName.equals(m.name)) return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
 
     /** 缓存 TACZ API 探测结果：true = 含 useInventoryAmmo（1.1.5+）。 */
     private static Boolean taczApi115;

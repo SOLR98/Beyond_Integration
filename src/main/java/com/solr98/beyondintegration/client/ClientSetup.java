@@ -51,10 +51,17 @@ public class ClientSetup {
             net.minecraft.client.gui.screens.MenuScreens.register(
                     com.solr98.beyondintegration.init.ModMenus.NET_PATHWAY_FILTER.get(),
                     com.solr98.beyondintegration.client.gui.NetPathwayFilterScreen::new);
-            // JEI 点击取物（Shift+左/右键从主网络取物；未装 JEI 时内部直接返回）
-            JeiExtractInputHandler.register();
+            // JEI 点击取物（Shift+左/右键从主网络取物）；
+            // JeiExtractInputHandler 的字段/方法签名引用 mezz.jei.*，未装 JEI 时不能加载该类。
+            if (ModList.get().isLoaded("jei")) {
+                JeiExtractInputHandler.register();
+            }
             // BD 界面页注入：网络喂食器口渴设置（BD 0.8 界面无此项，BI 以页签形式并列注入）
             registerBdPages();
+            // TACZ 改装界面刷新触发器：该类静态字段引用 com.tacz.*，只在 TACZ 已加载时注册
+            if (ModList.get().isLoaded("tacz")) {
+                MinecraftForge.EVENT_BUS.register(NetAttachmentRefreshTicker.class);
+            }
             // 打开喂食器界面时向服务端要一次权威设置
             MinecraftForge.EVENT_BUS.addListener(
                     (net.minecraftforge.client.event.ScreenEvent.Init.Post e) -> {

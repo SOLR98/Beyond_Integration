@@ -3,6 +3,7 @@ package com.solr98.beyondintegration.network;
 import com.solr98.beyondintegration.BeyondIntegration;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
@@ -241,10 +242,14 @@ public class PacketHandler {
                 XpRepairStatePacket::decode,
                 XpRepairStatePacket::handle);
 
-        INSTANCE.registerMessage(id++, TaczCraftPacket.class,
-                TaczCraftPacket::encode,
-                TaczCraftPacket::decode,
-                TaczCraftPacket::handle);
+        // TACZ 相关包：这些类的字段/方法签名直接引用 com.tacz.* 类型，
+        // 未安装 TACZ 时无条件注册会在类加载阶段抛 NoClassDefFoundError，故按 isLoaded 条件注册。
+        if (ModList.get().isLoaded("tacz")) {
+            INSTANCE.registerMessage(id++, TaczCraftPacket.class,
+                    TaczCraftPacket::encode,
+                    TaczCraftPacket::decode,
+                    TaczCraftPacket::handle);
+        }
 
         INSTANCE.registerMessage(id++, TudMappingSyncPacket.class,
                 TudMappingSyncPacket::encode,
@@ -252,18 +257,20 @@ public class PacketHandler {
                 TudMappingSyncPacket::handle);
 
         // 网络配件（独立列路线，tacz 改装界面）
-        INSTANCE.registerMessage(id++, RequestNetAttachmentsPacket.class,
-                RequestNetAttachmentsPacket::encode,
-                RequestNetAttachmentsPacket::decode,
-                RequestNetAttachmentsPacket::handle);
-        INSTANCE.registerMessage(id++, NetAttachmentsPacket.class,
-                NetAttachmentsPacket::encode,
-                NetAttachmentsPacket::decode,
-                NetAttachmentsPacket::handle);
-        INSTANCE.registerMessage(id++, NetRefitAttachmentPacket.class,
-                NetRefitAttachmentPacket::encode,
-                NetRefitAttachmentPacket::decode,
-                NetRefitAttachmentPacket::handle);
+        if (ModList.get().isLoaded("tacz")) {
+            INSTANCE.registerMessage(id++, RequestNetAttachmentsPacket.class,
+                    RequestNetAttachmentsPacket::encode,
+                    RequestNetAttachmentsPacket::decode,
+                    RequestNetAttachmentsPacket::handle);
+            INSTANCE.registerMessage(id++, NetAttachmentsPacket.class,
+                    NetAttachmentsPacket::encode,
+                    NetAttachmentsPacket::decode,
+                    NetAttachmentsPacket::handle);
+            INSTANCE.registerMessage(id++, NetRefitAttachmentPacket.class,
+                    NetRefitAttachmentPacket::encode,
+                    NetRefitAttachmentPacket::decode,
+                    NetRefitAttachmentPacket::handle);
+        }
     }
 
     /** 客户端 → 服务端发送 */
