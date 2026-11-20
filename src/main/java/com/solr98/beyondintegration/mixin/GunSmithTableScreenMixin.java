@@ -288,7 +288,9 @@ public abstract class GunSmithTableScreenMixin extends AbstractContainerScreen<G
     }
 
     // 关闭界面时保存开关偏好设置
-    @Inject(method = "onClose", at = @At("HEAD"), remap = true)
+    // TACZ 1.2.0 的 GunSmithTableScreen 没有 override onClose（1.20.1 旧版同样没有），
+    // 该注入点默认找不到方法会抛 InjectionError；require=0 兼容缺失，偏好保存已改到 GunSmithNetMode.setter。
+    @Inject(method = "onClose", at = @At("HEAD"), remap = true, require = 0)
     private void beyond$onClose(CallbackInfo ci) {
         beyond$savePrefs();
     }

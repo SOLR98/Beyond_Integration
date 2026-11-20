@@ -84,9 +84,13 @@ public class PacketHandler {
         registrar.playToClient(EnchantMergeStatePacket.TYPE, EnchantMergeStatePacket.STREAM_CODEC, EnchantMergeStatePacket::handle);
 
         // ── 网络配件（独立列路线，tacz 改装界面）──
-        registrar.playToServer(RequestNetAttachmentsPacket.TYPE, RequestNetAttachmentsPacket.STREAM_CODEC, RequestNetAttachmentsPacket::handle);
-        registrar.playToClient(NetAttachmentsPacket.TYPE, NetAttachmentsPacket.STREAM_CODEC, NetAttachmentsPacket::handle);
-        registrar.playToServer(NetRefitAttachmentPacket.TYPE, NetRefitAttachmentPacket.STREAM_CODEC, NetRefitAttachmentPacket::handle);
+        // 这三个 payload 的字段/编解码签名引用 com.tacz.* 类型；未装 TACZ 时注册会在类加载阶段
+        // 抛 NoClassDefFoundError（与 1.20.1 分支同源问题），故按 isLoaded 条件注册。
+        if (net.neoforged.fml.ModList.get().isLoaded("tacz")) {
+            registrar.playToServer(RequestNetAttachmentsPacket.TYPE, RequestNetAttachmentsPacket.STREAM_CODEC, RequestNetAttachmentsPacket::handle);
+            registrar.playToClient(NetAttachmentsPacket.TYPE, NetAttachmentsPacket.STREAM_CODEC, NetAttachmentsPacket::handle);
+            registrar.playToServer(NetRefitAttachmentPacket.TYPE, NetRefitAttachmentPacket.STREAM_CODEC, NetRefitAttachmentPacket::handle);
+        }
     }
 
     /** 客户端 → 服务端发送 */

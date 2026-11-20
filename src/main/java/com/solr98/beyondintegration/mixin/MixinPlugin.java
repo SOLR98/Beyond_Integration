@@ -48,7 +48,7 @@ public class MixinPlugin implements IMixinConfigPlugin {
                     // 引用 taczaddon 类型的兼容 Mixin：仅 1.1.8 起（VirtualContainer 为该版本新增）应用；
                     // 1.1.7 及更早的 VirtualContainerLoader 是空接口（无 taczaddon$setVirtualContainer），
                     // 误应用会导致 attach 失败，故按 1.1.8 独有类探测
-                    return classResourcePresent("com/mafuyu404/taczaddon/mixin/VirtualContainer.class");
+                    return classResourcePresent("com/mafuyu404/taczaddon/init/VirtualContainerLoader.class");
                 }
                 if (!classResourcePresent(TACZ_ABSTRACT_GUN)) return false;
                 return isTaczApi115() || isTaczBaseMixin(mixinClassName);
@@ -57,7 +57,10 @@ public class MixinPlugin implements IMixinConfigPlugin {
                 String simple = mixinClassName.substring(mixinClassName.lastIndexOf('.') + 1);
                 if ("SentryArmReloadMixin".equals(simple)) return isTaczApi115();
                 if ("SentryFakePlayerSyncMixin".equals(simple)) {
-                    return classResourcePresent(TACZ_ABSTRACT_GUN);
+                    return !hasTickSentryController() && classResourcePresent(TACZ_ABSTRACT_GUN);
+                }
+                if ("SentryFakePlayerSyncMixinNew".equals(simple)) {
+                    return hasTickSentryController() && classResourcePresent(TACZ_ABSTRACT_GUN);
                 }
                 return true;
             }
@@ -90,7 +93,10 @@ public class MixinPlugin implements IMixinConfigPlugin {
             }
             // 假玩家同步 Mixin 的参数类型引用 TACZ 的 IGun，需 TACZ 已加载
             if ("SentryFakePlayerSyncMixin".equals(sentryMixin)) {
-                return modList.isLoaded("tacz");
+                return modList.isLoaded("tacz") && !hasTickSentryController();
+            }
+            if ("SentryFakePlayerSyncMixinNew".equals(sentryMixin)) {
+                return modList.isLoaded("tacz") && hasTickSentryController();
             }
             return true;
         }
@@ -101,7 +107,7 @@ public class MixinPlugin implements IMixinConfigPlugin {
             if (simpleName.startsWith("Taczaddon")) {
                 // 引用 taczaddon 类型的兼容 Mixin：需要 taczaddon 已加载且为 1.1.8+（VirtualContainer 为该版本新增）
                 return modList.isLoaded("taczaddon")
-                        && classResourcePresent("com/mafuyu404/taczaddon/mixin/VirtualContainer.class");
+                        && classResourcePresent("com/mafuyu404/taczaddon/init/VirtualContainerLoader.class");
             }
             if (!modList.isLoaded("tacz")) return false;
             // TACZ 1.1.4 无 IGun.useInventoryAmmo / AbstractGunItem.hasInventoryAmmo 等 API：
@@ -110,10 +116,15 @@ public class MixinPlugin implements IMixinConfigPlugin {
             return isTaczBaseMixin(mixinClassName);
         }
         if (targetClassName.startsWith("com.mafuyu404.taczaddon.")) {
+            if (!modList.isLoaded("taczaddon")) return false;
+            if (!classResourcePresent(targetClassName.replace('.', '/') + ".class")) return false;
+            String taczaddonSimple = mixinClassName.substring(mixinClassName.lastIndexOf('.') + 1);
+            // 合成桥：旧移植 requestCraft / 1.2.0 的 request，按目标类实际方法二选一
+            if ("TaczaddonCraftBridgeMixin".equals(taczaddonSimple)) return hasMethod(targetClassName, "requestCraft");
+            if ("TaczaddonCraftBridgeMixinNew".equals(taczaddonSimple)) return hasMethod(targetClassName, "request");
             // taczaddon 自 1.1.8.1 起大幅重构；接受 1.1.8.1 起的所有版本
             // （1.1.8.1 / 1.1.8.1-hotfix* / 1.1.8.2 等），旧版 1.1.8 不注入
-            return modList.isLoaded("taczaddon")
-                    && modList.getModContainerById("taczaddon")
+            return modList.getModContainerById("taczaddon")
                     .map(c -> isTaczAddonCompatible(c.getModInfo().getVersion().toString()))
                     .orElse(false);
         }
@@ -184,6 +195,57 @@ public class MixinPlugin implements IMixinConfigPlugin {
 
     /** TACZ 核心类资源路径（用于不加载类的前提下探测 API 版本）。 */
     private static final String TACZ_ABSTRACT_GUN = "com/tacz/guns/api/item/gun/AbstractGunItem.class";
+
+
+    /** 缓存哨戒新移植判定（1.4+ 的 tick() 拆出 tickSentryController()）。 */
+    private static Boolean sentryNewPort;
+
+    /**
+     * 哨戒机械臂是否为新移植（qwer854645 的 1.4+ fork）：
+     * 读取已安装的 {@code SentryArmBlockEntity} 类字节是否存在 {@code tickSentryController()}，
+     * 不触发类加载。旧移植（pihoue 1.3.x）直接把 sentryLogic 写在 tick() 里。
+     */
+    private static boolean hasTickSentryController() {
+        Boolean cached = sentryNewPort;
+        if (cached != null) return cached;
+        boolean found = false;
+        String path = "euphy/upo/sentrymechanicalarm/content/SentryArmBlockEntity.class";
+        try (var in = MixinPlugin.class.getClassLoader().getResourceAsStream(path)) {
+            if (in != null) {
+                ClassNode node = new ClassNode();
+                new org.objectweb.asm.ClassReader(in).accept(node,
+                        org.objectweb.asm.ClassReader.SKIP_CODE
+                                | org.objectweb.asm.ClassReader.SKIP_DEBUG
+                                | org.objectweb.asm.ClassReader.SKIP_FRAMES);
+                for (var m : node.methods) {
+                    if ("tickSentryController".equals(m.name)) { found = true; break; }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        sentryNewPort = found;
+        return found;
+    }
+
+
+    /** 目标类是否声明了指定方法（读类字节，不触发类加载）。 */
+    private static boolean hasMethod(String className, String methodName) {
+        String path = className.replace('.', '/') + ".class";
+        try (var in = MixinPlugin.class.getClassLoader().getResourceAsStream(path)) {
+            if (in != null) {
+                ClassNode node = new ClassNode();
+                new org.objectweb.asm.ClassReader(in).accept(node,
+                        org.objectweb.asm.ClassReader.SKIP_CODE
+                                | org.objectweb.asm.ClassReader.SKIP_DEBUG
+                                | org.objectweb.asm.ClassReader.SKIP_FRAMES);
+                for (var m : node.methods) {
+                    if (methodName.equals(m.name)) return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
 
     /** 缓存 TACZ API 探测结果：true = 含 useInventoryAmmo（1.1.5+）。 */
     private static Boolean taczApi115;

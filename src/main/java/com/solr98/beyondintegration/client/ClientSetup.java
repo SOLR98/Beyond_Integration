@@ -46,8 +46,11 @@ public class ClientSetup {
                     com.solr98.beyondintegration.feature.enchant.EnchantTableWidget.ID,
                     com.solr98.beyondintegration.client.page.EnchantTableWorkbench.INSTANCE);
             // 网络通道过滤界面（BD 0.8.3 未提供，BI 自带）的屏幕注册见 onRegisterMenuScreens
-            // JEI 点击取物（Shift+左/右键从主网络取物；未装 JEI 时内部直接返回）
-            JeiExtractInputHandler.register();
+            // JEI 点击取物（Shift+左/右键从主网络取物）；
+            // JeiExtractInputHandler 的签名引用 mezz.jei.*，未装 JEI 时不能加载该类。
+            if (ModList.get().isLoaded("jei")) {
+                JeiExtractInputHandler.register();
+            }
             // 网络配件列的刷新触发器（modLoader=kotlinforforge 下 @EventBusSubscriber 扫描不可靠，手动注册）
             if (ModList.get().isLoaded("tacz")) {
                 com.solr98.beyondintegration.client.NetAttachmentRefreshTicker.register();

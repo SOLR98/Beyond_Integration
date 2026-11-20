@@ -25,6 +25,9 @@ public final class GunSmithNetMode {
 
     public static void setNetworkMode(boolean v) {
         useNetwork = v;
+        // TACZ 1.2.0 的 GunSmithTableScreen 不再 override onClose，mixin 的 onClose 保存点失效，
+        // 改为在状态变更时直接落盘（调用频率仅按钮点击/加载一次）。
+        try { com.solr98.beyondintegration.ClientConfig.setTaczSmithUseNetwork(v); } catch (Throwable ignored) {}
     }
 
     public static boolean isOutputToNetwork() {
@@ -33,6 +36,7 @@ public final class GunSmithNetMode {
 
     public static void setOutputToNetwork(boolean v) {
         outputToNetwork = v;
+        try { com.solr98.beyondintegration.ClientConfig.setTaczSmithOutputToNetwork(v); } catch (Throwable ignored) {}
     }
 
     /**
