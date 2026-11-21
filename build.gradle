@@ -1,6 +1,9 @@
 buildscript {
     repositories {
         // These repositories are only for Gradle plugins, put any other repositories in the repository block further below
+        // 阿里云镜像优先（国内直连实测 10+ MB/s），原仓库作为回退
+        maven { url = 'https://maven.aliyun.com/repository/public' }
+        maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
         maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
         mavenCentral()
     }
@@ -172,6 +175,10 @@ configurations.all {
 // ── 临时：taczaddon 改从 CurseForge 导入（不再依赖本地 libs/1.20.1_FORGE/taczaddon-main 源码） ──
 
 repositories {
+    // 阿里云镜像优先：国内直连实测 10+ MB/s；下面原有仓库继续作为回退
+    maven { url 'https://maven.aliyun.com/repository/public' }
+    maven { url 'https://maven.aliyun.com/repository/google' }
+    maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
     // 本地 mod jar（rs_integration 等，需经 fg.deobf 重映射；临时构建不再使用）
     flatDir {
         dir 'libs'
