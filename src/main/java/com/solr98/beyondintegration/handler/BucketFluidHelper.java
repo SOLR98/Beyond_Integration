@@ -37,7 +37,7 @@ public final class BucketFluidHelper {
         int purity = waterPurity(fluidKey);
         // 纯度未知（-1）时不要写入：避免写入负值/被 Thirst 误判
         if (purity < 0) return out;
-        com.solr98.beyondintegration.feature.feeder.ThirstBridge.get().tagPurity(out, purity);
+        com.solr98.beyondintegration.modules.thirst.ThirstBridge.get().tagPurity(out, purity);
         return out;
     }
 

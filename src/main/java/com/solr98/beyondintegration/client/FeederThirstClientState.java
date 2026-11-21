@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.client;
 
-import com.solr98.beyondintegration.feature.feeder.FeederThirstSettings;
+import com.solr98.beyondintegration.modules.thirst.FeederThirstSettings;
 
 /**
  * 网络喂食器「口渴/饱食阈值」的客户端缓存（由 {@code FeederThirstStatePacket} 更新）。

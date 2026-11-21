@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.network;
 
-import com.solr98.beyondintegration.feature.feeder.FeederThirstSettings;
+import com.solr98.beyondintegration.modules.thirst.FeederThirstSettings;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;

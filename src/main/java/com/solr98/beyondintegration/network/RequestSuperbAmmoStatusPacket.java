@@ -34,7 +34,7 @@ public class RequestSuperbAmmoStatusPacket {
             DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
             if (net == null) return;
 
-            Map<String, Long> fullMap = com.solr98.beyondintegration.feature.ammo.sw.SwAmmoStorage.snapshot(net);
+            Map<String, Long> fullMap = com.solr98.beyondintegration.modules.sw.SwAmmoStorage.snapshot(net);
 
             long energy = net.getUnifiedStorage().getStackByKey(EnergyStackKey.INSTANCE).amount();
             boolean enchantSep = net instanceof EnchantSeparationAccessor ea

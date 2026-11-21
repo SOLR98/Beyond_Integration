@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.feature.feeder.NetFurnaceWaterPurify;
+import com.solr98.beyondintegration.modules.thirst.NetFurnaceWaterPurify;
 import com.wintercogs.beyonddimensions.common.block.entity.BaseNetFurnaceBlockEntity;
 import net.minecraft.world.item.crafting.RecipeType;
 import org.spongepowered.asm.mixin.Mixin;

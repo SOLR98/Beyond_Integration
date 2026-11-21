@@ -77,7 +77,7 @@ public class TaczAmmoCache {
         // TUD 的弹药判定数据由双端各自从本地 config 目录加载（非网络同步），
         // 客户端与服务端可能不一致；为保证与权威一致，TUD 加载时回退服务端推送通道。
         // 例外：服务端已下发 TUD 映射表（TudMappingClient.synced()）时，客户端可复现解析，镜像恢复可用。
-        if (com.solr98.beyondintegration.compat.tud.TudAmmoCompat.isLoaded()
+        if (com.solr98.beyondintegration.modules.tacz.tud.TudAmmoCompat.isLoaded()
                 && !com.solr98.beyondintegration.client.compat.TudMappingClient.synced()) return false;
         return SharedNetData.available(NetDataType.ITEM);
     }
@@ -179,7 +179,7 @@ public class TaczAmmoCache {
             net.minecraft.world.item.ItemStack stack = inventory.getItem(i);
             if (stack.isEmpty()) continue;
             if (com.tacz.guns.api.item.IGun.getIGunOrNull(stack) == null) continue;
-            ResourceLocation ammoId = com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor.getAmmoIdClient(stack);
+            ResourceLocation ammoId = com.solr98.beyondintegration.modules.tacz.TaczAmmoExtractor.getAmmoIdClient(stack);
             if (ammoId != null) ids.add(ammoId);
         }
         if (ids.isEmpty()) return;

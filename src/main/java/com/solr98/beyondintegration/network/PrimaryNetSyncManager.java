@@ -158,7 +158,7 @@ public final class PrimaryNetSyncManager {
 
     private static Map<String, Long> readExtAmmo(DimensionsNet net) {
         // SW 弹药即网络内的散装弹药物品，按物品键现算快照
-        Map<String, Long> map = com.solr98.beyondintegration.feature.ammo.sw.SwAmmoStorage.snapshot(net);
+        Map<String, Long> map = com.solr98.beyondintegration.modules.sw.SwAmmoStorage.snapshot(net);
         // TACZ 创造箱虚拟计数（前缀 tacz:，避免与 SW 键空间冲突）
         if (net instanceof com.solr98.beyondintegration.handler.TaczCreativeAccessor tacz) {
             for (Map.Entry<String, Integer> e : tacz.getTaczCreativeCounts().entrySet()) {

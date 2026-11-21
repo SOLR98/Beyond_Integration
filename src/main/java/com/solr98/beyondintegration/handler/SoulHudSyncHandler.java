@@ -2,9 +2,9 @@ package com.solr98.beyondintegration.handler;
 
 import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub;
-import com.solr98.beyondintegration.feature.soul.NetworkSoulSource;
-import com.solr98.beyondintegration.feature.soul.SoulEnergyAccess;
-import com.solr98.beyondintegration.feature.soul.SoulKeyResolver;
+import com.solr98.beyondintegration.modules.goety.NetworkSoulSource;
+import com.solr98.beyondintegration.modules.goety.SoulEnergyAccess;
+import com.solr98.beyondintegration.modules.goety.SoulKeyResolver;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.SoulEnergySyncPacket;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;

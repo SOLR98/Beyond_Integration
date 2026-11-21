@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.feature.feeder.FeederThirstHandler;
+import com.solr98.beyondintegration.modules.thirst.FeederThirstHandler;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;

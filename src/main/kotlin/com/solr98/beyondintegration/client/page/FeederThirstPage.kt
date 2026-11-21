@@ -1,4 +1,4 @@
-﻿package com.solr98.beyondintegration.client.page
+package com.solr98.beyondintegration.client.page
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -15,7 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.solr98.beyondintegration.client.FeederThirstClientState
-import com.solr98.beyondintegration.feature.feeder.FeederThirstSettings
+import com.solr98.beyondintegration.modules.thirst.FeederThirstSettings
 import com.solr98.beyondintegration.network.PacketHandler
 import com.solr98.beyondintegration.network.RequestFeederThirstPacket
 import com.solr98.beyondintegration.network.SetFeederThirstPacket

@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.feature.terminal;
 
-import com.solr98.beyondintegration.feature.vehicle.VehicleNetCache;
+import com.solr98.beyondintegration.modules.sw.VehicleNetCache;
 import com.solr98.beyondintegration.handler.INetCachedVehicle;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.SuperbAmmoStatusResponsePacket;

@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.core.sync;
 
-import com.solr98.beyondintegration.feature.soul.SoulKeyResolver;
+import com.solr98.beyondintegration.modules.goety.SoulKeyResolver;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;

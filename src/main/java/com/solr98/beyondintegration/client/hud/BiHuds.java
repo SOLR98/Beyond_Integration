@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.client.hud;
 
 import com.solr98.beyondintegration.client.SoulEnergyState;
-import com.solr98.beyondintegration.client.render.SoulHudRenderer;
+import com.solr98.beyondintegration.modules.goety.client.render.SoulHudRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;

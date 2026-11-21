@@ -161,7 +161,7 @@ public class ClientSetup {
             net.minecraftforge.fml.ModLoadingContext.get().registerExtensionPoint(
                     net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class,
                     () -> new net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory(
-                            (mc, parent) -> com.solr98.beyondintegration.client.config.ModConfigScreen
+                            (mc, parent) -> com.solr98.beyondintegration.modules.cloth.client.config.ModConfigScreen
                                     .createScreen(parent)));
         } catch (Throwable ignored) {
             // Cloth Config 版本不兼容：保持无配置界面

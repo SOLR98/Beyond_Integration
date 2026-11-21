@@ -2,7 +2,7 @@ package com.solr98.beyondintegration.handler;
 
 import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.feature.soul.NetworkSoulSource;
+import com.solr98.beyondintegration.modules.goety.NetworkSoulSource;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.core.BlockPos;

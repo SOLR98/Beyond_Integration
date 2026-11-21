@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.feature.feeder.ThirstBridge;
+import com.solr98.beyondintegration.modules.thirst.ThirstBridge;
 import com.solr98.beyondintegration.handler.BucketFluidHelper;
 import com.wintercogs.beyonddimensions.api.capability.helper.wrapper.IStackHandlerWrapper;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
