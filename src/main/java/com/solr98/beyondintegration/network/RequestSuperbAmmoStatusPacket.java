@@ -32,6 +32,7 @@ public class RequestSuperbAmmoStatusPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            if (!RequestThrottle.allow(player, "sw_status", 20)) return;
 
             DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
             if (net == null) return;

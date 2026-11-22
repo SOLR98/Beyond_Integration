@@ -28,6 +28,7 @@ public class RequestAmmoCountPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            if (!RequestThrottle.allow(player, "ammo_count", 20)) return;
 
             DimensionsNet primary = DimensionsNet.getPrimaryNetFromPlayer(player);
             if (primary == null) return;

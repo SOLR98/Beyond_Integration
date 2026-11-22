@@ -130,6 +130,10 @@ mixin {
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
+    // 本地 jar：libs/ 为固定依赖，mods/ 为批量导入目录（flatDir 供 fg.deobf 使用）
+    flatDir {
+        dirs 'libs', 'mods'
+    }
     maven {
         name = "SpongePowered"
         url = "https://repo.spongepowered.org/repository/maven-public/"
@@ -182,6 +186,12 @@ repositories {
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
+    // ── 批量导入：mods/ 下所有 jar 自动进入编译 + 运行时类路径 ──
+    // Forge 的 mod jar 是 SRG 名：只当运行期 mod 用无需去混淆；
+    // 若要在代码里直接引用其中类，把 jar 命名为 <name>-<version>.jar，然后改用
+    //   implementation fg.deobf("mods:<name>:<version>")（repositories 已含 flatDir mods）。
+    implementation fileTree(dir: 'mods', include: ['*.jar'])
+
     // 必须依赖 - BeyondDimensions (CurseMaven)
     implementation fg.deobf("maven.modrinth:6zGxpbt7:XXnCAMBQ")
     // taczaddon - compileOnly（mixin 注解处理器校验 targets；仅 Forge 1.20.1 有此 addon）
@@ -193,7 +203,8 @@ dependencies {
     runtimeOnly fg.deobf("curse.maven:jei-238222:7920915")
     // 新版 JEI（15.56+，IngredientGridTooltipHelper 移入 .ingredients 包）：仅编译期，
     // 用于 New 后缀 Mixin 的双版本适配（运行时按实际布局由 MixinPlugin 选择）
-    compileOnly files("libs/jei-1.20.1-forge-15.56.0.205.jar")
+    // 改从 Modrinth maven 导入（原为本地 libs/jei-1.20.1-forge-15.56.0.205.jar，仓库不含 libs/）
+    compileOnly fg.deobf("maven.modrinth:jei:9jqubC9n")
     implementation fg.deobf("curse.maven:irons-spells-n-spellbooks-855414:7402504")
     implementation fg.deobf("curse.maven:packet-fixe-689467:7872374")
     implementation fg.deobf("curse.maven:embeddium-908741:5681725")
@@ -224,7 +235,11 @@ dependencies {
     implementation fg.deobf("curse.maven:quark-243121:6427817")
     implementation fg.deobf("curse.maven:zeta-968868:7335229")
     implementation fg.deobf("curse.maven:mouse-tweaks-60089:5338457")
-    implementation fg.deobf("curse.maven:rs-integration-1630184:9115092")
+    // rs_integration：仅编译期（MagnetHandler 里有直接引用）。
+    // 其 1.5.0.5 发布版在开发环境构造期读取未加载的配置会抛
+    // “Cannot get config value before config is loaded”，导致 FML broken mod state；
+    // 开发运行不加载该模组，正式环境请安装 1.5.2.2。
+    compileOnly fg.deobf("curse.maven:rs-integration-1630184:9115092")
     implementation fg.deobf("curse.maven:inventory-hud-forge-357540:5639966")
     implementation fg.deobf("curse.maven:goety-586095:8951387")
     implementation fg.deobf("curse.maven:goety-revelation-1236817:9077060")
@@ -232,7 +247,8 @@ dependencies {
     implementation fg.deobf("curse.maven:kaleidoscope-tavern-1475175:8350841")
     implementation fg.deobf("curse.maven:ae2-lightning-tech-1527395:9132014")
     implementation fg.deobf("curse.maven:thunderbolt-core-1631756:9131969")
-    implementation fg.deobf("maven.modrinth:vtvveeqA:E4ejDjYy")
+    // rs_integration（Modrinth 同一份）：开发环境构造期读配置报错，运行时不加载（见上）。
+    // implementation fg.deobf("maven.modrinth:vtvveeqA:E4ejDjYy")
 
     implementation fg.deobf("curse.maven:tacz-unidict-1305429:8147682")
     implementation fg.deobf("curse.maven:appleskin-248787:4770828")

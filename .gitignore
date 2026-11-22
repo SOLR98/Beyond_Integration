@@ -25,3 +25,10 @@ taczpack/
 # 本地配置文件
 /beyond_integration-common.toml
 /config.toml
+
+# 批量导入目录里的 jar 不入库
+mods/*.jar
+
+# 本地构建脚本日志
+build-all.log
+run-*.log

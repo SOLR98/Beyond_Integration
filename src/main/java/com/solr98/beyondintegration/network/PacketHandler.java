@@ -227,6 +227,12 @@ public class PacketHandler {
                 SyncResyncRequestPacket::decode,
                 SyncResyncRequestPacket::handle);
 
+        // 客户端「进入世界且界面稳定」后请求首次全局同步
+        INSTANCE.registerMessage(id++, RequestGlobalSyncPacket.class,
+                RequestGlobalSyncPacket::encode,
+                RequestGlobalSyncPacket::decode,
+                RequestGlobalSyncPacket::handle);
+
         INSTANCE.registerMessage(id++, SoulBeamPacket.class,
                 SoulBeamPacket::encode,
                 SoulBeamPacket::decode,

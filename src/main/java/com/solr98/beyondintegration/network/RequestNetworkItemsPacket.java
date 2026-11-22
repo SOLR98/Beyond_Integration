@@ -36,6 +36,7 @@ public class RequestNetworkItemsPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
+            if (!RequestThrottle.allow(player, "net_items", 20)) return;
 
             DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
             if (net == null) {
