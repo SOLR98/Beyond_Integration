@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.feature.enchant;
 
+import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
+
 import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.CommandConfig;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;

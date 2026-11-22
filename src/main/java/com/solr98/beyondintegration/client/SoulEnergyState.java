@@ -1,5 +1,11 @@
 package com.solr98.beyondintegration.client;
 
+import com.solr98.beyondintegration.client.hud.SoulChangePopups;
+import com.solr98.beyondintegration.client.mirror.SharedNetData;
+import com.solr98.beyondintegration.core.sync.NetDataType;
+
+import com.solr98.beyondintegration.network.SoulEnergySyncPacket;
+
 /**
  * 网络灵魂客户端缓存（由 {@code SoulEnergySyncPacket} 更新）。
  */

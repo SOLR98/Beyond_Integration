@@ -14,6 +14,8 @@ import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.item.crafting.SmeltingRecipe;
 import net.minecraft.world.level.Level;
+import com.solr98.beyondintegration.mixin.NetedItemMixin;
+import com.solr98.beyondintegration.handler.FurnaceTerminalEventHandler;
 
 /**
  * 熔炉烧终端定制配方（BD 修改，配置 {@code bd_tweaks.furnace_terminal_smelt_all}）：

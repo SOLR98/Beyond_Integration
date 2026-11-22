@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.network;
 
+import com.solr98.beyondintegration.client.EnchantMergeClientState;
+
 import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;
 
 import com.solr98.beyondintegration.feature.enchant.EnchantMergeService;

@@ -5,8 +5,8 @@ import com.solr98.beyondintegration.client.mirror.ClientNetworkMirror;
 import com.solr98.beyondintegration.core.sync.NetDataType;
 import com.solr98.beyondintegration.core.sync.NetFlag;
 import com.solr98.beyondintegration.core.sync.NetSyncDebug;
-import com.solr98.beyondintegration.feature.soul.SoulEnergyStackKey;
-import com.solr98.beyondintegration.feature.soul.SoulKeyResolver;
+import com.solr98.beyondintegration.modules.goety.SoulEnergyStackKey;
+import com.solr98.beyondintegration.modules.goety.SoulKeyResolver;
 import com.wintercogs.beyonddimensions.api.storage.handler.impl.AbstractUnorderedStackHandler;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.OptionalLong;
+import com.solr98.beyondintegration.client.mirror.SharedNetData;
 
 /**
  * 全局「主网络」镜像（会话级，由服务端推送；与任何菜单无关）。

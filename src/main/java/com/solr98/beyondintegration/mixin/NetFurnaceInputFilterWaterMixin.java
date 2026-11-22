@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.feature.feeder.NetFurnaceWaterPurify;
+import com.solr98.beyondintegration.modules.thirst.NetFurnaceWaterPurify;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;

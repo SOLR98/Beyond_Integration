@@ -1,5 +1,8 @@
 package com.solr98.beyondintegration.client;
 
+import com.solr98.beyondintegration.CommandConfig;
+import com.solr98.beyondintegration.core.sync.NetSyncDebug;
+
 import com.solr98.beyondintegration.CommandConfig.PrimaryNetSyncScope;
 
 import java.util.Map;

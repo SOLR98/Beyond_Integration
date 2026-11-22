@@ -1,5 +1,14 @@
 package com.solr98.beyondintegration.feature.enchant;
 
+import com.solr98.beyondintegration.client.ApothPreviewState;
+import com.solr98.beyondintegration.CommandConfig;
+import com.solr98.beyondintegration.handler.NetMenuResolver;
+import com.solr98.beyondintegration.network.ApothPreviewPacket;
+import com.solr98.beyondintegration.network.PacketHandler;
+
+import com.solr98.beyondintegration.modules.apoth.feature.enchant.ApothEnchantTableMenu;
+import com.solr98.beyondintegration.modules.apoth.feature.enchant.ApothShelfScanner;
+
 import com.wintercogs.beyonddimensions.api.menu.widget.ClearableWidget;
 import com.wintercogs.beyonddimensions.api.menu.widget.MenuWidget;
 import com.wintercogs.beyonddimensions.api.menu.workbench.PlayerWorkbenches;

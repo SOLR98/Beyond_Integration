@@ -1,8 +1,10 @@
 package com.solr98.beyondintegration.handler;
 
+import com.solr98.beyondintegration.modules.goety.RitualEnvSoulCharge;
+
 import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.feature.soul.NetworkSoulSource;
+import com.solr98.beyondintegration.modules.goety.NetworkSoulSource;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.core.BlockPos;
@@ -28,6 +30,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
+import com.solr98.beyondintegration.mixin.goety.RitualCheckerMixin;
+import com.solr98.beyondintegration.mixin.goety.RitualRequirementsMixin;
 
 /**
  * 仪式结构方块的「网络来源」：原版结构检测失败时，用网络里的方块物品补齐缺口。

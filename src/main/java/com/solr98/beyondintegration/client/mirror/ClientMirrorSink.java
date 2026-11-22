@@ -1,8 +1,11 @@
 package com.solr98.beyondintegration.client.mirror;
 
+import com.solr98.beyondintegration.core.sync.NetDataType;
+
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 
 import java.util.Map;
+import com.solr98.beyondintegration.core.sync.NetFlag;
 
 /**
  * 客户端镜像写入接口：仅网络包 handler 依赖它（与只读 {@link ClientNetworkMirror} 解耦）。

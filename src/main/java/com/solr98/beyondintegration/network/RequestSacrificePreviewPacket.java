@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.network;
 
+import com.solr98.beyondintegration.feature.enchant.ApothEnchantTableWidget;
+
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -7,6 +9,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.solr98.beyondintegration.feature.enchant.ApothStatData;
 
 /**
  * 献祭预览请求（C2S 空包）：客户端悬浮「献祭」按钮时请求当前手持书架献祭后的属性变动。

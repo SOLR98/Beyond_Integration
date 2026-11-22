@@ -1,5 +1,9 @@
 package com.solr98.beyondintegration.feature.charm;
 
+import com.solr98.beyondintegration.core.util.ItemNbt;
+
+import com.solr98.beyondintegration.modules.apoth.feature.charm.ApothCharmSupport;
+
 import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub;
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
@@ -29,6 +33,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import com.solr98.beyondintegration.modules.tlm.MaidPotionCharmHandler;
+import com.solr98.beyondintegration.modules.tlm.MaidNetworkHelper;
 
 /**
  * 网络药水护符：把神化（Apotheosis）药水护符的效果经由维度网络，作用于"将网络设为主网络"的在线玩家。

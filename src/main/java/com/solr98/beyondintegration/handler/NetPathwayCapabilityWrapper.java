@@ -3,6 +3,7 @@ package com.solr98.beyondintegration.handler;
 import com.solr98.beyondintegration.feature.netpathway.NetPathwayFilterAccess;
 import com.wintercogs.beyonddimensions.api.capability.helper.CapabilityHelper;
 import com.wintercogs.beyonddimensions.api.dimensionnet.UnifiedStorage;
+import com.solr98.beyondintegration.feature.netpathway.NetPathwayFilteredStorage;
 
 /**
  * 让 BD 暴露给邻居的存储带上「网络通道白名单过滤」。

@@ -8,6 +8,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
+import com.solr98.beyondintegration.mixin.NetedItemClickMixin;
 
 /**
  * 悬停快速存入网络（服务端）。

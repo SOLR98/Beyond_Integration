@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.feature.terminal;
 
+import com.solr98.beyondintegration.core.util.BdItemData;
+
 import com.solr98.beyondintegration.BeyondIntegration;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import com.wintercogs.beyonddimensions.common.item.NetTerminalItem;

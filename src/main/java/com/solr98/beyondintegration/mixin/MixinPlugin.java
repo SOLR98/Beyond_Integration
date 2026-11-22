@@ -1,5 +1,19 @@
 package com.solr98.beyondintegration.mixin;
 
+import com.solr98.beyondintegration.compat.EmiBdCompat;
+import com.solr98.beyondintegration.mixin.jei.JeiIngredientBookmarkElementMixin;
+import com.solr98.beyondintegration.mixin.jei.JeiIngredientElementMixin;
+import com.solr98.beyondintegration.mixin.sentry.SentryArmReloadMixin;
+import com.solr98.beyondintegration.mixin.sentry.SentryFakePlayerSyncMixin;
+import com.solr98.beyondintegration.mixin.sentry.SentryFakePlayerSyncMixinNew;
+import com.solr98.beyondintegration.mixin.tacz.AbstractGunItemMixin;
+import com.solr98.beyondintegration.mixin.tacz.GunAnimationStateContextMixin;
+import com.solr98.beyondintegration.mixin.tacz.GunHudOverlayMixin;
+import com.solr98.beyondintegration.mixin.tacz.GunSmithTableScreenMixin;
+import com.solr98.beyondintegration.mixin.tacz.ModernKineticGunScriptAPIMixin;
+import com.solr98.beyondintegration.mixin.tacz.TaczaddonCraftBridgeMixin;
+import com.solr98.beyondintegration.mixin.tacz.TaczaddonCraftBridgeMixinNew;
+
 import net.neoforged.fml.ModList;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;

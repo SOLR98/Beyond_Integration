@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.handler;
 
+import com.solr98.beyondintegration.mixin.DimensionsNetMixin;
+
 /**
  * 维度网络存储增量钩子（由 {@code DimensionsNetMixin} 实现）。
  * <p>

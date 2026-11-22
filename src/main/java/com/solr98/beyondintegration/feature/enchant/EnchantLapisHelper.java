@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.feature.enchant;
 
+import com.solr98.beyondintegration.handler.NetMenuResolver;
+
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.server.level.ServerPlayer;

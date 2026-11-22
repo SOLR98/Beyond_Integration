@@ -24,6 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.HashSet;
 import java.util.Set;
+import com.solr98.beyondintegration.handler.NetPathwayCapabilityWrapper;
 
 /**
  * 给 BD 维度网络通道（net_pathway）附加「标记槽白名单过滤」，并让它成为 {@link MenuProvider}：

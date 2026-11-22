@@ -1,12 +1,14 @@
 package com.solr98.beyondintegration.mixin;
 
+import com.solr98.beyondintegration.modules.tacz.TaczAmmoPollingService;
+
 import com.solr98.beyondintegration.handler.BdNetDeltaHook;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.solr98.beyondintegration.handler.EnergyChargeAccessor;
 import com.solr98.beyondintegration.handler.NetworkNameProvider;
 import com.solr98.beyondintegration.handler.PotionCharmAccessor;
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
-import com.solr98.beyondintegration.handler.TaczCreativeAccessor;
+import com.solr98.beyondintegration.modules.tacz.TaczCreativeAccessor;
 import com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
@@ -198,7 +200,7 @@ public class DimensionsNetMixin implements BdNetDeltaHook, NetworkNameProvider, 
     private static void beyond$onPrimaryNetChanged(Player player, DimensionsNet net,
                                                    CallbackInfoReturnable<Boolean> cir) {
         if (player instanceof ServerPlayer sp) {
-            com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoPollingService.onPrimaryNetChanged(sp);
+            com.solr98.beyondintegration.modules.tacz.TaczAmmoPollingService.onPrimaryNetChanged(sp);
         }
     }
 
@@ -206,7 +208,7 @@ public class DimensionsNetMixin implements BdNetDeltaHook, NetworkNameProvider, 
     @Inject(method = "clearPrimaryNetForPlayer", at = @At("RETURN"), remap = false)
     private static void beyond$onPrimaryNetCleared(Player player, CallbackInfo ci) {
         if (player instanceof ServerPlayer sp) {
-            com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoPollingService.onPrimaryNetChanged(sp);
+            com.solr98.beyondintegration.modules.tacz.TaczAmmoPollingService.onPrimaryNetChanged(sp);
         }
     }
 }

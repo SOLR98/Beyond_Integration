@@ -1,5 +1,8 @@
 package com.solr98.beyondintegration.handler;
 
+import com.solr98.beyondintegration.core.util.BdItemData;
+import com.solr98.beyondintegration.core.util.ItemNbt;
+
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.FluidStackKey;

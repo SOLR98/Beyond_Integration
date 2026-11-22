@@ -1,5 +1,8 @@
 package com.solr98.beyondintegration.handler;
 
+import com.solr98.beyondintegration.feature.xp.XpRepairTier;
+import com.solr98.beyondintegration.feature.xp.XpRepairTiers;
+
 import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;
 import com.solr98.beyondintegration.feature.xp.XpRepairSettings;
@@ -18,6 +21,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.solr98.beyondintegration.mixin.XpExchangeItemMixin;
 
 /**
  * 经验棒（{@code beyonddimensions:xp_exchange_item}）自动修复装备。

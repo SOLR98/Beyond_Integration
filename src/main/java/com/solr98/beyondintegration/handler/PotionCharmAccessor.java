@@ -1,5 +1,8 @@
 package com.solr98.beyondintegration.handler;
 
+import com.solr98.beyondintegration.mixin.DimensionsNetMixin;
+import com.solr98.beyondintegration.feature.charm.PotionCharmMode;
+
 /**
  * 网络药水护符"生效目标"访问器接口。
  * 由 DimensionsNetMixin 注入到 DimensionsNet，用于持久化网络级目标模式

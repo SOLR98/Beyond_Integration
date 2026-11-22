@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.network;
 
+import com.solr98.beyondintegration.client.XpRepairClientState;
+
 import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.feature.xp.XpRepairSettings;
 import com.solr98.beyondintegration.feature.xp.XpRepairTier;

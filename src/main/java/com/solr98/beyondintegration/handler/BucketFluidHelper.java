@@ -1,5 +1,10 @@
 package com.solr98.beyondintegration.handler;
 
+import com.solr98.beyondintegration.CommandConfig;
+import com.solr98.beyondintegration.init.ModFluids;
+
+import com.solr98.beyondintegration.modules.thirst.ThirstBridge;
+
 import com.wintercogs.beyonddimensions.api.storage.handler.IStackHandler;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.FluidStackKey;
@@ -38,7 +43,7 @@ public final class BucketFluidHelper {
         int purity = waterPurity(fluidKey);
         // 纯度未知（-1）时不要写入：Thirst 1.21 会把 -1 清洗成 3（纯净）并移除组件
         if (purity < 0) return out;
-        com.solr98.beyondintegration.feature.feeder.ThirstBridge.get().tagPurity(out, purity);
+        com.solr98.beyondintegration.modules.thirst.ThirstBridge.get().tagPurity(out, purity);
         return out;
     }
 

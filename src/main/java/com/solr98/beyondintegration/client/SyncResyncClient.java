@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.client;
 
+import com.solr98.beyondintegration.core.sync.NetSyncDebug;
+
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.SyncResyncRequestPacket;
 import net.minecraft.client.Minecraft;

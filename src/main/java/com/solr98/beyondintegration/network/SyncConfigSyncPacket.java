@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.network;
 
+import com.solr98.beyondintegration.CommandConfig;
+
 import com.solr98.beyondintegration.CommandConfig.PrimaryNetSyncScope;
 import com.solr98.beyondintegration.client.SyncConfigClient;
 import net.minecraft.network.RegistryFriendlyByteBuf;

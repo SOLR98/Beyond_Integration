@@ -11,6 +11,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.fluids.FluidStack;
+import com.solr98.beyondintegration.mixin.XpExchangeItemMixin;
 
 /**
  * 直设式经验给予（等级计算 + 设定 + 经验补差）：方式二，由配置

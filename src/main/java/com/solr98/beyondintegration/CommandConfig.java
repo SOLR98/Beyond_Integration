@@ -1,5 +1,9 @@
 package com.solr98.beyondintegration;
 
+import com.solr98.beyondintegration.feature.enchant.EnchantRegistryCompat;
+
+import com.solr98.beyondintegration.modules.goety.SoulDebug;
+
 import net.neoforged.neoforge.common.ModConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -13,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 
 /**
  * 模组通用配置（ModConfigSpec 服务端配置）。

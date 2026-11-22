@@ -1,5 +1,8 @@
 package com.solr98.beyondintegration.command.member;
 
+import com.solr98.beyondintegration.command.util.OutputFormatter;
+import com.solr98.beyondintegration.command.util.PermissionChecker;
+
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;

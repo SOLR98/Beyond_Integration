@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import com.solr98.beyondintegration.CommandConfig;
 
 /**
  * 配置文件注释多语言支持（可扩展）。

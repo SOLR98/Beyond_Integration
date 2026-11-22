@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.network;
 
+import com.solr98.beyondintegration.core.util.ItemNbt;
+
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;

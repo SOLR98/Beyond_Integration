@@ -1,4 +1,6 @@
 package com.solr98.beyondintegration.network;
+
+import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.solr98.beyondintegration.BeyondIntegration;
 import com.solr98.beyondintegration.client.SuperbAmmoCache;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;

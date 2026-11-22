@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.client.hud;
 
+import com.solr98.beyondintegration.modules.goety.client.BiHuds;
+
 /**
  * 本模组可自定义位置的 HUD 元素（1.21.1 客户端）。
  * <p>新增元素：在此加枚举项，并在 {@link BiHuds} 注册其预览渲染；HUD 绘制处用

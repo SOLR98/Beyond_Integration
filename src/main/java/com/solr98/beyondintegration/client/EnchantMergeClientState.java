@@ -3,6 +3,7 @@ package com.solr98.beyondintegration.client;
 import com.solr98.beyondintegration.feature.enchant.EnchantMergeService;
 
 import java.util.List;
+import com.solr98.beyondintegration.network.EnchantMergeStatePacket;
 
 /**
  * 「附魔合并」页的客户端缓存（由 {@code EnchantMergeStatePacket} 更新）。

@@ -1,5 +1,8 @@
 package com.solr98.beyondintegration.feature.enchant;
 
+import com.solr98.beyondintegration.core.util.ItemNbt;
+import com.solr98.beyondintegration.handler.NetMenuResolver;
+
 import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;

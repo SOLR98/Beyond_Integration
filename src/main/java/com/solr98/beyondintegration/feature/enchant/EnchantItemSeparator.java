@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.feature.enchant;
 
+import com.solr98.beyondintegration.CommandConfig;
+
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;

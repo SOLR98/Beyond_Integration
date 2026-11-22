@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import com.solr98.beyondintegration.network.SacrificePreviewPacket;
 
 /**
  * 献祭预览的客户端缓存（按菜单 containerId 存放）。

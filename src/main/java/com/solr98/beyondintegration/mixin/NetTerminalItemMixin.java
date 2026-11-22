@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.mixin;
 
+import com.solr98.beyondintegration.modules.sw.INetCachedVehicle;
+
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.common.init.BDDataComponents;
 import net.minecraft.world.InteractionHand;
@@ -38,7 +40,7 @@ public class NetTerminalItemMixin {
         cir.setReturnValue(InteractionResultHolder.sidedSuccess(stack, level.isClientSide()));
         if (!level.isClientSide()) {
             DimensionsNet net = DimensionsNet.getNetFromId(netId);
-            if (net != null && vehicle instanceof com.solr98.beyondintegration.handler.INetCachedVehicle icv) {
+            if (net != null && vehicle instanceof com.solr98.beyondintegration.modules.sw.INetCachedVehicle icv) {
                 icv.getNetCache().attach(netId, null);
             }
         }

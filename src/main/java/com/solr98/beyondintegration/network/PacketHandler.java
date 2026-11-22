@@ -1,5 +1,10 @@
 package com.solr98.beyondintegration.network;
 
+import com.solr98.beyondintegration.modules.tacz.net.NetAttachmentsPacket;
+import com.solr98.beyondintegration.modules.tacz.net.NetRefitAttachmentPacket;
+import com.solr98.beyondintegration.modules.tacz.net.RequestNetAttachmentsPacket;
+import com.solr98.beyondintegration.modules.tacz.net.RequestNetworkItemsPacket;
+
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -61,6 +66,7 @@ public class PacketHandler {
         // ── 主网络配置同步 ──
         registrar.playToClient(SyncConfigSyncPacket.TYPE, SyncConfigSyncPacket.STREAM_CODEC, SyncConfigSyncPacket::handle);
         registrar.playToServer(SyncResyncRequestPacket.TYPE, SyncResyncRequestPacket.STREAM_CODEC, SyncResyncRequestPacket::handle);
+        registrar.playToServer(RequestGlobalSyncPayload.TYPE, RequestGlobalSyncPayload.STREAM_CODEC, RequestGlobalSyncPayload::handle);
 
         // ── 神化附魔台预览 ──
         registrar.playToServer(RequestApothPreviewPacket.TYPE, RequestApothPreviewPacket.STREAM_CODEC, RequestApothPreviewPacket::handle);

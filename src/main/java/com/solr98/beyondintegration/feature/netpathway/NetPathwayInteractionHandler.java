@@ -11,6 +11,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import com.solr98.beyondintegration.mixin.NetPathwayBlockUseMixin;
 
 /**
  * 维度网络方块交互（1.21.1）：手持对应方块物品 <b>Shift+左键</b> 复制配置。

@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.handler;
 
+import com.solr98.beyondintegration.core.sync.NetSyncDebug;
+
 import com.solr98.beyondintegration.BeyondIntegration;
 import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.network.PacketHandler;

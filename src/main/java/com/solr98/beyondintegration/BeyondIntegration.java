@@ -1,9 +1,63 @@
 package com.solr98.beyondintegration;
 
+import com.solr98.beyondintegration.core.config.ConfigCommentLang;
+import com.solr98.beyondintegration.core.energy.ChargePlatform;
+import com.solr98.beyondintegration.core.energy.NeoChargePlatform;
+import com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub;
+import com.solr98.beyondintegration.feature.blacklist.ItemBlacklistHandler;
+import com.solr98.beyondintegration.feature.charm.NetworkPotionCharmHandler;
+import com.solr98.beyondintegration.feature.charm.PotionCharmTask;
+import com.solr98.beyondintegration.feature.enchant.ApothEnchantTableWidget;
+import com.solr98.beyondintegration.feature.enchant.EnchantTableWidget;
+import com.solr98.beyondintegration.feature.revive.ReviveFingerprintHandler;
+import com.solr98.beyondintegration.feature.revive.SetHealthReviveHandler;
+import com.solr98.beyondintegration.feature.terminal.TerminalBindingHub;
+import com.solr98.beyondintegration.feature.totem.AutoTotemHandler;
+import com.solr98.beyondintegration.feature.totem.TotemBurstTicker;
+import com.solr98.beyondintegration.handler.BucketSeparatorHandler;
+import com.solr98.beyondintegration.handler.NetPathwayCapabilityWrapper;
+import com.solr98.beyondintegration.handler.NetworkDataStore;
+import com.solr98.beyondintegration.handler.NetworkSyncConfigPusher;
+import com.solr98.beyondintegration.handler.RitualNetworkStructure;
+import com.solr98.beyondintegration.init.ModFluids;
+import com.solr98.beyondintegration.init.ModMenus;
+import com.solr98.beyondintegration.init.ModRecipes;
+import com.solr98.beyondintegration.network.PrimaryNetSyncManager;
+
+import com.solr98.beyondintegration.modules.goety.ModRitualFactories;
+import com.solr98.beyondintegration.modules.goety.SoulGainHandler;
+import com.solr98.beyondintegration.modules.goety.SoulHudSyncHandler;
+import com.solr98.beyondintegration.modules.goety.SoulKeyMigration;
+import com.solr98.beyondintegration.modules.goety.SoulKeyRegistration;
+import com.solr98.beyondintegration.modules.goety.SoulRitualAnimation;
+import com.solr98.beyondintegration.modules.irons.IronsManaHandler;
+import com.solr98.beyondintegration.modules.irons.ManaHudSyncHandler;
+import com.solr98.beyondintegration.modules.irons.ManaKeyMigration;
+import com.solr98.beyondintegration.modules.irons.ManaKeyRegistration;
+import com.solr98.beyondintegration.modules.irons.ManaNetRegenTask;
+import com.solr98.beyondintegration.modules.sentry.SentryBindTarget;
+import com.solr98.beyondintegration.modules.sw.EnergyChargeTask;
+import com.solr98.beyondintegration.modules.sw.SuperbAmmoInsertHandler;
+import com.solr98.beyondintegration.modules.sw.SwAmmoMigration;
+import com.solr98.beyondintegration.modules.sw.SwAmmoTracker;
+import com.solr98.beyondintegration.modules.sw.VehicleBindTarget;
+import com.solr98.beyondintegration.modules.tacz.AmmoBoxExtractHandler;
+import com.solr98.beyondintegration.modules.tacz.AmmoStorageExtractHandler;
+import com.solr98.beyondintegration.modules.tacz.PlayerNetUsageTracker;
+import com.solr98.beyondintegration.modules.tacz.TaczAmmoIndex;
+import com.solr98.beyondintegration.modules.tacz.TaczAmmoPollingService;
+import com.solr98.beyondintegration.modules.tacz.TaczAmmoTracker;
+import com.solr98.beyondintegration.modules.thirst.WaterPurityMigration;
+import com.solr98.beyondintegration.modules.tlm.feature.totem.MaidAutoTotemHandler;
+import com.solr98.beyondintegration.modules.tlm.MaidEnergyChargeHandler;
+import com.solr98.beyondintegration.modules.tlm.MaidPotionCharmHandler;
+import com.solr98.beyondintegration.modules.tlm.MaidPowerPickupHandler;
+import com.solr98.beyondintegration.modules.tlm.MaidPowerRefillHandler;
+
 import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;
 
 import com.mojang.logging.LogUtils;
-import com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService;
+import com.solr98.beyondintegration.modules.sw.SwAmmoPollingService;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import org.slf4j.Logger;
 import net.minecraft.core.BlockPos;
@@ -16,7 +70,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 
-import com.solr98.beyondintegration.handler.SentryNetIdAccessor;
+import com.solr98.beyondintegration.modules.sentry.SentryNetIdAccessor;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.common.NeoForge;
@@ -37,6 +91,10 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import java.lang.reflect.Method;
 
 import net.neoforged.api.distmarker.Dist;
+import com.solr98.beyondintegration.modules.tlm.MaidPowerKeyRegistration;
+import com.solr98.beyondintegration.network.PacketHandler;
+import com.solr98.beyondintegration.mixin.tlm.AltarPowerConsumeMixin;
+import com.solr98.beyondintegration.client.ClientSetup;
 
 /**
  * Beyond Integration 模组主类（Forge 1.20.1）。
@@ -72,7 +130,7 @@ public class BeyondIntegration {
 
         // Goety 仪式工厂（网络灵魂源激活仪式）：仅 Goety 加载时向 goety:ritual_factory 注册
         if (ModList.get().isLoaded("goety")) {
-            com.solr98.beyondintegration.feature.soul.ModRitualFactories.RITUALS.register(modEventBus);
+            com.solr98.beyondintegration.modules.goety.ModRitualFactories.RITUALS.register(modEventBus);
         }
 
         // Register ourselves for server and other game events we are interested in
@@ -107,7 +165,7 @@ public class BeyondIntegration {
         com.solr98.beyondintegration.core.energy.ChargePlatform.set(
                 new com.solr98.beyondintegration.core.energy.NeoChargePlatform());
         // 注册网络灵魂能量键（必须在任何网络存储反序列化之前，且幂等）
-        com.solr98.beyondintegration.feature.soul.SoulKeyRegistration.register();
+        com.solr98.beyondintegration.modules.goety.SoulKeyRegistration.register();
         // 存储界面工作台：网络附魔台（神化规则）
         com.wintercogs.beyonddimensions.api.menu.workbench.StorageWorkbenchTypes.register(
                 com.solr98.beyondintegration.feature.enchant.ApothEnchantTableWidget.ID,
@@ -119,17 +177,17 @@ public class BeyondIntegration {
                 com.wintercogs.beyonddimensions.api.menu.workbench.StorageWorkbenchType.of(
                         menu -> new com.solr98.beyondintegration.feature.enchant.EnchantTableWidget(menu, menu.storage)));
         // 注册网络魔力键（Iron's Spells 联动；同样必须在任何网络存储反序列化之前，且幂等）
-        com.solr98.beyondintegration.feature.mana.ManaKeyRegistration.register();
+        com.solr98.beyondintegration.modules.irons.ManaKeyRegistration.register();
         // 网络独立回蓝改为 BD 网络 tick 任务（NetTickTasks）
-        com.solr98.beyondintegration.feature.mana.ManaNetRegenTask.register();
+        com.solr98.beyondintegration.modules.irons.ManaNetRegenTask.register();
         // 注册网络女仆 P 点键（TLM 联动；同样必须在任何网络存储反序列化之前，且幂等）
         // 注意：P 点功能未完成，本次发布禁用（行为入口见下方 maidPower*Handler 与 AltarPowerConsumeMixin，
         // 已在 mixins.json 移除）；键仍注册以保证旧存档中已存在的 maid_power 数据能反序列化。
-        com.solr98.beyondintegration.feature.maidpower.MaidPowerKeyRegistration.register();
+        com.solr98.beyondintegration.modules.tlm.MaidPowerKeyRegistration.register();
         // 网络魔力源：施法消耗（优先玩家、缺口网络）+ 回复沉淀（仅 irons_spellbooks 加载时注册）
         if (ModList.get().isLoaded("irons_spellbooks")) {
-            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.mana.IronsManaHandler());
-            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.mana.ManaHudSyncHandler());
+            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.modules.irons.IronsManaHandler());
+            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.modules.irons.ManaHudSyncHandler());
                 LOGGER.info("Registered IronsManaHandler (Iron's Spells network mana source)");
         }
         // 网络灵魂源：击杀沉淀监听（仅 Goety 加载且提供对应 API 时）
@@ -137,18 +195,18 @@ public class BeyondIntegration {
             // Goety 版本差异保护：注册前按“类是否存在”门控，避免 EventBus 反射方法签名时
             // 因缺失的 Goety 类抛 NoClassDefFoundError，使本模组进入 Forge broken state。
             if (goetyClassAvailable("com.Polarice3.Goety.common.events.spell.ChangeSoulEnergyEvent$Gain")) {
-                NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.soul.SoulGainHandler());
+                NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.modules.goety.SoulGainHandler());
             } else {
                 LOGGER.warn("[BI] Goety ChangeSoulEnergyEvent$Gain not found; soul-gain sync disabled (Goety version mismatch?)");
             }
             if (goetyClassAvailable("com.Polarice3.Goety.utils.SEHelper")) {
                 // HUD：订阅主网络存储增量，仅灵魂变化时增量推送（由 SEUpdatePacketMixin 把网络魂并入原版条）
-                NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.handler.SoulHudSyncHandler());
+                NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.modules.goety.SoulHudSyncHandler());
             } else {
                 LOGGER.warn("[BI] Goety SEHelper not found; soul HUD sync disabled (Goety version mismatch?)");
             }
             // 灵魂源激活仪式的收尾动画调度（动画结束后才正式激活）
-            NeoForge.EVENT_BUS.addListener(com.solr98.beyondintegration.feature.soul.SoulRitualAnimation::onServerTick);
+            NeoForge.EVENT_BUS.addListener(com.solr98.beyondintegration.modules.goety.SoulRitualAnimation::onServerTick);
         }
         registerItemBlacklistHandler();
         registerEnchantmentBookSeparator();
@@ -157,7 +215,7 @@ public class BeyondIntegration {
         registerSuperbAmmoInsertHandler();
         registerSwAmmoPollingService();
         // 通用装备位充电与网络药水护符改为 BD 网络 tick 任务（NetTickTasks）
-        com.solr98.beyondintegration.feature.ammo.sw.EnergyChargeTask.register();
+        com.solr98.beyondintegration.modules.sw.EnergyChargeTask.register();
         com.solr98.beyondintegration.feature.charm.PotionCharmTask.register();
         // 网络药水护符缓存清理（网络销毁 / 服务器停止）
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent stopEvent) ->
@@ -168,10 +226,10 @@ public class BeyondIntegration {
                                 .onNetDestroyed(destroyedEvent.getDestroyedId()));
         // 终端绑定统一分发：方块=左键（哨戒炮等）、实体=右键（sbw 载具等）
         com.solr98.beyondintegration.feature.terminal.TerminalBindingHub.registerBlock(
-                new com.solr98.beyondintegration.feature.terminal.SentryBindTarget());
+                new com.solr98.beyondintegration.modules.sentry.SentryBindTarget());
         if (ModList.get().isLoaded("superbwarfare")) {
             com.solr98.beyondintegration.feature.terminal.TerminalBindingHub.registerEntity(
-                    new com.solr98.beyondintegration.feature.terminal.VehicleBindTarget());
+                    new com.solr98.beyondintegration.modules.sw.VehicleBindTarget());
         }
         NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.AutoTotemHandler());
         NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.TotemBurstTicker());
@@ -185,13 +243,13 @@ public class BeyondIntegration {
             LOGGER.info("Registered SetHealthReviveHandler (event)");
         }
         if (ModList.get().isLoaded("touhou_little_maid")) {
-            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.MaidAutoTotemHandler());
-            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.maid.MaidEnergyChargeHandler());
-            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.maid.MaidPotionCharmHandler());
+            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.modules.tlm.feature.totem.MaidAutoTotemHandler());
+            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.modules.tlm.MaidEnergyChargeHandler());
+            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.modules.tlm.MaidPotionCharmHandler());
             // 女仆 P 点：拾取入网 + 玩家 P 点网络回填
             // 功能未完成，本次发布禁用（祭坛消耗扣网络见 AltarPowerConsumeMixin，已从 mixins.json 移除）
-            // NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.maid.MaidPowerPickupHandler());
-            // NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.maid.MaidPowerRefillHandler());
+            // NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.modules.tlm.MaidPowerPickupHandler());
+            // NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.modules.tlm.MaidPowerRefillHandler());
             LOGGER.info("Registered MaidAutoTotemHandler");
         }
         // 网络包由 PacketHandler 的 @EventBusSubscriber(RegisterPayloadHandlersEvent) 自动注册
@@ -237,7 +295,7 @@ public class BeyondIntegration {
                 && com.solr98.beyondintegration.CommandConfig.soulUseRiKey()) {
             var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
             if (server != null) {
-                server.execute(() -> com.solr98.beyondintegration.feature.soul.SoulKeyMigration
+                server.execute(() -> com.solr98.beyondintegration.modules.goety.SoulKeyMigration
                         .migrateIfEnabled(server));
             }
         }
@@ -246,15 +304,15 @@ public class BeyondIntegration {
     /** 服务器启动后：若灵魂已配置为 RI 键，执行一次幂等迁移；魔力旧键也在此迁移。 */
     @net.neoforged.bus.api.SubscribeEvent
     public void onServerStarted(net.neoforged.neoforge.event.server.ServerStartedEvent event) {
-        com.solr98.beyondintegration.feature.mana.ManaNetRegenTask.setServer(event.getServer());
-        com.solr98.beyondintegration.feature.ammo.sw.EnergyChargeTask.setServer(event.getServer());
+        com.solr98.beyondintegration.modules.irons.ManaNetRegenTask.setServer(event.getServer());
+        com.solr98.beyondintegration.modules.sw.EnergyChargeTask.setServer(event.getServer());
         com.solr98.beyondintegration.feature.charm.PotionCharmTask.setServer(event.getServer());
-        com.solr98.beyondintegration.feature.soul.SoulKeyMigration.migrateIfEnabled(event.getServer());
-        com.solr98.beyondintegration.feature.mana.ManaKeyMigration.migrate(event.getServer());
+        com.solr98.beyondintegration.modules.goety.SoulKeyMigration.migrateIfEnabled(event.getServer());
+        com.solr98.beyondintegration.modules.irons.ManaKeyMigration.migrate(event.getServer());
         // SW 旧版虚拟弹药 → 散装弹药物品（存档已加载、BD 网络可读写时执行一次）
-        com.solr98.beyondintegration.feature.ammo.sw.SwAmmoMigration.migrate(event.getServer());
+        com.solr98.beyondintegration.modules.sw.SwAmmoMigration.migrate(event.getServer());
         // 存量水表示归一：带纯度的原版水 → BI 4 档流体（幂等）
-        com.solr98.beyondintegration.feature.feeder.WaterPurityMigration.migrate(event.getServer());
+        com.solr98.beyondintegration.modules.thirst.WaterPurityMigration.migrate(event.getServer());
     }
 
     private void trackConfig(net.neoforged.fml.config.ModConfig config) {
@@ -271,7 +329,7 @@ public class BeyondIntegration {
     /** 模组加载完成后：COMMON/CLIENT 配置注释语言与 command_language 不一致时重写（值保持不变）。 */
     private void onLoadComplete(net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent event) {
         // RI 缺席时补注册灵魂兜底键（同 RI ID），保证已迁移数据可反序列化
-        com.solr98.beyondintegration.feature.soul.SoulKeyRegistration.ensureRiKeyFallback();
+        com.solr98.beyondintegration.modules.goety.SoulKeyRegistration.ensureRiKeyFallback();
         com.solr98.beyondintegration.core.config.ConfigCommentLang.saveIfLanguageChanged(this.commonConfig);
         com.solr98.beyondintegration.core.config.ConfigCommentLang.saveIfLanguageChanged(this.clientConfig);
         // BD 能力暴露包装：网络通道白名单过滤（BD 0.8 统一走 CapabilityHelper.USHandlerMap）
@@ -283,8 +341,8 @@ public class BeyondIntegration {
         NeoForge.EVENT_BUS.addListener(
             (net.neoforged.neoforge.event.server.ServerStoppingEvent event) -> {
                 com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub.clearAll();
-                com.solr98.beyondintegration.feature.mana.ManaNetRegenTask.setServer(null);
-                com.solr98.beyondintegration.feature.ammo.sw.EnergyChargeTask.setServer(null);
+                com.solr98.beyondintegration.modules.irons.ManaNetRegenTask.setServer(null);
+                com.solr98.beyondintegration.modules.sw.EnergyChargeTask.setServer(null);
                 com.solr98.beyondintegration.feature.charm.PotionCharmTask.setServer(null);
             }
         );
@@ -335,9 +393,9 @@ public class BeyondIntegration {
     /** 注册 TACZ 弹药箱/弹药库方块自动提取拦截器（仅在 tacz 加载时） */
     private void registerAmmoBoxExtractHandler() {
         if (ModList.get().isLoaded("tacz")) {
-            com.solr98.beyondintegration.feature.ammo.tacz.AmmoBoxExtractHandler.register();
+            com.solr98.beyondintegration.modules.tacz.AmmoBoxExtractHandler.register();
             // 1.2.0 弹药库方块：入网时拆解内部弹药，空格入库
-            com.solr98.beyondintegration.feature.ammo.tacz.AmmoStorageExtractHandler.register();
+            com.solr98.beyondintegration.modules.tacz.AmmoStorageExtractHandler.register();
             LOGGER.info("Registered AmmoBoxExtractHandler");
         }
     }
@@ -345,7 +403,7 @@ public class BeyondIntegration {
     /** 注册 SW 弹药插入拦截器（仅在 superbwarfare 加载时） */
     private void registerSuperbAmmoInsertHandler() {
         if (ModList.get().isLoaded("superbwarfare")) {
-            com.solr98.beyondintegration.feature.ammo.sw.SuperbAmmoInsertHandler.register();
+            com.solr98.beyondintegration.modules.sw.SuperbAmmoInsertHandler.register();
             LOGGER.info("Registered SuperbAmmoInsertHandler");
         }
     }
@@ -359,20 +417,20 @@ public class BeyondIntegration {
             NeoForge.EVENT_BUS.register(new SwAmmoPollingService());
             NeoForge.EVENT_BUS.addListener(
                 (net.neoforged.neoforge.event.server.ServerStoppingEvent event) -> {
-                    com.solr98.beyondintegration.feature.ammo.sw.SwAmmoTracker.clear();
+                    com.solr98.beyondintegration.modules.sw.SwAmmoTracker.clear();
                 }
             );
             NeoForge.EVENT_BUS.addListener(
                 (net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) -> {
                     if (event.getEntity() != null) {
-                        com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService
+                        com.solr98.beyondintegration.modules.sw.SwAmmoPollingService
                                 .onPlayerLoggedOut(event.getEntity().getUUID());
                     }
                 }
             );
             NeoForge.EVENT_BUS.addListener(
                 (com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed event) -> {
-                    com.solr98.beyondintegration.feature.ammo.sw.SwAmmoTracker.removeById(event.getDestroyedId());
+                    com.solr98.beyondintegration.modules.sw.SwAmmoTracker.removeById(event.getDestroyedId());
                 }
             );
             LOGGER.info("Registered SwAmmoPollingService");
@@ -385,20 +443,20 @@ public class BeyondIntegration {
      */
     private void registerTaczTrackerDrain() {
         if (ModList.get().isLoaded("tacz")) {
-            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoPollingService());
+            NeoForge.EVENT_BUS.register(new com.solr98.beyondintegration.modules.tacz.TaczAmmoPollingService());
             NeoForge.EVENT_BUS.addListener(
                 (net.neoforged.neoforge.event.server.ServerStoppingEvent event) -> {
-                    com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoTracker.clear();
-                    com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoIndex.clear();
-                    com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoPollingService.clear();
-                    com.solr98.beyondintegration.feature.ammo.tacz.PlayerNetUsageTracker.clear();
+                    com.solr98.beyondintegration.modules.tacz.TaczAmmoTracker.clear();
+                    com.solr98.beyondintegration.modules.tacz.TaczAmmoIndex.clear();
+                    com.solr98.beyondintegration.modules.tacz.TaczAmmoPollingService.clear();
+                    com.solr98.beyondintegration.modules.tacz.PlayerNetUsageTracker.clear();
                 }
             );
             NeoForge.EVENT_BUS.addListener(
                 (com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed event) -> {
-                    com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoTracker.removeById(event.getDestroyedId());
-                    com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoIndex.removeById(event.getDestroyedId());
-                    com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoPollingService.onNetworkDestroyed(
+                    com.solr98.beyondintegration.modules.tacz.TaczAmmoTracker.removeById(event.getDestroyedId());
+                    com.solr98.beyondintegration.modules.tacz.TaczAmmoIndex.removeById(event.getDestroyedId());
+                    com.solr98.beyondintegration.modules.tacz.TaczAmmoPollingService.onNetworkDestroyed(
                             event.getDestroyedId(),
                             net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer());
                     NetworkAmmoData.remove(event.getDestroyedId());
@@ -407,7 +465,7 @@ public class BeyondIntegration {
             NeoForge.EVENT_BUS.addListener(
                 (net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) -> {
                     if (event.getEntity() != null) {
-                        com.solr98.beyondintegration.feature.ammo.tacz.PlayerNetUsageTracker.remove(event.getEntity().getUUID());
+                        com.solr98.beyondintegration.modules.tacz.PlayerNetUsageTracker.remove(event.getEntity().getUUID());
                     }
                 }
             );

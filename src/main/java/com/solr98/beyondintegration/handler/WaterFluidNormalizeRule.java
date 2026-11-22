@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.handler;
 
-import com.solr98.beyondintegration.feature.feeder.ThirstBridge;
+import com.solr98.beyondintegration.modules.thirst.ThirstBridge;
 import com.solr98.beyondintegration.init.ModFluids;
 import com.wintercogs.beyonddimensions.api.dimensionnet.rule.InsertPlan;
 import com.wintercogs.beyonddimensions.api.dimensionnet.rule.InsertRule;

@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.network;
 
+import com.solr98.beyondintegration.modules.sw.SwAmmoStorage;
+
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.solr98.beyondintegration.handler.NetworkNameProvider;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
@@ -26,11 +28,12 @@ public record RequestSuperbAmmoStatusPacket() implements CustomPacketPayload {
     public static void handle(final RequestSuperbAmmoStatusPacket packet, final IPayloadContext context) {
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) return;
+            if (!RequestThrottle.allow(player, "sw_status", 20)) return;
 
             DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
             if (net == null) return;
 
-            Map<String, Long> fullMap = com.solr98.beyondintegration.feature.ammo.sw.SwAmmoStorage.snapshot(net);
+            Map<String, Long> fullMap = com.solr98.beyondintegration.modules.sw.SwAmmoStorage.snapshot(net);
 
             long energy = net.getUnifiedStorage().getStackByKey(EnergyStackKey.INSTANCE).amount();
             boolean enchantSep = net instanceof EnchantSeparationAccessor ea

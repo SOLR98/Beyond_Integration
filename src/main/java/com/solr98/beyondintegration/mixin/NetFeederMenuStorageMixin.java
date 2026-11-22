@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import com.solr98.beyondintegration.modules.thirst.FeederThirstHandler;
 
 /**
  * 放宽网络喂食器标记槽的校验：BD 原版只接受「有食物属性」的**物品**

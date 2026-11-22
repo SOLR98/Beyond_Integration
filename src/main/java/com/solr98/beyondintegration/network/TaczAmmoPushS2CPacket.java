@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.network;
 
 import com.solr98.beyondintegration.BeyondIntegration;
-import com.solr98.beyondintegration.client.TaczAmmoCache;
+import com.solr98.beyondintegration.modules.tacz.client.TaczAmmoCache;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;

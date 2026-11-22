@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.client.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.solr98.beyondintegration.feature.mana.ManaStackKey;
+import com.solr98.beyondintegration.modules.irons.ManaStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackRender;
 import com.wintercogs.beyonddimensions.util.IngredientRenderer;

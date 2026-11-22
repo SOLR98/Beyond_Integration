@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.feature.xp;
 
+import com.solr98.beyondintegration.core.util.ItemNbt;
+
 import com.wintercogs.beyonddimensions.api.ids.BDConstants;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;

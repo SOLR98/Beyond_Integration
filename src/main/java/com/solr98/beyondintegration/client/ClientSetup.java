@@ -1,5 +1,15 @@
 package com.solr98.beyondintegration.client;
 
+import com.solr98.beyondintegration.feature.enchant.ApothEnchantTableWidget;
+import com.solr98.beyondintegration.feature.enchant.EnchantTableWidget;
+import com.solr98.beyondintegration.init.ModMenus;
+
+import com.solr98.beyondintegration.modules.cloth.client.config.ModConfigScreen;
+import com.solr98.beyondintegration.modules.jei.client.JeiExtractInputHandler;
+import com.solr98.beyondintegration.modules.tacz.client.NetAttachmentRefreshTicker;
+import com.solr98.beyondintegration.modules.tacz.client.TaczAmmoCache;
+import com.solr98.beyondintegration.modules.thirst.FeederThirstClientState;
+
 import com.solr98.beyondintegration.BeyondIntegration;
 import com.solr98.beyondintegration.client.hud.NetManaHudOverlay;
 import net.neoforged.api.distmarker.Dist;
@@ -53,7 +63,7 @@ public class ClientSetup {
             }
             // 网络配件列的刷新触发器（modLoader=kotlinforforge 下 @EventBusSubscriber 扫描不可靠，手动注册）
             if (ModList.get().isLoaded("tacz")) {
-                com.solr98.beyondintegration.client.NetAttachmentRefreshTicker.register();
+                com.solr98.beyondintegration.modules.tacz.client.NetAttachmentRefreshTicker.register();
             }
             // BD 界面页注入：网络喂食器口渴设置（BD 0.8 界面无此项，BI 以页签形式并列注入）
             registerBdPages();
@@ -156,7 +166,7 @@ public class ClientSetup {
             final net.neoforged.fml.ModContainer container = net.neoforged.fml.ModLoadingContext.get().getActiveContainer();
             container.registerExtensionPoint(
                     net.neoforged.neoforge.client.gui.IConfigScreenFactory.class,
-                    (mc, parent) -> com.solr98.beyondintegration.client.config.ModConfigScreen.createScreen(parent));
+                    (mc, parent) -> com.solr98.beyondintegration.modules.cloth.client.config.ModConfigScreen.createScreen(parent));
         } catch (Throwable ignored) {
             // Cloth Config 版本不兼容：保持无配置界面
         }

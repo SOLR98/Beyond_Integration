@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.client;
 
+import com.solr98.beyondintegration.client.gui.HudPositionScreen;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import com.solr98.beyondintegration.ClientConfig;
 import net.minecraft.client.KeyMapping;

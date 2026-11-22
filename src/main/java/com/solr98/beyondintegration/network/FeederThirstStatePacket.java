@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.network;
 
-import com.solr98.beyondintegration.feature.feeder.FeederThirstClientState;
-import com.solr98.beyondintegration.feature.feeder.FeederThirstSettings;
+import com.solr98.beyondintegration.modules.thirst.FeederThirstClientState;
+import com.solr98.beyondintegration.modules.thirst.FeederThirstSettings;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;

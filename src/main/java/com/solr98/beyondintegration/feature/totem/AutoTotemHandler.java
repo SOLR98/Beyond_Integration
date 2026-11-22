@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.feature.totem;
 
+import com.solr98.beyondintegration.network.HudHintPacket;
+
 import com.solr98.beyondintegration.CommandConfig;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;

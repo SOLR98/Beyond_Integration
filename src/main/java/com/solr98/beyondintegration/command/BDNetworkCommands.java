@@ -1,5 +1,16 @@
 package com.solr98.beyondintegration.command;
 
+import com.solr98.beyondintegration.command.member.MemberAddCommand;
+import com.solr98.beyondintegration.command.member.MemberRemoveCommand;
+import com.solr98.beyondintegration.command.network.NetworkGenerateResourcesCommand;
+import com.solr98.beyondintegration.command.network.NetworkInfoCommand;
+import com.solr98.beyondintegration.command.network.NetworkListCommand;
+import com.solr98.beyondintegration.command.network.NetworkMyNetworksCommand;
+import com.solr98.beyondintegration.command.network.NetworkOpenCommand;
+import com.solr98.beyondintegration.command.network.NetworkToolsCommand;
+
+import com.solr98.beyondintegration.modules.tacz.command.NetworkInsertCommand;
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.*;
 import net.minecraft.commands.CommandSourceStack;

@@ -3,6 +3,7 @@ package com.solr98.beyondintegration.handler;
 import com.solr98.beyondintegration.CommandConfig;
 import com.wintercogs.beyonddimensions.util.XpUtil;
 import net.minecraft.world.entity.player.Player;
+import com.solr98.beyondintegration.mixin.XpUtilMixin;
 
 /**
  * 经验棒分批发放辅助（替换 BD {@code XpUtil.clampXpToGive} 的分配额逻辑，Mixin 见 XpUtilMixin）。
