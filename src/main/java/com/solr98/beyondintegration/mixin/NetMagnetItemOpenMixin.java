@@ -12,6 +12,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
+import com.solr98.beyondintegration.client.gui.MagnetGUI;
 
 /**
  * 网络磁铁（1.21.1）：整段替换 BD {@code NetMagnetItem.use}（替换原先对 openMenu 的 @Redirect），

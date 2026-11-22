@@ -55,6 +55,7 @@ public record RequestNetworkItemsPacket() implements CustomPacketPayload {
         ctx.enqueueWork(() -> {
             var player = ctx.player();
             if (!(player instanceof ServerPlayer sp)) return;
+            if (!RequestThrottle.allow(sp, "net_items", 20)) return;
 
             DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(sp);
             if (net == null) {

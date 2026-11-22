@@ -52,6 +52,8 @@ public class ClientConfig {
         public final ModConfigSpec.BooleanValue hudVisualEdit;
         /** 是否显示主网络同步状态 HUD（默认关闭）。 */
         public final ModConfigSpec.BooleanValue showNetSyncStatus;
+        /** 首次全局网络同步等待：进入世界后经过这么多 tick 才请求（默认 600 = 30 s） */
+        public final ModConfigSpec.IntValue netSyncSettleTicks;
 
         ClientValues(ModConfigSpec.Builder builder) {
             taczSmithUseNetwork = builder
@@ -98,6 +100,10 @@ public class ClientConfig {
             showNetSyncStatus = builder
                     .comment(ConfigCommentLang.comment("show_net_sync_status"))
                     .define("show_net_sync_status", false);
+
+            netSyncSettleTicks = builder
+                    .comment(ConfigCommentLang.comment("primary_net_sync_settle_ticks"))
+                    .defineInRange("primary_net_sync_settle_ticks", 600, 0, 72000);
         }
     }
 

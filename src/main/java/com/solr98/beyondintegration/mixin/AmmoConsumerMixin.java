@@ -5,10 +5,10 @@ import com.atsuishio.superbwarfare.data.gun.AmmoConsumer;
 import com.atsuishio.superbwarfare.data.gun.GunData;
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.atsuishio.superbwarfare.tools.InventoryTool;
-import com.solr98.beyondintegration.handler.VehicleNetCache;
+import com.solr98.beyondintegration.feature.vehicle.VehicleNetCache;
 import com.solr98.beyondintegration.handler.INetCachedVehicle;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
-import com.solr98.beyondintegration.handler.SwAmmoTracker;
+import com.solr98.beyondintegration.feature.ammo.sw.SwAmmoTracker;
 import com.solr98.beyondintegration.maid.MaidNetworkHelper;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.SuperbAmmoDeltaS2CPacket;
@@ -33,6 +33,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import com.solr98.beyondintegration.feature.ammo.tacz.PlayerNetUsageTracker;
+import com.solr98.beyondintegration.feature.ammo.sw.EnergyAmmoChargeHandler;
+import com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService;
+import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;
 
 /**
  * 注入目标：Superb Warfare 的 {@code AmmoConsumer}（枪械弹药消耗逻辑）。
@@ -79,10 +83,10 @@ public abstract class AmmoConsumerMixin {
             // 能量武器射击触发点：原逻辑会从武器 FE 槽扣能量；
             // 此处先为玩家装备位（含手持武器）从主网络补能（网络有 FE 时武器常满，射击不中断）
             if (entity instanceof ServerPlayer player) {
-                com.solr98.beyondintegration.handler.EnergyAmmoChargeHandler.chargePlayer(player);
+                com.solr98.beyondintegration.feature.ammo.sw.EnergyAmmoChargeHandler.chargePlayer(player);
             } else if (entity instanceof LivingEntity living) {
                 // 女仆开火：从其绑定网络（饰品/女仆饰物背包中的终端）为装备位补能
-                com.solr98.beyondintegration.handler.EnergyAmmoChargeHandler.chargeMaid(living);
+                com.solr98.beyondintegration.feature.ammo.sw.EnergyAmmoChargeHandler.chargeMaid(living);
             }
         }
     }
@@ -108,7 +112,7 @@ public abstract class AmmoConsumerMixin {
         DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
         if (net == null) return;
         long got = net.getUnifiedStorage()
-                .extract(com.solr98.beyondintegration.handler.EnchantmentBookSeparatorHandler.xpFluidKey(),
+                .extract(com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler.xpFluidKey(),
                         missing * 20L, false, false).amount();
         if (got <= 0) return;
         player.giveExperiencePoints((int) Math.min(got / 20, Integer.MAX_VALUE));
@@ -181,7 +185,7 @@ public abstract class AmmoConsumerMixin {
 
         cir.setReturnValue(Math.min(consumed, loads));
         if (consumed > 0 && usedNet != null) {
-            com.solr98.beyondintegration.handler.PlayerNetUsageTracker.record(player.getUUID(), usedNet.getId());
+            com.solr98.beyondintegration.feature.ammo.tacz.PlayerNetUsageTracker.record(player.getUUID(), usedNet.getId());
             pushUpdate(player, usedNet);
             if (shouldNotify(player.getUUID())) {
                 var primary = DimensionsNet.getPrimaryNetFromPlayer(player);
@@ -366,7 +370,7 @@ public abstract class AmmoConsumerMixin {
         SwAmmoTracker tracker = SwAmmoTracker.getOrCreate(net);
         if (tracker == null) return;
         tracker.markDirty();
-        com.solr98.beyondintegration.handler.SwAmmoPollingService.pushSnapshotToPlayer(player, net);
+        com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService.pushSnapshotToPlayer(player, net);
     }
 
     // 限频：同一玩家在间隔时间内只提示一次"正在使用网络弹药"

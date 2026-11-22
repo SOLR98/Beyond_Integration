@@ -2,6 +2,7 @@ package com.solr98.beyondintegration.client;
 
 import com.tacz.guns.crafting.GunSmithTableRecipe;
 import net.minecraft.resources.ResourceLocation;
+import com.solr98.beyondintegration.mixin.GunSmithTableScreenMixin;
 
 /**
  * TACZ 枪械工作台"网络材料模式"状态与网络计数计算（普通类，供

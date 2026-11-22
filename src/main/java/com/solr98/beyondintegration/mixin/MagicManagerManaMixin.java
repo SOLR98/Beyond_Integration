@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import com.solr98.beyondintegration.feature.mana.ManaNetRegenHandler;
 
 /**
  * Iron's Spells 网络魔力接入——自然回蓝向网络回蓝。

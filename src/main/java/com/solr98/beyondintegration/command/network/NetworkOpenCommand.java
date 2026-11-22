@@ -6,7 +6,6 @@ import com.solr98.beyondintegration.command.CommandLang;
 import com.solr98.beyondintegration.command.util.*;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.client.gui.NetMenuType;
-import com.wintercogs.beyonddimensions.common.menu.DimensionsCraftMenu;
 import com.wintercogs.beyonddimensions.common.menu.DimensionsNetMenu;
 import com.wintercogs.beyonddimensions.common.menu.NetControlMenu;
 import io.netty.buffer.Unpooled;
@@ -101,7 +100,7 @@ public class NetworkOpenCommand {
                             new DimensionsNetMenu(menu.get(), id, inv, net.getUnifiedStorage()),
                             Component.literal(menuType == NetMenuType.NET_MENU ? CommandLang.get("network.open.menu.storage") : CommandLang.get("network.open.menu.terminal"))));
                     case NET_CRAFT_MENU -> player.openMenu(new SimpleMenuProvider((id, inv, p) ->
-                            new DimensionsCraftMenu(id, inv, new FriendlyByteBuf(Unpooled.buffer())),
+                            new com.wintercogs.beyonddimensions.common.menu.DimensionsCraftMenu(id, inv, new FriendlyByteBuf(Unpooled.buffer())),
                             Component.literal(CommandLang.get("network.open.menu.crafting"))));
                     default -> { return false; }
                 }

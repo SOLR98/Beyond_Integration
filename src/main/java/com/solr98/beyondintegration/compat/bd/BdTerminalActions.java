@@ -12,6 +12,8 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import com.solr98.beyondintegration.network.ExtractNetworkItemPacket;
+import com.solr98.beyondintegration.feature.crafting.DimensionsCraftMenu;
 
 /**
  * BD 终端四类批量操作的服务端实现（行为移植自 EmiLink 的 {@code BDProxy}）。
@@ -222,7 +224,7 @@ public final class BdTerminalActions {
         if (player == null) return false;
         AbstractContainerMenu menu = player.containerMenu;
         // 本模组的工作站合成菜单
-        if (menu instanceof com.solr98.beyondintegration.init.DimensionsCraftMenu biCraft) {
+        if (menu instanceof com.solr98.beyondintegration.feature.crafting.DimensionsCraftMenu biCraft) {
             biCraft.cleanCraftSlots(true);
             return true;
         }

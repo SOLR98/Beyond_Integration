@@ -1,8 +1,8 @@
 package com.solr98.beyondintegration;
 
 import com.mojang.logging.LogUtils;
-import com.solr98.beyondintegration.handler.VehicleInteractHandler;
-import com.solr98.beyondintegration.handler.YwzjVehicleSyncHandler;
+import com.solr98.beyondintegration.feature.vehicle.VehicleInteractHandler;
+import com.solr98.beyondintegration.feature.vehicle.YwzjVehicleSyncHandler;
 import org.slf4j.Logger;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -14,6 +14,18 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import com.solr98.beyondintegration.feature.ammo.tacz.AmmoBoxExtractHandler;
+import com.solr98.beyondintegration.feature.ammo.tacz.PlayerNetUsageTracker;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoPollingService;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoTracker;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczEventHandler;
+import com.solr98.beyondintegration.feature.ammo.sw.EnergyAmmoChargeHandler;
+import com.solr98.beyondintegration.feature.ammo.sw.SuperbAmmoInsertHandler;
+import com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService;
+import com.solr98.beyondintegration.feature.ammo.sw.SwAmmoTracker;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
+import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;
+import com.solr98.beyondintegration.feature.blacklist.ItemBlacklistHandler;
 
 /**
  * 模组主入口类：负责模组初始化、注册事件监听器与配置文件，
@@ -76,10 +88,10 @@ public class BeyondIntegration {
         com.solr98.beyondintegration.feature.soul.SoulKeyRegistration.register();
         // 注册维度网络存储插入前拦截器：禁止黑名单物品进入网络
         com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
-                .addHandler(new com.solr98.beyondintegration.handler.ItemBlacklistHandler());
+                .addHandler(new com.solr98.beyondintegration.feature.blacklist.ItemBlacklistHandler());
         // 附魔分离：多附魔书/附魔物品进网络时自动分离（网络级开关 + 配置双重控制）
         com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
-                .addHandler(new com.solr98.beyondintegration.handler.EnchantmentBookSeparatorHandler());
+                .addHandler(new com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler());
         // 桶入网自动分离：含流体的桶拆为"流体 + 空容器"分别入网
         com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
                 .addHandler(new com.solr98.beyondintegration.handler.BucketSeparatorHandler());
@@ -120,8 +132,8 @@ public class BeyondIntegration {
 
         // 若已加载 superbwarfare（SW）模组：注册弹药轮询服务、追踪清理与插入拦截
         if (ModList.get().isLoaded("superbwarfare")) {
-            com.solr98.beyondintegration.handler.SwAmmoPollingService swPolling =
-                    new com.solr98.beyondintegration.handler.SwAmmoPollingService();
+            com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService swPolling =
+                    new com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService();
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
                     swPolling::onServerTick);
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent.class,
@@ -131,43 +143,43 @@ public class BeyondIntegration {
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,
                     e -> {
                         if (e.getEntity() != null) {
-                            com.solr98.beyondintegration.handler.SwAmmoPollingService
+                            com.solr98.beyondintegration.feature.ammo.sw.SwAmmoPollingService
                                     .onPlayerLoggedOut(e.getEntity().getUUID());
                         }
                     });
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppingEvent.class,
-                    e -> com.solr98.beyondintegration.handler.SwAmmoTracker.clear());
+                    e -> com.solr98.beyondintegration.feature.ammo.sw.SwAmmoTracker.clear());
             NeoForge.EVENT_BUS.addListener(com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed.class,
-                    e -> com.solr98.beyondintegration.handler.SwAmmoTracker.removeById(e.getDestroyedId()));
+                    e -> com.solr98.beyondintegration.feature.ammo.sw.SwAmmoTracker.removeById(e.getDestroyedId()));
             com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
-                    .addHandler(new com.solr98.beyondintegration.handler.SuperbAmmoInsertHandler());
+                    .addHandler(new com.solr98.beyondintegration.feature.ammo.sw.SuperbAmmoInsertHandler());
             LOGGER.info("Registered SW handlers");
         }
 
         // 若已加载 tacz 模组：注册弹药盒提取拦截、弹药轮询与玩家网络用量跟踪
         if (ModList.get().isLoaded("tacz")) {
             com.wintercogs.beyonddimensions.api.dimensionnet.helper.UnifiedStorageBeforeInsertHandler
-                    .addHandler(new com.solr98.beyondintegration.handler.AmmoBoxExtractHandler());
-            com.solr98.beyondintegration.handler.TaczAmmoPollingService polling =
-                    new com.solr98.beyondintegration.handler.TaczAmmoPollingService();
+                    .addHandler(new com.solr98.beyondintegration.feature.ammo.tacz.AmmoBoxExtractHandler());
+            com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoPollingService polling =
+                    new com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoPollingService();
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
                     polling::onServerTick);
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppingEvent.class,
                     e -> {
-                        com.solr98.beyondintegration.handler.TaczAmmoTracker.clear();
-                        com.solr98.beyondintegration.handler.TaczAmmoPollingService.clear();
-                        com.solr98.beyondintegration.handler.PlayerNetUsageTracker.clear();
+                        com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoTracker.clear();
+                        com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoPollingService.clear();
+                        com.solr98.beyondintegration.feature.ammo.tacz.PlayerNetUsageTracker.clear();
                     });
             NeoForge.EVENT_BUS.addListener(com.wintercogs.beyonddimensions.api.event.dimensionnet.DimensionsNetEvent.Destroyed.class,
                     e -> {
-                        com.solr98.beyondintegration.handler.TaczAmmoTracker.removeById(e.getDestroyedId());
-                        com.solr98.beyondintegration.handler.NetworkAmmoData.get().remove(e.getDestroyedId());
+                        com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoTracker.removeById(e.getDestroyedId());
+                        com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData.get().remove(e.getDestroyedId());
                     });
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,
-                    e -> com.solr98.beyondintegration.handler.PlayerNetUsageTracker.remove(e.getEntity().getUUID()));
+                    e -> com.solr98.beyondintegration.feature.ammo.tacz.PlayerNetUsageTracker.remove(e.getEntity().getUUID()));
             // TaCZ 拔枪/换弹监听移入独立类：避免主类被 EventBus.register 反射扫描时
             // 加载 TaCZ 事件类型（未装 TaCZ 时 NoClassDefFoundError，见 TaczEventHandler 类注释）
-            com.solr98.beyondintegration.handler.TaczEventHandler.registerEvents();
+            com.solr98.beyondintegration.feature.ammo.tacz.TaczEventHandler.registerEvents();
             LOGGER.info("Registered TACZ handlers");
         }
 
@@ -205,7 +217,7 @@ public class BeyondIntegration {
 
         // 通用装备位网络充电（可充电盔甲 + 主副手工具/武器），独立于 SW 轮询按配置间隔执行
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
-                e -> com.solr98.beyondintegration.handler.EnergyAmmoChargeHandler
+                e -> com.solr98.beyondintegration.feature.ammo.sw.EnergyAmmoChargeHandler
                         .tick(net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer()));
     }
 

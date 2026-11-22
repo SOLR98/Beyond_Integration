@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.jei;
 
-import com.solr98.beyondintegration.init.DimensionsCutMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsCutMenu;
 import com.solr98.beyondintegration.init.ModMenus;
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;

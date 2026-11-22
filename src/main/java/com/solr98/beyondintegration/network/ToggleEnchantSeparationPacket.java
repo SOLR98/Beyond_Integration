@@ -10,6 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.jetbrains.annotations.NotNull;
+import com.solr98.beyondintegration.client.EnchantSeparationState;
 
 /**
  * 附魔分离开关切换包（客户端 → 服务端，空载荷）。

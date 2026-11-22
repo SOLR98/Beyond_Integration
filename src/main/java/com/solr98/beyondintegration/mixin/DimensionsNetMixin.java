@@ -4,7 +4,7 @@ import com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.solr98.beyondintegration.handler.EnergyChargeAccessor;
 import com.solr98.beyondintegration.handler.NetworkNameProvider;
-import com.solr98.beyondintegration.handler.NetworkAmmoData;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
 import com.solr98.beyondintegration.handler.TaczCreativeAccessor;
 import com.solr98.beyondintegration.handler.WorkstationActivationAccessor;

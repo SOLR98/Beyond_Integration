@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 
 /**
  * 模组服务端配置文件定义：集中管理所有 COMMON 类型配置项，

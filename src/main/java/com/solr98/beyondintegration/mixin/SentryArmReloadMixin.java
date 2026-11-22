@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.handler.TaczAmmoExtractor;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
 import com.solr98.beyondintegration.handler.SentryNetIdAccessor;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.resource.pojo.data.gun.Bolt;

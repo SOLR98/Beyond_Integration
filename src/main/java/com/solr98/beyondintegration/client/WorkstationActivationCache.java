@@ -8,6 +8,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import com.solr98.beyondintegration.network.WorkstationActivationSyncPayload;
 
 /**
  * 工作台状态客户端缓存（当前界面快照）。

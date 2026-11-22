@@ -12,6 +12,7 @@ import net.neoforged.fml.ModList;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.solr98.beyondintegration.mixin.DimensionsNetGUIMixin;
 
 /**
  * JEI 避让：把本模组在 BD 终端 GUI 上额外绘制的区域告知 JEI，避免 JEI 物品列表覆盖这些元素。

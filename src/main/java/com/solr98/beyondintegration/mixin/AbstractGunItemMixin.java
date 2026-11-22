@@ -1,8 +1,8 @@
 package com.solr98.beyondintegration.mixin;
 import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.client.TaczAmmoCache;
-import com.solr98.beyondintegration.handler.FakePlayerNetMarker;
-import com.solr98.beyondintegration.handler.TaczAmmoExtractor;
+import com.solr98.beyondintegration.feature.sentry.FakePlayerNetMarker;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
 import com.tacz.guns.api.item.IGun;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.common.init.BDDataComponents;

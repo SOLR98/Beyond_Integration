@@ -1,8 +1,8 @@
 package com.solr98.beyondintegration.api;
 
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
-import com.solr98.beyondintegration.handler.TaczAmmoExtractor;
-import com.solr98.beyondintegration.handler.TaczAmmoTracker;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoTracker;
 import com.solr98.beyondintegration.maid.MaidNetworkHelper;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;

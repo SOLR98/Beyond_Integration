@@ -12,6 +12,7 @@ import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import com.solr98.beyondintegration.feature.mana.IronsManaHandler;
 
 /**
  * Iron's Spells 网络魔力接入——施法校验放行。

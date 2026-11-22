@@ -5,6 +5,7 @@ import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
+import com.solr98.beyondintegration.client.SoulEnergyState;
 
 /**
  * 灵魂「增减弹字」：模仿 Goety ≥ 2.5.59 的 {@code SoulChangePopup}。

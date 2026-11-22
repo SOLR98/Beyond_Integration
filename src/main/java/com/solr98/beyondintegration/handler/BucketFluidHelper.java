@@ -15,6 +15,7 @@ import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
+import com.solr98.beyondintegration.mixin.BdBucketFluidSlotMixin;
 
 /**
  * 网络桶装流体通用工具：从网络存储分别取出流体与空桶，组合成装满流体的桶。

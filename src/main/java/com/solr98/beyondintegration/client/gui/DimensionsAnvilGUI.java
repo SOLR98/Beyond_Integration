@@ -5,9 +5,9 @@ package com.solr98.beyondintegration.client.gui;
 
 
 import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.init.DimensionsAnvilMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsAnvilMenu;
 import com.solr98.beyondintegration.network.PacketHandler;
-import com.solr98.beyondintegration.network.payload.SetAnvilNamePayload;
+import com.solr98.beyondintegration.network.SetAnvilNamePayload;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;

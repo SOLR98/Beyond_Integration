@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.mixin;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
 import com.solr98.beyondintegration.handler.EnergyChargeAccessor;
-import com.solr98.beyondintegration.handler.NetworkAmmoData;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
 import com.solr98.beyondintegration.handler.TaczCreativeAccessor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;

@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import com.solr98.beyondintegration.feature.crafting.DimensionsCraftMenu;
 
 /**
  * BD 合成菜单（含终端合成）网络提取增强：BD 原版 {@code extractFromStorage} 只按"桶物品键"

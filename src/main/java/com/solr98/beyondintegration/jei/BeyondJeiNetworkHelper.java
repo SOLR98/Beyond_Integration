@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.jei;
 
 import com.solr98.beyondintegration.network.PacketHandler;
-import com.solr98.beyondintegration.network.payload.ExtractNetworkItemPacket;
+import com.solr98.beyondintegration.network.ExtractNetworkItemPacket;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import com.wintercogs.beyonddimensions.client.gui.DimensionsNetGUI;
 import com.wintercogs.beyonddimensions.common.menu.DimensionsNetMenu;

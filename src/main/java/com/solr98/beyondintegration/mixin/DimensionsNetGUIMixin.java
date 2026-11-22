@@ -18,9 +18,9 @@ import com.solr98.beyondintegration.network.RequestSuperbAmmoExtractPacket;
 import com.solr98.beyondintegration.network.RequestSuperbAmmoStatusPacket;
 import com.solr98.beyondintegration.network.ToggleEnchantSeparationPacket;
 import com.solr98.beyondintegration.network.ToggleEnergyChargePacket;
-import com.solr98.beyondintegration.network.payload.ActivateWorkstationPayload;
-import com.solr98.beyondintegration.network.payload.OpenStorageMenuPayload;
-import com.solr98.beyondintegration.network.payload.RequestWorkstationActivationPayload;
+import com.solr98.beyondintegration.network.ActivateWorkstationPayload;
+import com.solr98.beyondintegration.network.OpenStorageMenuPayload;
+import com.solr98.beyondintegration.network.RequestWorkstationActivationPayload;
 import com.wintercogs.beyonddimensions.client.gui.DimensionsNetGUI;
 import com.solr98.beyondintegration.client.gui.BeyondSidebarAccess;
 import com.wintercogs.beyonddimensions.common.menu.DimensionsNetMenu;
@@ -51,6 +51,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
+import com.solr98.beyondintegration.feature.crafting.DimensionsAnvilMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsCraftMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsCutMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMergeMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsGrindMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsSmithMenu;
 
 /**
  * 注入目标：Beyond Dimensions 的 {@code DimensionsNetGUI}（维度网络界面），兼容 0.7.27 / 0.7.30。
@@ -634,13 +641,13 @@ public class DimensionsNetGUIMixin implements BeyondSidebarAccess {
     @Unique
     private static boolean beyond$isCurrentMode(Class<?> menuClass, WorkstationModeConstants.Mode mode) {
         return switch (mode) {
-            case ANVIL -> menuClass == com.solr98.beyondintegration.init.DimensionsAnvilMenu.class;
-            case CUT -> menuClass == com.solr98.beyondintegration.init.DimensionsCutMenu.class;
-            case GRIND -> menuClass == com.solr98.beyondintegration.init.DimensionsGrindMenu.class;
-            case SMITH -> menuClass == com.solr98.beyondintegration.init.DimensionsSmithMenu.class;
-            case CRAFT -> menuClass == com.solr98.beyondintegration.init.DimensionsCraftMenu.class;
-            case ENCHANT -> com.solr98.beyondintegration.init.DimensionsEnchantMenu.class.isAssignableFrom(menuClass); // 覆盖原版/神化两模式菜单
-            case ENCHANT_MERGE -> menuClass == com.solr98.beyondintegration.init.DimensionsEnchantMergeMenu.class;
+            case ANVIL -> menuClass == com.solr98.beyondintegration.feature.crafting.DimensionsAnvilMenu.class;
+            case CUT -> menuClass == com.solr98.beyondintegration.feature.crafting.DimensionsCutMenu.class;
+            case GRIND -> menuClass == com.solr98.beyondintegration.feature.crafting.DimensionsGrindMenu.class;
+            case SMITH -> menuClass == com.solr98.beyondintegration.feature.crafting.DimensionsSmithMenu.class;
+            case CRAFT -> menuClass == com.solr98.beyondintegration.feature.crafting.DimensionsCraftMenu.class;
+            case ENCHANT -> com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMenu.class.isAssignableFrom(menuClass); // 覆盖原版/神化两模式菜单
+            case ENCHANT_MERGE -> menuClass == com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMergeMenu.class;
             default -> false;
         };
     }

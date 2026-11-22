@@ -28,6 +28,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.solr98.beyondintegration.client.gui.MagnetGUI;
 
 /**
  * 网络磁铁菜单的 BI 版实现（1.21.1）：从 BD {@code NetMagnetMenu} 复制而来，

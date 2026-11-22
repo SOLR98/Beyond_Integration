@@ -21,6 +21,7 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.solr98.beyondintegration.feature.feeder.FeederThirstHandler;
 
 /**
  * 净化水系列流体（4 档纯度），仅在注册表注册流体本体，供 BD 网络存储/显示使用，

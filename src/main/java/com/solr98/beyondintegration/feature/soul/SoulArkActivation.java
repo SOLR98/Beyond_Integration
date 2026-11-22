@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.feature.soul;
 
 import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.handler.NetworkAmmoData;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 import com.solr98.beyondintegration.handler.NetworkNameProvider;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.network.chat.Component;

@@ -17,6 +17,7 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.*;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 
 /**
  * 会话级「主网络数据」同步管理器（服务端）。
@@ -31,8 +32,12 @@ public final class PrimaryNetSyncManager {
 
     /** 单包最大条目数（超出分包） */
     private static final int MAX_BATCH = 512;
-    /** 登录后到首次同步的延迟（tick），等待玩家/网络状态就绪 */
-    private static final int INITIAL_DELAY_TICKS = 100;
+    /** 每玩家每 tick 最多发出的批次数（削峰） */
+    private static final int MAX_BATCHES_PER_TICK = 1;
+    /** 服务端兜底：登录后若一直没收到客户端的 RequestGlobalSync，最多等 60 s（1200 tick）后自行开始 */
+    private static final int FALLBACK_DELAY_TICKS = 1200;
+    /** 收到客户端「已稳定」请求后，再等 1 s（20 tick）开始首次同步 */
+    private static final int POST_READY_DELAY_TICKS = 20;
     /** 主网络暂不可用时的重试间隔（tick） */
     private static final int RETRY_INTERVAL_TICKS = 40;
 
@@ -42,6 +47,16 @@ public final class PrimaryNetSyncManager {
 
     private PrimaryNetSyncManager() {}
 
+    /** 一个待发批次：键 + 绝对数量 */
+    private static final class Batch {
+        final List<IStackKey<?>> keys;
+        final List<Long> counts;
+
+        Batch(List<IStackKey<?>> keys, List<Long> counts) {
+            this.keys = keys;
+            this.counts = counts;
+        }
+    }
     private static final class Session {
         int netId = -1;
         AbstractUnorderedStackHandler storage;
@@ -50,6 +65,8 @@ public final class PrimaryNetSyncManager {
         final Map<IStackKey<?>, Long> pending = new HashMap<>();
         final Map<IStackKey<?>, Long> lastSent = new HashMap<>();
         boolean dirtyFull = false;
+        /** 待发批次（按 tick 预算逐批发送） */
+        final java.util.ArrayDeque<Batch> outbox = new java.util.ArrayDeque<>();
         // EXT（NetworkAmmoData）快照：无 storage delta 事件，靠 per-tick 比较
         Map<String, Long> lastExtAmmo = null;
         long lastExtFlags = 0L;
@@ -64,8 +81,28 @@ public final class PrimaryNetSyncManager {
             sendClear(player);
             return;
         }
-        // 登录后延迟一段时间再首次同步，等待玩家/网络状态就绪
-        PENDING.put(player.getUUID(), tickNow(player) + INITIAL_DELAY_TICKS);
+        PENDING.put(player.getUUID(), tickNow(player) + FALLBACK_DELAY_TICKS);
+    }
+    /**
+     * 客户端「已进入世界且界面稳定」：把首同步等待缩短到 POST_READY_DELAY_TICKS；
+     * 若会话已存在（重连后再次请求），直接标记全量重推。
+     */
+    public static void onClientReady(ServerPlayer player) {
+        if (player == null || player.getServer() == null) return;
+        // 反刷：登录最初 1 s 内不受理；同一玩家 10 s 内只受理一次首同步/重同步请求
+        if (player.tickCount < 20) return;
+        if (!RequestThrottle.allow(player, "global_sync", 200)) return;
+        if (!CommandConfig.primaryNetSync()) {
+            sendClear(player);
+            return;
+        }
+        long now = player.getServer().getTickCount();
+        Session session = SESSIONS.get(player.getUUID());
+        if (session != null) {
+            session.dirtyFull = true;
+            return;
+        }
+        PENDING.put(player.getUUID(), now + POST_READY_DELAY_TICKS);
     }
 
     @SubscribeEvent
@@ -73,6 +110,7 @@ public final class PrimaryNetSyncManager {
         if (event.getEntity() instanceof ServerPlayer player) {
             close(player.getUUID());
             PENDING.remove(player.getUUID());
+            RequestThrottle.clear(player.getUUID());
         }
     }
 
@@ -215,65 +253,40 @@ public final class PrimaryNetSyncManager {
 
     /** 每 tick 合并 pending / 全量差异 + EXT 快照，分包发送并推进基线。 */
     private static void flush(ServerPlayer player, Session session) {
-        CommandConfig.PrimaryNetSyncScope scope = CommandConfig.primaryNetSyncScope();
-        boolean sendStorage = session.dirtyFull || !session.pending.isEmpty();
-        boolean sendExt = session.extDirty && scope.hasExt();
-        if (!sendStorage && !sendExt) return;
+        com.solr98.beyondintegration.CommandConfig.PrimaryNetSyncScope scope =
+                CommandConfig.primaryNetSyncScope();
         long t0 = NetSyncDebug.start();
 
-        if (sendStorage) {
-            Map<IStackKey<?>, Long> toSend = new LinkedHashMap<>();
-            if (session.dirtyFull) {
-                Map<IStackKey<?>, Long> now = new HashMap<>();
-                for (KeyAmount ka : session.storage.getStorage()) {
-                    if (ka == null || ka.isEmpty()) continue;
-                    IStackKey<?> key = ka.key();
-                    if (!scope.covers(key)) continue;
-                    now.merge(key, ka.amount(), Long::sum);
-                }
-                Set<IStackKey<?>> all = new HashSet<>(session.lastSent.keySet());
-                all.addAll(now.keySet());
-                for (IStackKey<?> key : all) {
-                    long oldCount = session.lastSent.getOrDefault(key, 0L);
-                    long newCount = now.getOrDefault(key, 0L);
-                    if (newCount != oldCount) toSend.put(key, newCount);
-                }
-                session.pending.clear();
-                session.dirtyFull = false;
-            } else {
-                for (Map.Entry<IStackKey<?>, Long> e : session.pending.entrySet()) {
-                    if (scope.covers(e.getKey())) toSend.put(e.getKey(), e.getValue());
-                }
-                session.pending.clear();
-            }
-
-            if (!toSend.isEmpty()) {
-                for (Map.Entry<IStackKey<?>, Long> e : toSend.entrySet()) {
-                    if (e.getValue() <= 0L) session.lastSent.remove(e.getKey());
-                    else session.lastSent.put(e.getKey(), e.getValue());
-                }
-                List<IStackKey<?>> batchKeys = new ArrayList<>();
-                List<Long> batchCounts = new ArrayList<>();
-                for (Map.Entry<IStackKey<?>, Long> e : toSend.entrySet()) {
-                    batchKeys.add(e.getKey());
-                    batchCounts.add(e.getValue());
-                    if (batchKeys.size() >= MAX_BATCH) {
-                        sendBatch(player, session, batchKeys, batchCounts);
-                        batchKeys = new ArrayList<>();
-                        batchCounts = new ArrayList<>();
-                    }
-                }
-                if (!batchKeys.isEmpty()) sendBatch(player, session, batchKeys, batchCounts);
-            }
+        // 1) 队列空时，把本轮全量/增量整理成批次（不发送、不推进基线）
+        if (session.outbox.isEmpty() && (session.dirtyFull || !session.pending.isEmpty())) {
+            buildBatches(session, scope);
         }
 
-        if (sendExt) {
+        // 2) 按预算发送：每玩家每 tick 最多 MAX_BATCHES_PER_TICK 批
+        int budget = MAX_BATCHES_PER_TICK;
+        int sentBatches = 0;
+        int sentKeys = 0;
+        while (!session.outbox.isEmpty() && budget-- > 0) {
+            Batch batch = session.outbox.poll();
+            for (int i = 0; i < batch.keys.size(); i++) {
+                IStackKey<?> key = batch.keys.get(i);
+                long count = batch.counts.get(i);
+                if (count <= 0L) session.lastSent.remove(key);
+                else session.lastSent.put(key, count);
+            }
+            sendBatch(player, session, batch.keys, batch.counts);
+            sentBatches++;
+            sentKeys += batch.keys.size();
+        }
+
+        // 3) EXT（虚拟弹药/开关/名称）：小包，逐 tick 推
+        if (session.extDirty && scope.hasExt()) {
             DimensionsNet net = DimensionsNet.getNetFromId(session.netId);
             if (net != null) {
                 Map<String, Long> ammo = readExtAmmo(net);
                 long flags = readFlags(net);
                 String name = readName(net);
-                PacketDistributor.sendToPlayer(player, new PrimaryNetSyncPayload(
+                PacketHandler.sendToPlayer(player, new PrimaryNetSyncPayload(
                         false, true, session.netId, scope.mask(), List.of(), List.of(), ammo, name, flags));
                 session.lastExtAmmo = ammo;
                 session.lastExtFlags = flags;
@@ -281,9 +294,54 @@ public final class PrimaryNetSyncManager {
             }
             session.extDirty = false;
         }
-        NetSyncDebug.perf("flush", t0, "net", session.netId, "storage", sendStorage, "ext", sendExt);
+
+        if (sentBatches > 0) {
+            NetSyncDebug.perf("flush", t0, "net", session.netId, "batches", sentBatches,
+                    "keys", sentKeys, "queued", session.outbox.size());
+        }
     }
 
+    /** 把 pending / 全量差异整理成出站批次；只在 outbox 为空时调用。 */
+    private static void buildBatches(Session session, com.solr98.beyondintegration.CommandConfig.PrimaryNetSyncScope scope) {
+        Map<IStackKey<?>, Long> toSend = new LinkedHashMap<>();
+        if (session.dirtyFull) {
+            Map<IStackKey<?>, Long> now = new HashMap<>();
+            for (KeyAmount ka : session.storage.getStorage()) {
+                if (ka == null || ka.isEmpty()) continue;
+                IStackKey<?> key = ka.key();
+                if (!scope.covers(key)) continue;
+                now.merge(key, ka.amount(), Long::sum);
+            }
+            Set<IStackKey<?>> all = new HashSet<>(session.lastSent.keySet());
+            all.addAll(now.keySet());
+            for (IStackKey<?> key : all) {
+                long oldCount = session.lastSent.getOrDefault(key, 0L);
+                long newCount = now.getOrDefault(key, 0L);
+                if (newCount != oldCount) toSend.put(key, newCount);
+            }
+            session.pending.clear();
+            session.dirtyFull = false;
+        } else {
+            for (Map.Entry<IStackKey<?>, Long> e : session.pending.entrySet()) {
+                if (scope.covers(e.getKey())) toSend.put(e.getKey(), e.getValue());
+            }
+            session.pending.clear();
+        }
+        if (toSend.isEmpty()) return;
+
+        List<IStackKey<?>> batchKeys = new ArrayList<>();
+        List<Long> batchCounts = new ArrayList<>();
+        for (Map.Entry<IStackKey<?>, Long> e : toSend.entrySet()) {
+            batchKeys.add(e.getKey());
+            batchCounts.add(e.getValue());
+            if (batchKeys.size() >= MAX_BATCH) {
+                session.outbox.add(new Batch(batchKeys, batchCounts));
+                batchKeys = new ArrayList<>();
+                batchCounts = new ArrayList<>();
+            }
+        }
+        if (!batchKeys.isEmpty()) session.outbox.add(new Batch(batchKeys, batchCounts));
+    }
     private static void sendBatch(ServerPlayer player, Session session,
                                   List<IStackKey<?>> keys, List<Long> counts) {
         int mask = CommandConfig.primaryNetSyncScope().mask();
@@ -342,5 +400,6 @@ public final class PrimaryNetSyncManager {
         SESSIONS.clear();
         PENDING.clear();
         LAST_RESYNC.clear();
+        RequestThrottle.clearAll();
     }
 }

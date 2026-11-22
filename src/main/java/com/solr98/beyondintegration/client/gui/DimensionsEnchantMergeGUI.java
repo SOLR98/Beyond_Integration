@@ -6,10 +6,10 @@ package com.solr98.beyondintegration.client.gui;
 
 import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.ClientConfig;
-import com.solr98.beyondintegration.handler.EnchantmentBookSeparatorHandler;
-import com.solr98.beyondintegration.init.DimensionsEnchantMergeMenu;
+import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;
+import com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMergeMenu;
 import com.solr98.beyondintegration.network.PacketHandler;
-import com.solr98.beyondintegration.network.payload.SubmitEnchantMergePayload;
+import com.solr98.beyondintegration.network.SubmitEnchantMergePayload;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.ChatFormatting;

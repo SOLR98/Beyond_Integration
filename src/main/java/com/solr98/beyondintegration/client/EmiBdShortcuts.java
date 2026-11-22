@@ -4,7 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.solr98.beyondintegration.compat.EmiBdCompat;
 import com.solr98.beyondintegration.compat.bd.BdTerminalActions;
 import com.solr98.beyondintegration.network.PacketHandler;
-import com.solr98.beyondintegration.network.payload.EmiBdActionPayload;
+import com.solr98.beyondintegration.network.EmiBdActionPayload;
 import com.wintercogs.beyonddimensions.client.gui.DimensionsNetGUI;
 import com.wintercogs.beyonddimensions.common.menu.DimensionsNetMenu;
 import com.wintercogs.beyonddimensions.common.menu.widget.slot.AbstractStackTypedSlot;

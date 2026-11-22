@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 
 /**
  * {@code beyond_integration_data.dat} 的读取/保存入口（BD 网络关联数据的唯一持久化文件）。

@@ -7,7 +7,7 @@ package com.solr98.beyondintegration.client.gui.extension;
 import com.solr98.beyondintegration.api.IDimensionsNetGUIExtension;
 import com.solr98.beyondintegration.client.gui.WorkstationModeConstants;
 import com.solr98.beyondintegration.network.PacketHandler;
-import com.solr98.beyondintegration.network.payload.OpenStorageMenuPayload;
+import com.solr98.beyondintegration.network.OpenStorageMenuPayload;
 import com.wintercogs.beyonddimensions.client.gui.DimensionsNetGUI;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;

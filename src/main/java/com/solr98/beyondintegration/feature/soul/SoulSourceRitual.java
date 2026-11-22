@@ -4,7 +4,7 @@ import com.Polarice3.Goety.common.blocks.entities.DarkAltarBlockEntity;
 import com.Polarice3.Goety.common.blocks.entities.PedestalBlockEntity;
 import com.Polarice3.Goety.common.crafting.RitualRecipe;
 import com.Polarice3.Goety.common.ritual.Ritual;
-import com.solr98.beyondintegration.handler.NetworkAmmoData;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import net.minecraft.core.BlockPos;

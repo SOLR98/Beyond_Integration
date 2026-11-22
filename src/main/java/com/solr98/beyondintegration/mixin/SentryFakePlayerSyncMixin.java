@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin;
 
-import com.solr98.beyondintegration.handler.FakePlayerNetMarker;
+import com.solr98.beyondintegration.feature.sentry.FakePlayerNetMarker;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import org.spongepowered.asm.mixin.Mixin;

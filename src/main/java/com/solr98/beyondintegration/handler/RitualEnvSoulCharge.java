@@ -1,5 +1,8 @@
 package com.solr98.beyondintegration.handler;
 
+import com.solr98.beyondintegration.mixin.DarkAltarBlockEntityMixin;
+import com.solr98.beyondintegration.mixin.RitualRequirementsMixin;
+
 /**
  * 仪式「环境绕过」额外魂消耗执行器：由 {@code DarkAltarBlockEntityMixin} 实现，
  * 供 {@code RitualRequirementsMixin} 在环境绕过生效时按“仪式扣魂”方式扣一次额外魂。

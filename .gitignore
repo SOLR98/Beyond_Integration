@@ -1,0 +1,8 @@
+﻿# 构建产物与本地环境
+build/
+.gradle/
+run/
+libs/
+mods/*.jar
+*.log
+crash-reports/

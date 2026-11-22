@@ -1,5 +1,8 @@
 package com.solr98.beyondintegration.handler;
 
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
+import com.solr98.beyondintegration.mixin.DimensionsNetMixin;
+
 /**
  * 工作台献祭激活访问器接口。
  * 由 DimensionsNetMixin 注入到 BD 的 DimensionsNet，

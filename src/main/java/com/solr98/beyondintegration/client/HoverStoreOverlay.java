@@ -8,6 +8,8 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.event.ScreenEvent;
+import com.solr98.beyondintegration.mixin.NetedItemClickMixin;
+import com.solr98.beyondintegration.handler.ItemTooltipHandler;
 
 /**
  * 悬停可存入网络的槽位左上角 "+" 提示角标（客户端渲染）。

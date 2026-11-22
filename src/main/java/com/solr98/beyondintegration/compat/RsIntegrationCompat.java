@@ -5,6 +5,8 @@ import net.minecraft.client.gui.screens.Screen;
 
 import java.lang.reflect.Method;
 import java.util.function.Consumer;
+import com.solr98.beyondintegration.mixin.RsIntegrationAutoEatMixin;
+import com.solr98.beyondintegration.mixin.DimensionsNetGUIMixin;
 
 /**
  * rs_integration（RI，Forge 侧模组）主动兼容助手。

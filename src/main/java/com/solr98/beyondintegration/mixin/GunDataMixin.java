@@ -5,7 +5,7 @@ import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.client.SuperbAmmoCache;
 import com.solr98.beyondintegration.command.util.NetworkUtils;
-import com.solr98.beyondintegration.handler.FakePlayerNetMarker;
+import com.solr98.beyondintegration.feature.sentry.FakePlayerNetMarker;
 import com.solr98.beyondintegration.handler.SuperbAmmoAccessor;
 import com.solr98.beyondintegration.handler.INetCachedVehicle;
 import com.solr98.beyondintegration.maid.MaidNetworkHelper;
@@ -24,6 +24,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.ArrayList;
 import java.util.List;
+import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;
 
 /**
  * 注入目标：Superb Warfare 的 {@code GunData}（枪械数据）。
@@ -68,7 +69,7 @@ public class GunDataMixin {
                 if (entity instanceof ServerPlayer p && p.totalExperience > 0) { cir.setReturnValue(true); return; }
                 for (var net : getNets(entity)) {
                     long xp = net.getUnifiedStorage().getStackByKey(
-                            com.solr98.beyondintegration.handler.EnchantmentBookSeparatorHandler.xpFluidKey()).amount();
+                            com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler.xpFluidKey()).amount();
                     if (xp > 0) { cir.setReturnValue(true); return; }
                 }
             } else if (type == AmmoConsumer.AmmoConsumeType.ITEM) {
@@ -120,7 +121,7 @@ public class GunDataMixin {
                 // 玩家已有经验由原逻辑计入；此处叠加网络可转化经验（按 1 经验 = 1 弹药保守折算）
                 for (var net : getNets(entity)) {
                     long netXp = net.getUnifiedStorage().getStackByKey(
-                            com.solr98.beyondintegration.handler.EnchantmentBookSeparatorHandler.xpFluidKey()).amount() / 20;
+                            com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler.xpFluidKey()).amount() / 20;
                     if (netXp > 0) { cir.setReturnValue((int) Math.min(cir.getReturnValue() + netXp, Integer.MAX_VALUE)); return; }
                 }
             } else if (type == AmmoConsumer.AmmoConsumeType.ITEM) {

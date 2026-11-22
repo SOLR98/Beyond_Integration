@@ -17,6 +17,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import com.solr98.beyondintegration.network.PrimaryNetSyncManager;
 
 /**
  * 服务端：把玩家主网络的灵魂量同步给客户端（供 HUD 青色「网络魂段」），

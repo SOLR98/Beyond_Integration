@@ -5,6 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.LogicalSide;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
 
 /**
  * TACZ 客户端事件注册器。
@@ -19,7 +20,7 @@ public class TaczClientRegistrar {
                     && e.getEntity() instanceof net.minecraft.client.player.LocalPlayer) {
                 // 仅处理本地玩家拔枪：提取弹药 ID 并快捷请求计数
                 ResourceLocation ammoId =
-                        com.solr98.beyondintegration.handler.TaczAmmoExtractor.getAmmoIdClient(e.getCurrentGunItem());
+                        com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor.getAmmoIdClient(e.getCurrentGunItem());
                 if (ammoId != null)
                     TaczAmmoCache.requestQuick(ammoId);
             }

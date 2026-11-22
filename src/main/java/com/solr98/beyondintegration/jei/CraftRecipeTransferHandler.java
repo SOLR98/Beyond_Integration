@@ -1,9 +1,9 @@
 package com.solr98.beyondintegration.jei;
 
-import com.solr98.beyondintegration.init.DimensionsCraftMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsCraftMenu;
 import com.solr98.beyondintegration.init.ModMenus;
 import com.solr98.beyondintegration.network.PacketHandler;
-import com.solr98.beyondintegration.network.payload.RecipeFillPayload;
+import com.solr98.beyondintegration.network.RecipeFillPayload;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import mezz.jei.api.constants.RecipeTypes;

@@ -3,7 +3,7 @@ package com.solr98.beyondintegration.maid;
 import com.github.tartaricacid.touhoulittlemaid.api.event.MaidTickEvent;
 import com.github.tartaricacid.touhoulittlemaid.entity.passive.EntityMaid;
 import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.handler.EnergyAmmoChargeHandler;
+import com.solr98.beyondintegration.feature.ammo.sw.EnergyAmmoChargeHandler;
 import net.neoforged.bus.api.SubscribeEvent;
 
 /**

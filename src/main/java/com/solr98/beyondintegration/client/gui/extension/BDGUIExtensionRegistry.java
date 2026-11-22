@@ -8,6 +8,8 @@ import com.solr98.beyondintegration.api.IDimensionsNetGUIExtension;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import com.solr98.beyondintegration.mixin.DimensionsNetGUIMixin;
+import com.solr98.beyondintegration.client.widget.EnchantToggleBtn;
 
 /**
  * BD 界面扩展注册中心。

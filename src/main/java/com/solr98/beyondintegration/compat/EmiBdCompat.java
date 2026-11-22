@@ -3,6 +3,7 @@ package com.solr98.beyondintegration.compat;
 import com.mojang.logging.LogUtils;
 import net.neoforged.fml.ModList;
 import org.slf4j.Logger;
+import com.solr98.beyondintegration.network.ExtractNetworkItemPacket;
 
 /**
  * BD 终端快捷操作（EMI 联动）的总开关。

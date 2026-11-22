@@ -7,6 +7,7 @@ package com.solr98.beyondintegration.client.gui;
 import net.minecraft.client.gui.components.AbstractButton;
 
 import java.util.List;
+import com.solr98.beyondintegration.mixin.DimensionsNetGUIMixin;
 
 /**
  * BD 左侧按钮栏接管访问接口。

@@ -4,7 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.solr98.beyondintegration.client.gui.WorkstationModeConstants;
 import com.solr98.beyondintegration.client.gui.WorkstationTransferHelper;
 import com.solr98.beyondintegration.network.PacketHandler;
-import com.solr98.beyondintegration.network.payload.OpenStorageMenuPayload;
+import com.solr98.beyondintegration.network.OpenStorageMenuPayload;
 import com.wintercogs.beyonddimensions.common.menu.DimensionsNetMenu;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;

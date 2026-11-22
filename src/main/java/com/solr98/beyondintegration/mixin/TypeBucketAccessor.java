@@ -4,6 +4,7 @@ import com.wintercogs.beyonddimensions.api.storage.handler.impl.AbstractUnordere
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
+import com.solr98.beyondintegration.feature.netpathway.NetPathwayFilteredStorage;
 
 /**
  * 暴露 BD 无序存储类型桶 {@link AbstractUnorderedStackHandler.TypeBucket} 的包私有 {@code add}，

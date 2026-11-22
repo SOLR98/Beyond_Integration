@@ -11,6 +11,7 @@ import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.NotNull;
+import com.solr98.beyondintegration.mixin.BdBucketFluidSlotMixin;
 
 /**
  * 桶入网自动分离处理器：在含流体的容器（桶/水瓶）进入维度网络统一存储前拦截，

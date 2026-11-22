@@ -697,5 +697,6 @@
   "hud.beyond_integration.pos.element.soul": "网络灵魂条",
   "jei.beyond_integration.soul_ritual": "维度网络灵魂源激活仪式",
   "jei.beyond_integration.soul_ritual.result": "解锁网络灵魂源",
-  "jei.beyond_integration.soul_ritual.consumes": "会消耗终端"
+  "jei.beyond_integration.soul_ritual.consumes": "会消耗终端",
+  "beyond_integration.config.comment.primary_net_sync_settle_ticks": "进入世界后等待多少 tick 再请求首次全局网络同步。默认 600（30 秒）；整合包载入世界较慢时可调大。"
 }

@@ -14,6 +14,9 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import com.solr98.beyondintegration.network.CleanWorkstationPayload;
+import com.solr98.beyondintegration.network.RequestWorkstationResyncPayload;
+import com.solr98.beyondintegration.feature.crafting.DimensionsStorageMenu;
 
 /**
  * 维度网络存储/工作站基类界面。
@@ -41,7 +44,7 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
         addWorkstationActionButtons();
         // 网络存储视图重同步：BD 首次全量同步若早于客户端菜单就绪到达会被丢弃且不重发（基线已推进），
         // 在界面初始化后主动请求一次全量重发，避免工作站网络存储内容为空。
-        PacketHandler.sendToServer(new com.solr98.beyondintegration.network.payload.RequestWorkstationResyncPayload());
+        PacketHandler.sendToServer(new com.solr98.beyondintegration.network.RequestWorkstationResyncPayload());
         // 打开工作站界面音效（对齐原版方块打开行为：铁砧=ANVIL_USE，切石/磨石=STONECUTTER；存储界面无）
         var soundManager = net.minecraft.client.Minecraft.getInstance().getSoundManager();
         if (this instanceof DimensionsAnvilGUI) {
@@ -64,7 +67,7 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
             if (--this.beyond$resyncCooldown <= 0) {
                 this.beyond$resyncTries++;
                 this.beyond$resyncCooldown = 20;
-                PacketHandler.sendToServer(new com.solr98.beyondintegration.network.payload.RequestWorkstationResyncPayload());
+                PacketHandler.sendToServer(new com.solr98.beyondintegration.network.RequestWorkstationResyncPayload());
             }
         }
     }
@@ -90,12 +93,12 @@ public class DimensionsStorageGUI<T extends DimensionsStorageMenu> extends Dimen
 
         com.wintercogs.beyonddimensions.client.gui.widget.shared.IconButton clearToNet = new com.wintercogs.beyonddimensions.client.gui.widget.shared.IconButton(
                 bxNet, by, 8, 8, ResourceLocation.parse("beyonddimensions:widget/up_arrow"),
-                b -> PacketHandler.sendToServer(new com.solr98.beyondintegration.network.payload.CleanWorkstationPayload(true))); // 清空到网络
+                b -> PacketHandler.sendToServer(new com.solr98.beyondintegration.network.CleanWorkstationPayload(true))); // 清空到网络
         clearToNet.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.beyond_integration.clean_to_net")));
 
         com.wintercogs.beyonddimensions.client.gui.widget.shared.IconButton clearToInv = new com.wintercogs.beyonddimensions.client.gui.widget.shared.IconButton(
                 bxInv, by, 8, 8, ResourceLocation.parse("beyonddimensions:widget/down_arrow"),
-                b -> PacketHandler.sendToServer(new com.solr98.beyondintegration.network.payload.CleanWorkstationPayload(false))); // 清空到背包
+                b -> PacketHandler.sendToServer(new com.solr98.beyondintegration.network.CleanWorkstationPayload(false))); // 清空到背包
         clearToInv.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("tooltip.beyond_integration.clean_to_inv")));
 
         // 归还方向切换：点击后同步到服务端菜单，并写回客户端配置持久化（对齐 BD uiCraftReturnButton）

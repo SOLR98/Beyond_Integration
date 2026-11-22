@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.handler;
 
+import com.solr98.beyondintegration.mixin.DimensionsNetMixin;
+
 /**
  * 自动充电开关访问器接口。
  * 由 DimensionsNetMixin 注入到 DimensionsNet，用于持久化网络级"自动充电"开关状态

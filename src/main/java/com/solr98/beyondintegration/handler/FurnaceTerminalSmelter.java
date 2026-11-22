@@ -14,6 +14,7 @@ import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;
 
 /**
  * 熔炉烧终端 → 批量烧炼（BD 修改，配置 {@code bd_tweaks.furnace_terminal_smelt_all}）。

@@ -1,6 +1,5 @@
 package com.solr98.beyondintegration.network;
 import com.solr98.beyondintegration.BeyondIntegration;
-import com.solr98.beyondintegration.network.payload.*;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -66,7 +65,7 @@ public class PacketHandler {
         registrar.playToServer(SetAnvilNamePayload.TYPE, SetAnvilNamePayload.STREAM_CODEC, SetAnvilNamePayload::handle);
         registrar.playToServer(RecipeFillPayload.TYPE, RecipeFillPayload.STREAM_CODEC, RecipeFillPayload::handle);
         registrar.playToServer(ProtectItemPayload.TYPE, ProtectItemPayload.STREAM_CODEC, ProtectItemPayload::handle);
-        registrar.playToServer(com.solr98.beyondintegration.network.payload.CleanWorkstationPayload.TYPE, com.solr98.beyondintegration.network.payload.CleanWorkstationPayload.STREAM_CODEC, com.solr98.beyondintegration.network.payload.CleanWorkstationPayload::handle);
+        registrar.playToServer(com.solr98.beyondintegration.network.CleanWorkstationPayload.TYPE, com.solr98.beyondintegration.network.CleanWorkstationPayload.STREAM_CODEC, com.solr98.beyondintegration.network.CleanWorkstationPayload::handle);
         registrar.playToServer(RefreshEnchantPayload.TYPE, RefreshEnchantPayload.STREAM_CODEC, RefreshEnchantPayload::handle);
         registrar.playToClient(EnchantCluesPayload.TYPE, EnchantCluesPayload.STREAM_CODEC, EnchantCluesPayload::handle);
         registrar.playToServer(ActivateWorkstationPayload.TYPE, ActivateWorkstationPayload.STREAM_CODEC, ActivateWorkstationPayload::handle);
@@ -81,6 +80,7 @@ public class PacketHandler {
         registrar.playToClient(SoulBeamPacket.TYPE, SoulBeamPacket.STREAM_CODEC, SoulBeamPacket::handle);
         registrar.playToClient(SyncConfigSyncPayload.TYPE, SyncConfigSyncPayload.STREAM_CODEC, SyncConfigSyncPayload::handle);
         registrar.playToServer(SyncResyncRequestPayload.TYPE, SyncResyncRequestPayload.STREAM_CODEC, SyncResyncRequestPayload::handle);
+        registrar.playToServer(RequestGlobalSyncPayload.TYPE, RequestGlobalSyncPayload.STREAM_CODEC, RequestGlobalSyncPayload::handle);
     }
 
     /** 向服务端发送任意自定义 payload */

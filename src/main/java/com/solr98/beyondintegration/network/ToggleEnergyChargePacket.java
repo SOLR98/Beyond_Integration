@@ -10,6 +10,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.solr98.beyondintegration.client.EnergyChargeState;
 
 /**
  * 自动充电开关切换包（客户端 → 服务端，空载荷）。

@@ -8,6 +8,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.InventoryMenu;
+import com.solr98.beyondintegration.mixin.SoulEnergyGuiMixin;
 
 /**
  * BI 网络灵魂条渲染器（客户端）。

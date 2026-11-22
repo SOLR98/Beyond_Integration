@@ -4,7 +4,7 @@ package com.solr98.beyondintegration.client.gui;
 // 待 BD 正式发布后需校对代码与新版 GUI。
 
 
-import com.solr98.beyondintegration.init.DimensionsEnchantMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMenu;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.CommonComponents;

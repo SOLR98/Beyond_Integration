@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import com.solr98.beyondintegration.feature.soul.SoulGainHandler;
 
 /**
  * 把玩家主网络的灵魂并入 Goety 的"玩家可用魂"（读取/判够/扣取），

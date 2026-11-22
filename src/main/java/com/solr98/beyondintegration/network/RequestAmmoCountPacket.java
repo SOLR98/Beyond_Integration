@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.network;
 import com.solr98.beyondintegration.BeyondIntegration;
-import com.solr98.beyondintegration.handler.TaczAmmoExtractor;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -35,6 +35,7 @@ public record RequestAmmoCountPacket(ResourceLocation ammoId, boolean quick) imp
         context.enqueueWork(() -> {
             var player = context.player();
             if (!(player instanceof net.minecraft.server.level.ServerPlayer sp)) return;
+            if (!RequestThrottle.allow(sp, "ammo_count", 20)) return;
 
             Map<Integer, AmmoCountResponsePacket.NetEntry> networks = new LinkedHashMap<>();
 

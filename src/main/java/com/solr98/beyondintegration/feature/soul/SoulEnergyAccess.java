@@ -2,6 +2,8 @@ package com.solr98.beyondintegration.feature.soul;
 
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
+import com.solr98.beyondintegration.feature.ammo.tacz.TaczAmmoExtractor;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 
 /**
  * 网络灵魂能量访问工具（{@link SoulEnergyStackKey}）。
@@ -89,6 +91,6 @@ public final class SoulEnergyAccess {
         if (net == null) return false;
         // 未启用"仪式激活门槛"：网络默认已激活灵魂存储
         if (!com.solr98.beyondintegration.CommandConfig.soulRequireActivation()) return true;
-        return com.solr98.beyondintegration.handler.NetworkAmmoData.get().isSoulArkActivated(net.getId());
+        return com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData.get().isSoulArkActivated(net.getId());
     }
 }

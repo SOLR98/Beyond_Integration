@@ -1,6 +1,7 @@
 package com.solr98.beyondintegration.client;
 
 import net.minecraft.network.chat.Component;
+import com.solr98.beyondintegration.network.HudHintPayload;
 
 /** 快捷栏上方临时提示文本的状态（由服务端 {@code HudHintPayload} 触发）。 */
 public final class HudHintState {

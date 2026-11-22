@@ -40,6 +40,7 @@ import net.neoforged.neoforge.fluids.FluidType;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.solr98.beyondintegration.mixin.NetMagnetItemMixin;
 
 /**
  * 网络磁铁（{@code net_magnet_item}）的 BI 版实现（1.21.1）：从 BD {@code NetMagnetItem} 复制而来，

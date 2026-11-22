@@ -5,7 +5,7 @@ package com.solr98.beyondintegration.client.gui;
 
 
 import com.solr98.beyondintegration.client.widget.EnchantModeBtn;
-import com.solr98.beyondintegration.init.DimensionsEnchantMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMenu;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.EnchantmentNames;
@@ -26,6 +26,9 @@ import net.minecraft.world.item.enchantment.EnchantmentInstance;
 
 import java.util.List;
 import java.util.Optional;
+import com.solr98.beyondintegration.network.EnchantCluesPayload;
+import com.solr98.beyondintegration.network.OpenStorageMenuPayload;
+import com.solr98.beyondintegration.network.RefreshEnchantPayload;
 
 /**
  * 附魔台工作站界面抽象基类（原版 {@link DimensionsEnchantGUI} / 神化 {@link DimensionsEnchantApothGUI} 共用）：
@@ -124,7 +127,7 @@ public abstract class AbstractEnchantTableGUI extends DimensionsStorageGUI<Dimen
         //                 com.solr98.beyondintegration.client.gui.WorkstationTransferHelper.save(netMenu); // 保留翻页上下文
         //             }
         //             com.solr98.beyondintegration.network.PacketHandler.sendToServer(
-        //                     new com.solr98.beyondintegration.network.payload.OpenStorageMenuPayload(
+        //                     new com.solr98.beyondintegration.network.OpenStorageMenuPayload(
         //                             com.solr98.beyondintegration.client.gui.WorkstationModeConstants.Mode.ENCHANT, next));
         //             modeBtn.updateTooltip();
         //         });
@@ -142,7 +145,7 @@ public abstract class AbstractEnchantTableGUI extends DimensionsStorageGUI<Dimen
                     b -> {
                         if (!this.menu.getItemInput().isEmpty()) {
                             com.solr98.beyondintegration.network.PacketHandler.sendToServer(
-                                    new com.solr98.beyondintegration.network.payload.RefreshEnchantPayload(this.menu.containerId));
+                                    new com.solr98.beyondintegration.network.RefreshEnchantPayload(this.menu.containerId));
                         }
                     });
         }

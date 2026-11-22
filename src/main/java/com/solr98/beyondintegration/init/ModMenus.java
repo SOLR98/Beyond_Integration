@@ -8,6 +8,15 @@ import net.minecraft.world.inventory.MenuType;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import java.util.function.Supplier;
+import com.solr98.beyondintegration.feature.crafting.DimensionsAnvilMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsApothEnchantMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsCraftMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsCutMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsEnchantMergeMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsGrindMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsSmithMenu;
+import com.solr98.beyondintegration.feature.crafting.DimensionsStorageMenu;
 
 /**
  * 菜单类型注册表：集中注册六个工作站菜单（存储/铁砧/合成/切石/磨石/锻造），

@@ -31,6 +31,7 @@ public record RequestSuperbAmmoStatusPacket(int netId) implements CustomPacketPa
         // 服务端处理：定位网络并回发弹药/能量/附魔分离状态全量快照
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) return;
+            if (!RequestThrottle.allow(player, "sw_status", 20)) return;
             DimensionsNet net = null;
             if (packet.netId >= 0) net = DimensionsNet.getNetFromId(packet.netId);
             if (net == null) net = com.solr98.beyondintegration.handler.MenuNetIdHelper.getNetFromMenu(player);
