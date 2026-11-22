@@ -847,5 +847,6 @@
   "types.beyond_integration.lightning.extreme_high_voltage": "Extreme High-Voltage Lightning",
   "jei.beyond_integration.soul_ritual": "Net Soul Source Activation Ritual",
   "jei.beyond_integration.soul_ritual.result": "Unlock Net Soul Source",
-  "jei.beyond_integration.soul_ritual.consumes": "Consumes the terminal"
+  "jei.beyond_integration.soul_ritual.consumes": "Consumes the terminal",
+  "beyond_integration.config.comment.primary_net_sync_settle_ticks": "Ticks to wait after entering a world before requesting the first global network sync. Default 600 (30 s); raise it if the pack loads the world slowly."
 }

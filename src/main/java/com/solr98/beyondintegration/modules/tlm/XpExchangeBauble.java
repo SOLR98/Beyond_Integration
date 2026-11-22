@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.modules.tlm;
 
-import com.solr98.beyondintegration.core.log.BiLog;
+import com.solr98.beyondintegration.core.util.BiLog;
 import com.github.tartaricacid.touhoulittlemaid.api.bauble.IMaidBauble;
 import com.github.tartaricacid.touhoulittlemaid.entity.passive.EntityMaid;
 import com.mojang.logging.LogUtils;

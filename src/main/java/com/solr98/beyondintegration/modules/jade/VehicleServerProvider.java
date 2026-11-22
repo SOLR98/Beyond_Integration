@@ -2,7 +2,7 @@ package com.solr98.beyondintegration.modules.jade;
 
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.solr98.beyondintegration.modules.sw.VehicleNetCache;
-import com.solr98.beyondintegration.handler.INetCachedVehicle;
+import com.solr98.beyondintegration.modules.sw.INetCachedVehicle;
 import com.solr98.beyondintegration.handler.NetworkNameProvider;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.nbt.CompoundTag;

@@ -8,6 +8,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.HashMap;
 import java.util.Map;
+import com.solr98.beyondintegration.client.SuperbAmmoCache;
 
 /**
  * SW 弹药的网络存取（弹药物品口径）。

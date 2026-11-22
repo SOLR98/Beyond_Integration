@@ -6,6 +6,8 @@ import io.redspace.ironsspellbooks.api.events.SpellOnCastEvent;
 import io.redspace.ironsspellbooks.api.magic.MagicData;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import com.solr98.beyondintegration.mixin.irons.MagicManagerContinuousManaMixin;
+import com.solr98.beyondintegration.mixin.irons.MagicManagerManaMixin;
 
 /**
  * Iron's Spells 'n Spellbooks 网络魔力源——施法消耗接入。

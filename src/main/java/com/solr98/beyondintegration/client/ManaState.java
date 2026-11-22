@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.client;
 
+import com.solr98.beyondintegration.network.ManaSyncPacket;
+
 /**
  * 网络魔力客户端缓存（由 {@code ManaSyncPacket} 更新）。
  * <p>供 HUD（法条叠加 / 独立 HUD）读取网络魔力量、上限与是否有源。

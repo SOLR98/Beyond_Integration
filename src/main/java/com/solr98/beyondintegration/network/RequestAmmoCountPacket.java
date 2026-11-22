@@ -55,6 +55,7 @@ public class RequestAmmoCountPacket {
     public static void handle(RequestAmmoCountPacket msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
+            if (!com.solr98.beyondintegration.network.RequestThrottle.allow(player, "ammo_count", 20)) return;
             if (player == null) return;
 
             DimensionsNet primary = DimensionsNet.getPrimaryNetFromPlayer(player);

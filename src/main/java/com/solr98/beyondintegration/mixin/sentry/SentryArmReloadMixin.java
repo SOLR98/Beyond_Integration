@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.mixin.sentry;
 
 import com.solr98.beyondintegration.modules.tacz.TaczAmmoExtractor;
-import com.solr98.beyondintegration.handler.SentryNetIdAccessor;
+import com.solr98.beyondintegration.modules.sentry.SentryNetIdAccessor;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.resource.pojo.data.gun.Bolt;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;

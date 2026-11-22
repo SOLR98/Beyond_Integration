@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.client;
 
+import com.solr98.beyondintegration.network.SoulEnergySyncPacket;
+
 /**
  * 网络灵魂客户端缓存（由 {@code SoulEnergySyncPacket} 更新）。
  * <p>用于在原版灵魂条上叠加"网络魂"那段（方案 B）：HUD 从本缓读取网络魂量与是否有源。

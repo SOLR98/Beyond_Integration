@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.client;
 
+import com.solr98.beyondintegration.modules.tacz.client.TaczAmmoCache;
+
 import com.solr98.beyondintegration.BeyondIntegration;
 import com.solr98.beyondintegration.client.hud.NetManaHudOverlay;
 import net.minecraftforge.api.distmarker.Dist;
@@ -13,6 +15,8 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import com.solr98.beyondintegration.modules.tacz.client.NetAttachmentRefreshTicker;
+import com.solr98.beyondintegration.modules.jei.client.JeiExtractInputHandler;
 
 /**
  * 客户端初始化入口（MOD 事件总线，仅客户端加载）。

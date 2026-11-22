@@ -1,4 +1,4 @@
-package com.solr98.beyondintegration.client.compat;
+package com.solr98.beyondintegration.compat.tud;
 
 import com.solr98.beyondintegration.network.TudMappingSyncPacket;
 import net.minecraft.nbt.CompoundTag;

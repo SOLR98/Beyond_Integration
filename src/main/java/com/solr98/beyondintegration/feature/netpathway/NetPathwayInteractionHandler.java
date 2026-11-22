@@ -11,6 +11,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import com.solr98.beyondintegration.mixin.NetPathwayBlockUseMixin;
 
 /**
  * 维度网络方块交互：手持与该方块对应的物品 <b>Shift+左键</b> → 把方块配置复制到手上物品（并取消挖掘）。

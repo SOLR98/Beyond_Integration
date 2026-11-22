@@ -1,6 +1,8 @@
-package com.solr98.beyondintegration.handler;
+package com.solr98.beyondintegration.modules.goety;
 
 import net.minecraft.world.entity.player.Player;
+import com.solr98.beyondintegration.mixin.goety.CursedCageBlockEntityMixin;
+import com.solr98.beyondintegration.mixin.goety.DarkAltarBlockEntityMixin;
 
 /**
  * 灵魂方舟上下文访问器：由 {@code CursedCageBlockEntityMixin} 实现，

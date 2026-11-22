@@ -29,6 +29,7 @@ public class RequestSuperbAmmoStatusPacket {
     public static void handle(RequestSuperbAmmoStatusPacket msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
+            if (!com.solr98.beyondintegration.network.RequestThrottle.allow(player, "sw_status", 20)) return;
             if (player == null) return;
 
             DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);

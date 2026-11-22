@@ -7,6 +7,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
+import com.solr98.beyondintegration.feature.enchant.ApothStatData;
 
 /**
  * 献祭预览请求（C2S 空包）：客户端悬浮「献祭」按钮时请求当前手持书架献祭后的属性变动。

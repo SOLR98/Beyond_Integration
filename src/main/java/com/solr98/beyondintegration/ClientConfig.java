@@ -41,6 +41,8 @@ public class ClientConfig {
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> workstationOrder;
         /** 快捷栏上方显示主网络同步状态 HUD（客户端偏好；仅同步启用时显示） */
         public final ForgeConfigSpec.BooleanValue showNetSyncStatus;
+        /** 首次全局网络同步的等待时间：进入世界后经过这么多 tick 才向服务端请求（默认 600 = 30 s） */
+        public final ForgeConfigSpec.IntValue netSyncSettleTicks;
         /** HUD 位置布局：每项 {@code <id>=RELATIVE:dx:dy} 或 {@code <id>=ABSOLUTE:x:y}；无项=默认位置 */
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> hudLayout;
         /** 是否允许用快捷键打开 HUD 位置可视化编辑器 */
@@ -77,6 +79,9 @@ public class ClientConfig {
             showNetSyncStatus = builder
                     .comment(ConfigCommentLang.comment("show_net_sync_status"))
                     .define("show_net_sync_status", false);
+            netSyncSettleTicks = builder
+                    .comment(ConfigCommentLang.comment("primary_net_sync_settle_ticks"))
+                    .defineInRange("primary_net_sync_settle_ticks", 600, 0, 72000);
             hudLayout = builder
                     .comment(ConfigCommentLang.comment("hud_layout"))
                     .defineList("hud_layout", Collections.emptyList(), obj -> obj instanceof String);

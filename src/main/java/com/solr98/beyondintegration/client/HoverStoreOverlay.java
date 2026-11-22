@@ -11,6 +11,8 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import com.solr98.beyondintegration.mixin.NetedItemClickMixin;
+import com.solr98.beyondintegration.handler.NetworkIdTooltipHandler;
 
 /**
  * 悬停可存入网络的槽位左上角 "+" 提示角标（客户端渲染）。

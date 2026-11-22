@@ -18,6 +18,8 @@ import net.minecraftforge.fml.common.Mod;
 
 import java.util.EnumMap;
 import java.util.Map;
+import com.solr98.beyondintegration.modules.tacz.net.NetAttachmentsPacket;
+import com.solr98.beyondintegration.client.ClientSetup;
 
 /**
  * 网络配件列的刷新触发器（客户端 tick，刷新完全由客户端执行）。

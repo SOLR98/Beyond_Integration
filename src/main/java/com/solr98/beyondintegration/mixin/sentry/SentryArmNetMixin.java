@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin.sentry;
 
-import com.solr98.beyondintegration.handler.SentryNetIdAccessor;
+import com.solr98.beyondintegration.modules.sentry.SentryNetIdAccessor;
 import net.minecraft.nbt.CompoundTag;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;

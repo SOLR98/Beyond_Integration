@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin.tacz;
 
-import com.solr98.beyondintegration.client.TaczAmmoCache;
+import com.solr98.beyondintegration.modules.tacz.client.TaczAmmoCache;
 import com.solr98.beyondintegration.modules.tacz.TaczAmmoExtractor;
 import com.tacz.guns.client.animation.statemachine.GunAnimationStateContext;
 import net.minecraft.client.Minecraft;

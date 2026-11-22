@@ -36,6 +36,14 @@ public class MixinPlugin implements IMixinConfigPlugin {
         if (targetClassName.equals("com.wintercogs.beyonddimensions.client.ui.machine.XpExchangeScreenKt")) {
             return classResourcePresent("com/wintercogs/beyonddimensions/client/ui/machine/XpExchangeScreenKt.class");
         }
+        // TacZ Caliber Ammo（tacz_caliber_ammo）联动：临时禁用（2026-11-22）。
+        // TAR 0.5.1 只支持 TACZ 1.1.8，生产验证通过前不注入任何 mixin；
+        // 恢复时取消注释，并把 TarReloadMixin 的 @Mixin 与 mixins.json 条目一并加回。
+        // if (targetClassName.startsWith("com.tacz_caliber_ammo.")) {
+        //     var tarMods = ModList.get();
+        //     return tarMods != null && tarMods.isLoaded("tacz_caliber_ammo")
+        //             && classResourcePresent("com/tacz_caliber_ammo/reload/PouchReloadSource.class");
+        // }
         var modList = ModList.get();
         if (modList == null) {
             // FML 早期阶段 ModList 可能尚未就绪：改用类资源探测（不触发类加载）判定 TACZ API 版本，

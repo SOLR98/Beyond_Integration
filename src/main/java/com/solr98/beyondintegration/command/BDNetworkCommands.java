@@ -1,5 +1,7 @@
 package com.solr98.beyondintegration.command;
 
+import com.solr98.beyondintegration.modules.tacz.command.NetworkInsertCommand;
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.*;
 import net.minecraft.commands.CommandSourceStack;

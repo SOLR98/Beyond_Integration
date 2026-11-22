@@ -2,7 +2,7 @@ package com.solr98.beyondintegration.modules.tacz;
 
 import com.solr98.beyondintegration.modules.tacz.tud.TudAmmoCompat;
 import com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub;
-import com.solr98.beyondintegration.handler.TaczCreativeAccessor;
+import com.solr98.beyondintegration.modules.tacz.TaczCreativeAccessor;
 import com.tacz.guns.api.item.IAmmo;
 import com.tacz.guns.api.item.IAmmoBox;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;

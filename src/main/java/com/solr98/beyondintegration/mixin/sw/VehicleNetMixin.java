@@ -2,7 +2,7 @@ package com.solr98.beyondintegration.mixin.sw;
 
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.solr98.beyondintegration.modules.sw.VehicleNetCache;
-import com.solr98.beyondintegration.handler.INetCachedVehicle;
+import com.solr98.beyondintegration.modules.sw.INetCachedVehicle;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;

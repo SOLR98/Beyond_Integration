@@ -5,6 +5,7 @@ import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
 import com.wintercogs.beyonddimensions.api.storage.key.StackKeyRegistry;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
+import com.solr98.beyondintegration.network.SyncConfigSyncPacket;
 
 /**
  * 灵魂存储键解析：默认用 BI 自己的 {@link SoulEnergyStackKey}；

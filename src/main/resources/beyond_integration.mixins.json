@@ -15,7 +15,7 @@
     "sentry.SentryFakePlayerSyncMixin",
     "sw.GunDataCountMixin",
     "sw.AmmoConsumerMixin",
-    "tacz.DimensionsNetMixin",
+    "DimensionsNetMixin",
     "goety.CursedCageBlockEntityMixin",
     "goety.CursedCageBlockMixin",
     "goety.DarkAltarBlockEntityMixin",

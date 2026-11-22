@@ -3,7 +3,7 @@ package com.solr98.beyondintegration.mixin.sw;
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.solr98.beyondintegration.CommandConfig;
 import com.solr98.beyondintegration.modules.sw.VehicleNetCache;
-import com.solr98.beyondintegration.handler.INetCachedVehicle;
+import com.solr98.beyondintegration.modules.sw.INetCachedVehicle;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;

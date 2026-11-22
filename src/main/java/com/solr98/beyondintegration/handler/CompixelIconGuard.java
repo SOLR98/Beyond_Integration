@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.handler;
 
-import com.solr98.beyondintegration.core.log.BiLog;
+import com.solr98.beyondintegration.core.util.BiLog;
 import com.mojang.logging.LogUtils;
 import dev.compixel.forge.item.ItemIcon;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -13,6 +13,7 @@ import java.lang.reflect.Field;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import com.solr98.beyondintegration.mixin.CompixelIconGuardMixin;
 
 /**
  * CompixelUI 图标渲染异常的报告器：记录「哪个资源键（物品）在渲染时炸了」，并配合

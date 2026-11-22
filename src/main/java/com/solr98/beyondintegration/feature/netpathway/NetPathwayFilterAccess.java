@@ -2,6 +2,7 @@ package com.solr98.beyondintegration.feature.netpathway;
 
 import com.wintercogs.beyonddimensions.api.dimensionnet.UnifiedStorage;
 import com.wintercogs.beyonddimensions.api.storage.handler.impl.StackHandler;
+import com.solr98.beyondintegration.mixin.NetPathwayBlockEntityFilterMixin;
 
 /**
  * 维度网络通道（net_pathway）过滤器访问接口，由 {@code NetPathwayBlockEntityFilterMixin} 实现。

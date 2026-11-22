@@ -17,6 +17,8 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.*;
 import java.util.function.Supplier;
+import com.solr98.beyondintegration.network.PacketHandler;
+import com.solr98.beyondintegration.network.NetworkItemCountsPacket;
 
 /**
  * C2S：客户端请求"主网络"中所有与 TACZ 枪械工作台配方相关的物品计数，
@@ -35,6 +37,7 @@ public class RequestNetworkItemsPacket {
     public static void handle(RequestNetworkItemsPacket msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
+            if (!com.solr98.beyondintegration.network.RequestThrottle.allow(player, "net_items", 20)) return;
             if (player == null) return;
 
             DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);

@@ -11,6 +11,9 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import com.solr98.beyondintegration.modules.tacz.TaczCreativeAccessor;
+import com.solr98.beyondintegration.modules.tacz.client.TaczAmmoCache;
+import com.solr98.beyondintegration.client.PrimaryNetClientStorage;
 
 /**
  * TACZ 弹药：主网络镜像重算（客户端）。

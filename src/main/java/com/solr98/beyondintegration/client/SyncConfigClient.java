@@ -3,6 +3,7 @@ package com.solr98.beyondintegration.client;
 import com.solr98.beyondintegration.CommandConfig.PrimaryNetSyncScope;
 
 import java.util.Map;
+import com.solr98.beyondintegration.network.SyncConfigSyncPacket;
 
 /**
  * 客户端「服务端配置」缓存（由 {@code SyncConfigSyncPacket} 整包更新）。

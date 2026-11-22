@@ -26,3 +26,6 @@ runclient-*.txt
 # IDE
 .idea/
 *.iml
+
+# 批量导入目录里的 jar 不入库
+mods/*.jar

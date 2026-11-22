@@ -19,6 +19,7 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeManager;
 
 import java.util.*;
+import com.solr98.beyondintegration.feature.crafting.RecipeMaterialScanner;
 
 /**
  * TACZ 枪械工作台合成管理器（单例）：实现 ICraftingIntegration。

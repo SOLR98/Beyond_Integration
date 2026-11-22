@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.modules.goety;
 
-import com.solr98.beyondintegration.core.log.BiLog;
+import com.solr98.beyondintegration.core.util.BiLog;
 import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.CommandConfig;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;

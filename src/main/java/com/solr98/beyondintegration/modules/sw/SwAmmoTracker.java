@@ -8,6 +8,7 @@ import com.wintercogs.beyonddimensions.api.storage.key.impl.EnergyStackKey;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 
 /**
  * 每网络一份的 SW 固定项（虚拟弹药 + FE + 网络名 + 附魔开关）快照追踪器。

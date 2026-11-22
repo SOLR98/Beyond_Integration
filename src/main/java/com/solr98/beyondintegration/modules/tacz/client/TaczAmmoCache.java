@@ -1,4 +1,6 @@
-package com.solr98.beyondintegration.client;
+package com.solr98.beyondintegration.modules.tacz.client;
+
+import com.solr98.beyondintegration.client.PrimaryNetClientStorage;
 
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.RequestAmmoCountPacket;
@@ -13,6 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import com.solr98.beyondintegration.compat.tud.TudMappingClient;
+import com.solr98.beyondintegration.modules.tacz.client.TaczAmmoMirror;
 
 /**
  * TACZ 弹药客户端缓存：缓存服务端推送的网络弹药计数。
@@ -78,7 +82,7 @@ public class TaczAmmoCache {
         // 客户端与服务端可能不一致；为保证与权威一致，TUD 加载时回退服务端推送通道。
         // 例外：服务端已下发 TUD 映射表（TudMappingClient.synced()）时，客户端可复现解析，镜像恢复可用。
         if (com.solr98.beyondintegration.modules.tacz.tud.TudAmmoCompat.isLoaded()
-                && !com.solr98.beyondintegration.client.compat.TudMappingClient.synced()) return false;
+                && !com.solr98.beyondintegration.compat.tud.TudMappingClient.synced()) return false;
         return SharedNetData.available(NetDataType.ITEM);
     }
 

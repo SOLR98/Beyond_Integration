@@ -3,7 +3,7 @@ package com.solr98.beyondintegration.mixin.goety;
 import com.Polarice3.Goety.common.blocks.entities.RitualBlockEntity;
 import com.Polarice3.Goety.common.ritual.RitualRequirements;
 import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.handler.RitualEnvSoulCharge;
+import com.solr98.beyondintegration.modules.goety.RitualEnvSoulCharge;
 import com.wintercogs.beyonddimensions.common.init.BDBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;

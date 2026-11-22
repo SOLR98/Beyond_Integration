@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import com.solr98.beyondintegration.feature.totem.TotemBurst;
 
 /**
  * 女仆版自动网络图腾：女仆死亡时（MaidDeathEvent，可取消）从其关联终端网络中

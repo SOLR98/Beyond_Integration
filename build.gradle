@@ -35,6 +35,14 @@ java {
     toolchain.languageVersion = JavaLanguageVersion.of(21)
 }
 
+// 运行期必须用 Java 17：MC 1.20.1 自带 LWJGL 3.3.1 在 Java 21 下 JNI 版本不受支持
+// （表现为 “Default font failed to load” 崩溃）。编译仍用上面的 21 + release 17。
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
 // Kotlin 与 Java 同目标版本（BD 0.8 界面体系：Kotlin 2.4.10 + Compose 编译器插件）
 kotlin {
     jvmToolchain(21)
@@ -181,7 +189,7 @@ repositories {
     maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
     // 本地 mod jar（rs_integration 等，需经 fg.deobf 重映射；临时构建不再使用）
     flatDir {
-        dir 'libs'
+        dirs 'libs', 'mods'
     }
 
     maven {
@@ -247,17 +255,25 @@ repositories {
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
-    // CompixelUI 编译期 API（BD 菜单实现 SyncedMenu，引用 BD 菜单即需要）
-    // 临时：编译期也改从 CurseForge 导入，与运行时同一工件，
-    // 避免 maven 版 with-kotlin 自带的 Kotlin 运行时与 KFF 在模块层重复。
-    compileOnly "dev.compixel:compixel-forge-1.20.1-with-kotlin:0.1.15"
+    // ── 批量导入：mods/ 下所有 jar 自动进入编译 + 运行时类路径 ──
+    // Forge 的 mod jar 是 SRG 名：只当运行期 mod 用无需去混淆；
+    // 若要在代码里直接引用其中类，把 jar 命名为 <name>-<version>.jar，然后改用
+    //   implementation fg.deobf("mods:<name>-<version 之前的部分>:<version>")
+    // 或直接写成 implementation fg.deobf("mods:<name>:<version>")（repositories 已含 flatDir mods）。
+    // mods/ 批量导入：默认编译 + 运行。
+    // 例外：生产映射（SRG）的 jar 只能在编译期用——dev 运行时是命名映射，加载会 NoSuchFieldError。
+    // TAR（tacz_caliber_ammo）因此只作 compileOnly，运行期由玩家自行安装（与生产实例一致）。
+    implementation fileTree(dir: 'mods', include: ['*.jar'], exclude: ['tacz_caliber_ammo*.jar'])
+
+    // CompixelUI：libs/ 本地 jar（CF 0.1.16），经 flatDir + fg.deobf 重映射
+    //（fg.deobf 只对模块坐标生效，files(...) 不会去混淆）。
+    implementation fg.deobf("local:compixelui-1.20.1-forge:0.1.16")
+    compileOnly files("libs/CompixelUI-runtime-standard-1.2.0.jar")
+    compileOnly files("libs/CompixelUI-kotlin-1.0.0.jar")
     // 编译期注解（运行期被排除，见上方 configurations 排除项）
     compileOnly "org.jetbrains:annotations:24.0.1"
-    // 运行时用 CF 版 CompixelUI：其 jarJar 带 dev.compixel.runtime（Kotlin 运行时），
-    // 与 SBW 需要的 Kotlin for Forge 同处一类路径；不要再换成 maven 标准版。
-    implementation fg.deobf("curse.maven:compixel-1715758:9330608")
-    // 必须依赖 - BeyondDimensions：临时改从 CurseForge 导入（0.8.9 for 1.20.1 forge）
-    implementation fg.deobf("curse.maven:beyond-dimensions-1222890:9380026")
+    // 必须依赖 - BeyondDimensions 0.8.9（1.20.1 forge）：libs/ 本地 jar + flatDir
+    implementation fg.deobf("local:beyonddimensions-1.20.1-forge:0.8.9")
     // taczaddon - 临时改从 CurseForge 导入（1.1.8.3-fix for 1.20.1 forge）
     implementation fg.deobf("curse.maven:tacz-addon-1238419:9396417")
     // Project ID: 361579
@@ -300,8 +316,11 @@ dependencies {
     implementation fg.deobf("curse.maven:zeta-968868:7335229")
     implementation fg.deobf("curse.maven:mouse-tweaks-60089:5338457")
     // rs_integration：临时改回 CurseMaven 发布版（本地 1.5.2.2 jar 不带入仓库）。
-    // 注意：9115092 是旧版，若运行期出现其构造期读配置报错，换回本地 jar 即可。
-    implementation fg.deobf("curse.maven:rs-integration-1630184:9115092")
+    // 9115092（1.5.0.5）在开发环境构造期读取未加载的配置会抛
+    // “Cannot get config value before config is loaded”，直接让 FML 进入 broken mod state；
+    // 开发运行因此不加载该模组（BI 侧只用 Class.forName/ModList 软引用，缺失不影响启动）。
+    // 需要联动时在正式环境安装与 1.5.2.2 相同版本的 rs_integration。
+    // implementation fg.deobf("curse.maven:rs-integration-1630184:9115092")
     // ffs_money 已确认无任何代码依赖，临时构建直接移除。
     implementation fg.deobf("curse.maven:inventory-hud-forge-357540:5639966")
     implementation fg.deobf("curse.maven:goety-586095:8951387")
@@ -310,7 +329,8 @@ dependencies {
     implementation fg.deobf("curse.maven:kaleidoscope-tavern-1475175:8350841")
     implementation fg.deobf("curse.maven:ae2-lightning-tech-1527395:9132014")
     implementation fg.deobf("curse.maven:thunderbolt-core-1631756:9131969")
-    implementation fg.deobf("maven.modrinth:vtvveeqA:E4ejDjYy")
+    // rs_integration（Modrinth 同一份 1.5.1）：开发环境构造期读配置报错，运行时不加载（见上）。
+    // implementation fg.deobf("maven.modrinth:vtvveeqA:E4ejDjYy")
 
     implementation fg.deobf("curse.maven:tacz-unidict-1305429:8147682")
     implementation fg.deobf("curse.maven:appleskin-248787:4770828")

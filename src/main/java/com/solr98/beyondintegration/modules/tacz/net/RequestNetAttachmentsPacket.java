@@ -5,6 +5,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
+import com.solr98.beyondintegration.network.PacketHandler;
 
 /**
  * C2S：请求主网络里指定类型（槽位）的配件列表。
@@ -39,6 +40,7 @@ public class RequestNetAttachmentsPacket {
         ctx.get().enqueueWork(() -> {
             var player = ctx.get().getSender();
             if (player == null) return;
+            if (!com.solr98.beyondintegration.network.RequestThrottle.allow(player, "attachments", 10)) return;
             var net = com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet.getPrimaryNetFromPlayer(player);
             var list = net == null
                     ? java.util.List.<com.solr98.beyondintegration.modules.tacz.feature.attachment.NetAttachmentService.Summary>of()

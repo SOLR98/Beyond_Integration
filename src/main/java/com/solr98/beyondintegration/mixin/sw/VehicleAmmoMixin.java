@@ -6,7 +6,7 @@ import com.atsuishio.superbwarfare.data.gun.GunData;
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.solr98.beyondintegration.modules.sw.SwAmmoStorage;
 import com.solr98.beyondintegration.modules.sw.VehicleNetCache;
-import com.solr98.beyondintegration.handler.INetCachedVehicle;
+import com.solr98.beyondintegration.modules.sw.INetCachedVehicle;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
 import net.minecraft.world.item.ItemStack;

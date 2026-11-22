@@ -23,6 +23,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.solr98.beyondintegration.modules.apoth.feature.enchant.ApothShelfScanner;
+import com.solr98.beyondintegration.modules.apoth.feature.enchant.ApothEnchantTableMenu;
 
 /**
  * 存储界面工作区里的「网络附魔台（神化）」工作台。

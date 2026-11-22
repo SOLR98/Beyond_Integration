@@ -8,7 +8,7 @@ import com.solr98.beyondintegration.client.SuperbAmmoCache;
 import com.solr98.beyondintegration.modules.sw.SwAmmoStorage;
 import com.solr98.beyondintegration.modules.tacz.TaczAmmoExtractor;
 import com.solr98.beyondintegration.modules.sw.VehicleNetCache;
-import com.solr98.beyondintegration.handler.INetCachedVehicle;
+import com.solr98.beyondintegration.modules.sw.INetCachedVehicle;
 import com.solr98.beyondintegration.modules.tlm.MaidNetworkHelper;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;

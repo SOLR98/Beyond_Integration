@@ -11,13 +11,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import com.solr98.beyondintegration.compat.tud.TudMappingClient;
 
 /**
  * S2C：下发给客户端的 TUD 弹药映射表（服务端权威）。
  * <p>TUD（tacz_unidict）的映射数据（{@code config/tacz_unidict/*.json}、TOML 类型映射）只存在于
  * 双端各自的本地配置，TUD 自身不做网络同步（网络包只有 {@code SwitchAmmoPacket}）。
  * 因此由 BI 把服务端解析好的结果下发，使客户端能复现"枪 → 当前弹药"的解析，
- * 从而重新启用主网络镜像（{@link com.solr98.beyondintegration.client.TaczAmmoCache}）。
+ * 从而重新启用主网络镜像（{@link com.solr98.beyondintegration.modules.tacz.client.TaczAmmoCache}）。
  * <p>表结构：gunId → 弹药列表（顺序即 {@code GunData.availableAmmo} 顺序，客户端按枪 NBT
  * {@code TudCurrentAmmo} 索引取值；TOML 类型映射命中的枪为长度 1 的列表）。
  */
@@ -85,7 +86,7 @@ public class TudMappingSyncPacket {
 
     public static void handle(TudMappingSyncPacket msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                com.solr98.beyondintegration.client.compat.TudMappingClient.apply(
+                com.solr98.beyondintegration.compat.tud.TudMappingClient.apply(
                         msg.version, msg.full, msg.entries, msg.removed)));
         ctx.get().setPacketHandled(true);
     }

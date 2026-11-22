@@ -2,6 +2,7 @@ package com.solr98.beyondintegration.modules.goety;
 
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
+import com.solr98.beyondintegration.modules.tacz.TaczAmmoExtractor;
 
 /**
  * 网络灵魂能量访问工具（{@link SoulEnergyStackKey}）。

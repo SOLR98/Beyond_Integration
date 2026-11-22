@@ -2,6 +2,7 @@ package com.solr98.beyondintegration.core.energy;
 
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.ItemStack;
+import com.solr98.beyondintegration.modules.sw.EnergyAmmoChargeHandler;
 
 /**
  * 物品充电平台接口（跨加载器抽象）。

@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.modules.irons;
 
-import com.solr98.beyondintegration.core.log.BiLog;
+import com.solr98.beyondintegration.core.util.BiLog;
 import com.mojang.logging.LogUtils;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.dimensionnet.UnifiedStorage;

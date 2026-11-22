@@ -1,4 +1,4 @@
-package com.solr98.beyondintegration.api;
+package com.solr98.beyondintegration.modules.tlm;
 
 import com.solr98.beyondintegration.modules.sw.SwAmmoStorage;
 import com.solr98.beyondintegration.modules.tacz.TaczAmmoExtractor;

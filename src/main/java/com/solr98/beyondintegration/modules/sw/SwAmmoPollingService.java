@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import com.solr98.beyondintegration.mixin.sw.AmmoConsumerMixin;
 
 /**
  * SW 固定项轮询对账服务：按配置间隔（默认 10 tick）轮询所有在用网络，

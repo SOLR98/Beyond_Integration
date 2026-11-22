@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.feature.totem;
 
 import com.solr98.beyondintegration.CommandConfig;
-import com.solr98.beyondintegration.api.MaidNetworkAPI;
+import com.solr98.beyondintegration.modules.tlm.MaidNetworkAPI;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.Registries;

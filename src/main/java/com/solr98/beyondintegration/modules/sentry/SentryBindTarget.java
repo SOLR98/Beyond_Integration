@@ -1,6 +1,9 @@
-package com.solr98.beyondintegration.feature.terminal;
+package com.solr98.beyondintegration.modules.sentry;
 
-import com.solr98.beyondintegration.handler.SentryNetIdAccessor;
+import com.solr98.beyondintegration.feature.terminal.TerminalBindContext;
+import com.solr98.beyondintegration.feature.terminal.TerminalBindTarget;
+
+import com.solr98.beyondintegration.modules.sentry.SentryNetIdAccessor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,6 +13,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.lang.reflect.Method;
+import com.solr98.beyondintegration.BeyondIntegration;
 
 /**
  * 方块绑定目标（左键）：手持终端的玩家左键哨戒机械臂底座 →

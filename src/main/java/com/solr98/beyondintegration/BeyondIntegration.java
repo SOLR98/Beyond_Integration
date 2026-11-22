@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
 
-import com.solr98.beyondintegration.handler.SentryNetIdAccessor;
+import com.solr98.beyondintegration.modules.sentry.SentryNetIdAccessor;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraftforge.common.MinecraftForge;
@@ -36,6 +36,8 @@ import java.lang.reflect.Method;
 
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.api.distmarker.Dist;
+import com.solr98.beyondintegration.mixin.tlm.AltarPowerConsumeMixin;
+import com.solr98.beyondintegration.client.ClientSetup;
 
 /**
  * Beyond Integration 模组主类（Forge 1.20.1）。
@@ -144,7 +146,7 @@ public class BeyondIntegration {
             }
             if (goetyClassAvailable("com.Polarice3.Goety.utils.SEHelper")) {
                 // HUD：订阅主网络存储增量，仅灵魂变化时增量推送（由 SEUpdatePacketMixin 把网络魂并入原版条）
-                MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.handler.SoulHudSyncHandler());
+                MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.modules.goety.SoulHudSyncHandler());
             } else {
                 LOGGER.warn("[BI] Goety SEHelper not found; soul HUD sync disabled (Goety version mismatch?)");
             }
@@ -169,10 +171,10 @@ public class BeyondIntegration {
                                 .onNetDestroyed(destroyedEvent.getDestroyedId()));
         // 终端绑定统一分发：方块=左键（哨戒炮等）、实体=右键（sbw 载具等）
         com.solr98.beyondintegration.feature.terminal.TerminalBindingHub.registerBlock(
-                new com.solr98.beyondintegration.feature.terminal.SentryBindTarget());
+                new com.solr98.beyondintegration.modules.sentry.SentryBindTarget());
         if (ModList.get().isLoaded("superbwarfare")) {
             com.solr98.beyondintegration.feature.terminal.TerminalBindingHub.registerEntity(
-                    new com.solr98.beyondintegration.feature.terminal.VehicleBindTarget());
+                    new com.solr98.beyondintegration.modules.sw.VehicleBindTarget());
         }
         MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.AutoTotemHandler());
         MinecraftForge.EVENT_BUS.register(new com.solr98.beyondintegration.feature.totem.TotemBurstTicker());

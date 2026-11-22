@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.mixin.tacz;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.solr98.beyondintegration.client.TaczAmmoCache;
+import com.solr98.beyondintegration.modules.tacz.client.TaczAmmoCache;
 import com.solr98.beyondintegration.modules.tacz.TaczAmmoExtractor;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.client.gui.overlay.GunHudOverlay;

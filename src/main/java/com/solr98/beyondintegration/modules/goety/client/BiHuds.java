@@ -1,4 +1,9 @@
-package com.solr98.beyondintegration.client.hud;
+package com.solr98.beyondintegration.modules.goety.client;
+
+import com.solr98.beyondintegration.client.hud.HudElement;
+import com.solr98.beyondintegration.client.hud.HudPreview;
+import com.solr98.beyondintegration.client.hud.NetManaHudOverlay;
+import com.solr98.beyondintegration.client.hud.NetManaHudRenderer;
 
 import com.solr98.beyondintegration.client.SoulEnergyState;
 import com.solr98.beyondintegration.modules.goety.client.render.SoulHudRenderer;

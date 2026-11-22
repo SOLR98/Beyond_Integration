@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.modules.tacz;
 
-import com.solr98.beyondintegration.client.TaczAmmoCache;
+import com.solr98.beyondintegration.modules.tacz.client.TaczAmmoCache;
 import com.solr98.beyondintegration.modules.tlm.MaidNetworkHelper;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import net.minecraft.resources.ResourceLocation;

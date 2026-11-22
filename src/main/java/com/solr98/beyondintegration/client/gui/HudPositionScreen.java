@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.client.gui;
 
-import com.solr98.beyondintegration.client.hud.BiHuds;
+import com.solr98.beyondintegration.modules.goety.client.BiHuds;
 import com.solr98.beyondintegration.client.hud.HudElement;
 import com.solr98.beyondintegration.client.hud.HudLayout;
 import com.solr98.beyondintegration.client.hud.HudPreview;

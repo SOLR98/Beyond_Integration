@@ -1,4 +1,4 @@
-package com.solr98.beyondintegration.handler;
+package com.solr98.beyondintegration.modules.sentry;
 
 /**
  * 哨戒炮网络绑定访问器接口。

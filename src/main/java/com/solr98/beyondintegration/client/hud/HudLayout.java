@@ -4,6 +4,7 @@ import com.solr98.beyondintegration.ClientConfig;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.solr98.beyondintegration.client.gui.HudPositionScreen;
 
 /**
  * 通用 HUD 布局：以客户端配置 {@code hud_layout}（字符串列表）持久化各元素的位置。

@@ -2,6 +2,7 @@ package com.solr98.beyondintegration.client;
 
 import java.util.HashMap;
 import java.util.Map;
+import com.solr98.beyondintegration.feature.charm.PotionCharmMode;
 
 /**
  * 网络药水护符客户端状态（按网络 ID 存储）：生效目标（PotionCharmMode 序号，默认 0=仅玩家）

@@ -1,4 +1,4 @@
-package com.solr98.beyondintegration.core.log;
+package com.solr98.beyondintegration.core.util;
 
 import com.solr98.beyondintegration.CommandConfig;
 

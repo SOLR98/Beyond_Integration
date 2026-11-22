@@ -29,6 +29,11 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import com.solr98.beyondintegration.feature.enchant.EnchantLapisHelper;
+import com.solr98.beyondintegration.feature.enchant.ApothEnchantTableWidget;
+import com.solr98.beyondintegration.feature.enchant.EnchantTableMenu;
+import com.solr98.beyondintegration.feature.enchant.EnchantmentBookSeparatorHandler;
+import com.solr98.beyondintegration.feature.enchant.ApothStatData;
 
 /**
  * 网络附魔台的逻辑菜单（<b>神化/Apothic 规则</b>）。

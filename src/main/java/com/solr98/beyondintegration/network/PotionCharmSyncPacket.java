@@ -7,6 +7,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
+import com.solr98.beyondintegration.feature.charm.PotionCharmMode;
 
 /** 网络药水护符状态同步包（S2C）：同步"生效目标 + 经验修补是否已献祭解锁"，供 UI 显示使用 */
 public class PotionCharmSyncPacket {

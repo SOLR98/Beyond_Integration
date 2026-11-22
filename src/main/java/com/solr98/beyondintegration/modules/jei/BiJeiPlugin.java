@@ -6,6 +6,7 @@ import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.ResourceLocation;
+import com.solr98.beyondintegration.modules.jei.client.JeiExtractInputHandler;
 
 /**
  * BI 的 JEI 插件（仅用于把 JEI 运行时交给 {@link JeiRuntimeHolder}）。

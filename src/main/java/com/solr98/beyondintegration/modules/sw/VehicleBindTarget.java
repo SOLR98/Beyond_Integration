@@ -1,7 +1,10 @@
-package com.solr98.beyondintegration.feature.terminal;
+package com.solr98.beyondintegration.modules.sw;
+
+import com.solr98.beyondintegration.feature.terminal.TerminalBindContext;
+import com.solr98.beyondintegration.feature.terminal.TerminalBindTarget;
 
 import com.solr98.beyondintegration.modules.sw.VehicleNetCache;
-import com.solr98.beyondintegration.handler.INetCachedVehicle;
+import com.solr98.beyondintegration.modules.sw.INetCachedVehicle;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.SuperbAmmoStatusResponsePacket;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;

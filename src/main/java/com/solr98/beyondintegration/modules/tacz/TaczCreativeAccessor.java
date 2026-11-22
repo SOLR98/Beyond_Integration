@@ -1,4 +1,4 @@
-package com.solr98.beyondintegration.handler;
+package com.solr98.beyondintegration.modules.tacz;
 
 import java.util.Map;
 

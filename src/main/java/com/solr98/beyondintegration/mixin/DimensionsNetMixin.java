@@ -1,4 +1,4 @@
-package com.solr98.beyondintegration.mixin.tacz;
+package com.solr98.beyondintegration.mixin;
 
 import com.solr98.beyondintegration.handler.BdNetDeltaHook;
 import com.solr98.beyondintegration.handler.EnchantSeparationAccessor;
@@ -6,7 +6,7 @@ import com.solr98.beyondintegration.handler.EnergyChargeAccessor;
 import com.solr98.beyondintegration.handler.NetworkNameProvider;
 import com.solr98.beyondintegration.handler.PotionCharmAccessor;
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
-import com.solr98.beyondintegration.handler.TaczCreativeAccessor;
+import com.solr98.beyondintegration.modules.tacz.TaczCreativeAccessor;
 import com.solr98.beyondintegration.core.subscribe.BdSubscriptionHub;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;

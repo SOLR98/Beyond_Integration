@@ -7,6 +7,10 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
+import com.solr98.beyondintegration.modules.tacz.net.NetAttachmentsPacket;
+import com.solr98.beyondintegration.modules.tacz.net.RequestNetAttachmentsPacket;
+import com.solr98.beyondintegration.modules.tacz.net.NetRefitAttachmentPacket;
+import com.solr98.beyondintegration.modules.tacz.net.RequestNetworkItemsPacket;
 
 /** 网络包注册与发送中心：统一创建 SimpleChannel，注册全部数据包并封装向服务端/客户端发送的方法 */
 public class PacketHandler {
@@ -163,6 +167,11 @@ public class PacketHandler {
                 SyncResyncRequestPacket::encode,
                 SyncResyncRequestPacket::decode,
                 SyncResyncRequestPacket::handle);
+        // 客户端「进入世界且界面稳定」后请求首次全局同步（首同步由客户端驱动）
+        INSTANCE.registerMessage(id++, RequestGlobalSyncPacket.class,
+                RequestGlobalSyncPacket::encode,
+                RequestGlobalSyncPacket::decode,
+                RequestGlobalSyncPacket::handle);
 
         INSTANCE.registerMessage(id++, SoulBeamPacket.class,
                 SoulBeamPacket::encode,

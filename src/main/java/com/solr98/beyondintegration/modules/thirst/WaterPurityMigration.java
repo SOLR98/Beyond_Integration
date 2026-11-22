@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.modules.thirst;
 
 import com.mojang.logging.LogUtils;
-import com.solr98.beyondintegration.core.log.BiLog;
+import com.solr98.beyondintegration.core.util.BiLog;
 import com.solr98.beyondintegration.init.ModFluids;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.dimensionnet.UnifiedStorage;
@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.solr98.beyondintegration.handler.WaterFluidNormalizeRule;
 
 /**
  * 存量水表示归一：把 BD 网络里「原版水 + Purity NBT」的余额迁移为对应的 BI 档流体。

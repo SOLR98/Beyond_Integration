@@ -8,7 +8,7 @@ import com.atsuishio.superbwarfare.tools.InventoryTool;
 import com.solr98.beyondintegration.modules.sw.SwAmmoStorage;
 import com.solr98.beyondintegration.modules.sw.SwAmmoTracker;
 import com.solr98.beyondintegration.modules.sw.VehicleNetCache;
-import com.solr98.beyondintegration.handler.INetCachedVehicle;
+import com.solr98.beyondintegration.modules.sw.INetCachedVehicle;
 import com.solr98.beyondintegration.modules.tlm.MaidNetworkHelper;
 import com.solr98.beyondintegration.network.PacketHandler;
 import com.solr98.beyondintegration.network.SuperbAmmoDeltaS2CPacket;

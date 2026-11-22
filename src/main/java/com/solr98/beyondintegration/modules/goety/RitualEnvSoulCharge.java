@@ -1,4 +1,7 @@
-package com.solr98.beyondintegration.handler;
+package com.solr98.beyondintegration.modules.goety;
+
+import com.solr98.beyondintegration.mixin.goety.DarkAltarBlockEntityMixin;
+import com.solr98.beyondintegration.mixin.goety.RitualRequirementsMixin;
 
 /**
  * 仪式「环境绕过」额外魂消耗执行器：由 {@code DarkAltarBlockEntityMixin} 实现，

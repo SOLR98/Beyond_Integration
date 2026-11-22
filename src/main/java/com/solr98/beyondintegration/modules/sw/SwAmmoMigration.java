@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.modules.sw;
 
-import com.solr98.beyondintegration.core.log.BiLog;
+import com.solr98.beyondintegration.core.util.BiLog;
 import com.atsuishio.superbwarfare.data.gun.Ammo;
 import com.mojang.logging.LogUtils;
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;

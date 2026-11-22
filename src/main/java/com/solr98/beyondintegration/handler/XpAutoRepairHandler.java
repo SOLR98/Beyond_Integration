@@ -17,6 +17,7 @@ import net.minecraftforge.fluids.FluidStack;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.solr98.beyondintegration.mixin.XpExchangeItemMixin;
 
 /**
  * 经验棒（{@code beyonddimensions:xp_exchange_item}）自动修复装备。

@@ -14,6 +14,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
 import java.util.Set;
+import com.solr98.beyondintegration.compat.tud.TudMappingClient;
 
 /**
  * Tacz-Unidict（TUD，modid: {@code tacz_unidict}）兼容层：动态解析通用弹药枪的当前弹药，
@@ -212,7 +213,7 @@ public final class TudAmmoCompat {
             com.tacz.guns.api.item.IGun iGun = com.tacz.guns.api.item.IGun.getIGunOrNull(gun);
             if (iGun == null) return null;
             com.solr98.beyondintegration.network.TudMappingSyncPacket.Ammo ammo =
-                    com.solr98.beyondintegration.client.compat.TudMappingClient.lookup(iGun.getGunId(gun), gun);
+                    com.solr98.beyondintegration.compat.tud.TudMappingClient.lookup(iGun.getGunId(gun), gun);
             return ammo == null ? null : ammo.ammoId();
         }
     }

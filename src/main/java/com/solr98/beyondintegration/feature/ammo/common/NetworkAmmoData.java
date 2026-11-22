@@ -9,6 +9,9 @@ import org.slf4j.Logger;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import com.solr98.beyondintegration.mixin.DimensionsNetMixin;
+import com.solr98.beyondintegration.feature.charm.PotionCharmMode;
+import com.solr98.beyondintegration.handler.NetworkDataStore;
 
 /**
  * 网络弹药附加数据（SavedData 存档持久化）

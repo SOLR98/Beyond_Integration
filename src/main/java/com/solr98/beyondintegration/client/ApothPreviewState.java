@@ -3,6 +3,8 @@ package com.solr98.beyondintegration.client;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.solr98.beyondintegration.modules.apoth.feature.enchant.ApothEnchantTableMenu;
+import com.solr98.beyondintegration.network.ApothPreviewPacket;
 
 /**
  * 神化附魔台“完整预览附魔列表”的客户端缓存（按容器 id 存 3 档）。

@@ -3,7 +3,7 @@ package com.solr98.beyondintegration.mixin.goety;
 import com.solr98.beyondintegration.modules.goety.NetworkSoulSource;
 import com.solr98.beyondintegration.modules.goety.SoulDebug;
 import com.solr98.beyondintegration.modules.goety.SoulEnergyAccess;
-import com.solr98.beyondintegration.handler.SoulCageContext;
+import com.solr98.beyondintegration.modules.goety.SoulCageContext;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.solr98.beyondintegration.handler.NetTerminalHelper;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;

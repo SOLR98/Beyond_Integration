@@ -58,6 +58,16 @@ public class TaczAmmoExtractor {
     }
 
     /**
+     * 把弹药退回指定网络（供「已扣弹但后续构造失败」的回滚使用）。
+     */
+    public static void refundAmmoByAmmoId(ResourceLocation ammoId, int amount, DimensionsNet net) {
+        if (ammoId == null || net == null || amount <= 0) return;
+        ItemStackKey refKey = new ItemStackKey(buildAmmoStack(ammoId));
+        net.getUnifiedStorage().insert(refKey, amount, false);
+        net.setDirty();
+    }
+
+    /**
      * 从指定网络按弹药 ID 直接消耗弹药（公开 API，供其他模组/女仆调用；
      * 创造箱无限时直接满足需求；只扣精确 reference key，返回值驱动）
      *

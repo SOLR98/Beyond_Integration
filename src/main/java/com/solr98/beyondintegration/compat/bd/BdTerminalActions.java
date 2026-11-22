@@ -12,6 +12,7 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import com.solr98.beyondintegration.network.ExtractNetworkItemPacket;
 
 /**
  * BD 终端四类批量操作的服务端实现（行为移植自 EmiLink 的 {@code BDProxy}）。

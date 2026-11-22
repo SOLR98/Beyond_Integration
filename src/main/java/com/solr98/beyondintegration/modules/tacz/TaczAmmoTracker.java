@@ -1,7 +1,7 @@
 package com.solr98.beyondintegration.modules.tacz;
 
 import com.solr98.beyondintegration.feature.ammo.common.NetworkAmmoData;
-import com.solr98.beyondintegration.handler.TaczCreativeAccessor;
+import com.solr98.beyondintegration.modules.tacz.TaczCreativeAccessor;
 import com.tacz.guns.api.item.IAmmoBox;
 import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
 import com.wintercogs.beyonddimensions.api.storage.key.IStackKey;
@@ -11,6 +11,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import com.solr98.beyondintegration.mixin.DimensionsNetMixin;
 
 /**
  * 每网络一份的 TACZ 创造弹药箱虚拟计数缓存（服务端唯一维护的弹药缓存）。

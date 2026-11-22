@@ -1,4 +1,4 @@
-package com.solr98.beyondintegration.command.network;
+package com.solr98.beyondintegration.modules.tacz.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;

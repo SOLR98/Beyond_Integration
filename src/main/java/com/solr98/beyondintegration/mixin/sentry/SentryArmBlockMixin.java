@@ -1,6 +1,6 @@
 package com.solr98.beyondintegration.mixin.sentry;
 
-import com.solr98.beyondintegration.handler.SentryNetIdAccessor;
+import com.solr98.beyondintegration.modules.sentry.SentryNetIdAccessor;
 import com.wintercogs.beyonddimensions.common.item.NetedItem;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
